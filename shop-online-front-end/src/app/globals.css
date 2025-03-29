@@ -1,0 +1,154 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.custom-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 50%;
+  background-color: #000 !important;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  padding: 0;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.slick-prev:before,
+.slick-next:before {
+  content: none !important;
+}
+
+.custom-arrow svg {
+  color: white !important;
+}
+
+.custom-prev-arrow {
+  left: -30px !important;
+}
+
+.custom-next-arrow {
+  right: -30px !important;
+}
+
+@media screen and (max-width: 768px) {
+  .custom-prev-arrow {
+    left: 0px !important;
+  }
+  .custom-next-arrow {
+    right: 0px !important;
+  }
+}
+
+/* Hiệu ứng hover */
+.custom-arrow:hover {
+  background-color: rgba(0, 0, 0, 0.8) !important;
+}
+
+/* Đảo chiều của mũi tên prev */
+.custom-prev-arrow svg {
+  transform: rotate(180deg);
+}
+
+.animate-marquee {
+  display: flex;
+}
+@keyframes marquee0 {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+@keyframes marquee1 {
+  0% {
+    transform: translateX(40px);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+@keyframes marquee2 {
+  0% {
+    transform: translateX(100px);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+@keyframes marquee3 {
+  0% {
+    transform: translateX(100px);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee-0 {
+  animation: marquee0 20s linear infinite;
+}
+.animate-marquee-1 {
+  animation: marquee1 18s linear infinite;
+}
+.animate-marquee-2 {
+  animation: marquee2 11s linear infinite;
+}
+.animate-marquee-3 {
+  animation: marquee3 12s linear infinite;
+}
+
+.animate-marquee-mobile {
+  animation: marquee0 20s linear infinite;
+}
+
+.product-container {
+  position: relative;
+  display: inline-block;
+}
+
+.size-selector {
+  /* Luôn hiển thị, nhưng ẩn bằng opacity */
+  pointer-events: none;
+  display: block;
+  position: absolute;
+  bottom: -10%;
+  left: 50%;
+  transform: translate(-50%, -50%) translateY(20px);
+  width: 80%;
+  backdrop-filter: blur(20px);
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)),
+    hsla(0, 0%, 100%, 0.4);
+  border-radius: 8px;
+  color: white;
+  text-align: center;
+  padding: 0.75rem;
+  max-width: 90%;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+}
+
+.product-image:hover .size-selector {
+  pointer-events: auto;
+  opacity: 1;
+  /* Khi hover, di chuyển lên về vị trí ban đầu */
+  transform: translate(-50%, -50%) translateY(0);
+}

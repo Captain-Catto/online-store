@@ -1,0 +1,77 @@
+import Product from "./Product";
+import ProductDetail from "./ProductDetail";
+import ProductInventory from "./ProductInventory";
+import Category from "./Category";
+import ProductCategory from "./ProductCategory";
+import Order from "./Order";
+import OrderDetail from "./OrderDetail";
+import Users from "./Users";
+import Role from "./Role";
+import Voucher from "./Voucher";
+import PaymentMethod from "./PaymentMethod";
+import PaymentStatus from "./PaymentStatus";
+import RefreshToken from "./RefreshToken";
+
+export default function initAssociations() {
+  // Product - ProductDetail relationship
+  Product.hasMany(ProductDetail, { foreignKey: "productId", as: "details" });
+  ProductDetail.belongsTo(Product, { foreignKey: "productId", as: "product" });
+
+  // ProductDetail - ProductInventory relationship
+  ProductDetail.hasMany(ProductInventory, {
+    foreignKey: "productDetailId",
+    as: "inventories",
+  });
+  ProductInventory.belongsTo(ProductDetail, {
+    foreignKey: "productDetailId",
+    as: "productDetail",
+  });
+
+  // Product - Category relationship (many-to-many)
+  Product.belongsToMany(Category, {
+    through: ProductCategory,
+    foreignKey: "productId",
+    otherKey: "categoryId",
+    as: "categories",
+  });
+  Category.belongsToMany(Product, {
+    through: ProductCategory,
+    foreignKey: "categoryId",
+    otherKey: "productId",
+    as: "products",
+  });
+
+  // Order - OrderDetail relationship
+  Order.hasMany(OrderDetail, { foreignKey: "orderId", as: "orderDetails" });
+  OrderDetail.belongsTo(Order, { foreignKey: "orderId", as: "order" });
+
+  // Order - User relationship
+  Order.belongsTo(Users, { foreignKey: "userId", as: "user" });
+  Users.hasMany(Order, { foreignKey: "userId", as: "orders" });
+
+  // User - Role relationship
+  Users.belongsTo(Role, { foreignKey: "roleId", as: "role" });
+  Role.hasMany(Users, { foreignKey: "roleId", as: "users" });
+
+  // User - RefreshToken relationship
+  Users.hasMany(RefreshToken, { foreignKey: "userId", as: "refreshTokens" });
+  RefreshToken.belongsTo(Users, { foreignKey: "userId", as: "user" });
+
+  // OrderDetail relationships
+  OrderDetail.belongsTo(Product, { foreignKey: "productId", as: "product" });
+  OrderDetail.belongsTo(Voucher, { foreignKey: "voucherId", as: "voucher" });
+
+  // Order - PaymentMethod relationship
+  Order.belongsTo(PaymentMethod, {
+    foreignKey: "paymentMethodId",
+    as: "paymentMethod",
+  });
+  PaymentMethod.hasMany(Order, { foreignKey: "paymentMethodId", as: "orders" });
+
+  // Order - PaymentStatus relationship
+  Order.belongsTo(PaymentStatus, {
+    foreignKey: "paymentStatusId",
+    as: "paymentStatus",
+  });
+  PaymentStatus.hasMany(Order, { foreignKey: "paymentStatusId", as: "orders" });
+}

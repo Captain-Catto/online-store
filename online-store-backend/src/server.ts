@@ -1,0 +1,68 @@
+//
+import sequelize from "./config/db";
+import cors from "cors";
+import dotenv from "dotenv";
+import express from "express";
+import path from "path";
+import cookieParser from "cookie-parser";
+
+// Import các models
+import "./models/Role";
+import "./models/Users";
+import "./models/RefreshToken";
+import "./models/Product";
+import "./models/Category";
+import "./models/ProductCategory";
+import "./models/ProductDetail";
+import "./models/ProductInventory";
+import "./models/PaymentMethod";
+import "./models/PaymentStatus";
+import "./models/Order";
+import "./models/OrderDetail";
+import "./models/Voucher";
+
+import initAssociations from "./models/associations";
+initAssociations();
+
+// import routes
+import authRoutes from "./routes/Auth.route";
+import productRoutes from "./routes/Product.route";
+import productDetailRoutes from "./routes/ProductDetail.route";
+import categoryRoutes from "./routes/Category.route";
+import voucherRoutes from "./routes/Voucher.route";
+import productCategoryRoutes from "./routes/ProductCategory.route";
+
+dotenv.config();
+
+const CorsOptions = {
+  origin: "*",
+  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
+};
+
+const app = express();
+// Cấu hình để phục vụ file tĩnh
+app.use("/uploads", express.static(path.join(__dirname, "../public/uploads")));
+app.use(cookieParser());
+app.use(cors(CorsOptions));
+app.use(express.json());
+
+// Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/product-details", productDetailRoutes);
+app.use("/api/categories", categoryRoutes);
+app.use("/api/vouchers", voucherRoutes);
+app.use("/api/product-categories", productCategoryRoutes);
+// Middleware xử lý lỗi
+
+// Kết nối DB
+sequelize.sync({ force: false }).then(() => {
+  console.log("Database connected!");
+  console.log(`Server running with db name ${process.env.DB_NAME}`);
+});
+
+app.listen(process.env.PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${process.env.PORT}`);
+});
