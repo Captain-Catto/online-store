@@ -2,7 +2,6 @@
 
 import React from "react";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
-import CardGiftcardIcon from "@mui/icons-material/CardGiftcard";
 import StoreIcon from "@mui/icons-material/Store";
 import CachedIcon from "@mui/icons-material/Cached";
 import SecurityIcon from "@mui/icons-material/Security";
@@ -13,26 +12,25 @@ const Policy: React.FC = () => {
       icon: <LocalShippingIcon fontSize="medium" />,
       title: "Miễn Phí Vận Chuyển từ 499.000đ",
       subtitle: "tối đa 100.000đ",
-    },
-    {
-      icon: <CardGiftcardIcon fontSize="medium" />,
-      title: "Chương Trình Tích Điểm",
-      subtitle: "Nhận điểm đổi quà",
+      target: "/policy/shipping",
     },
     {
       icon: <StoreIcon fontSize="medium" />,
       title: "Hệ Thống Cửa Hàng",
       subtitle: "Xem danh sách",
+      target: "/policy/stores",
     },
     {
       icon: <CachedIcon fontSize="medium" />,
       title: "Đổi Trả Miễn Phí",
       subtitle: "trong 365 ngày",
+      target: "/policy/return",
     },
     {
       icon: <SecurityIcon fontSize="medium" />,
       title: "Bảo Hành",
       subtitle: "từ 2 năm",
+      target: "/policy/warranty",
     },
   ];
 
@@ -48,7 +46,7 @@ const Policy: React.FC = () => {
             <div className="flex items-center justify-center bg-white rounded-full p-2 shadow-md">
               {feature.icon}
             </div>
-            <a href="#features" className="mt-2">
+            <a href={feature.target} className="mt-2">
               <h4 className="font-semibold mt-2">{feature.title}</h4>
               <p className="text-xs">{feature.subtitle}</p>
             </a>

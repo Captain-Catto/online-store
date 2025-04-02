@@ -8,24 +8,15 @@ export const navItems = [
   { label: "Trang chủ", href: "/" },
   {
     label: "Sản phẩm",
-    href: "/products",
+    href: "/categories",
     dropdown: [
       { label: "Đồ mặc hằng ngày", href: "/products/daily" },
-      { label: "Đồ chạy bộ", href: "/products/running" },
+      { label: "Đồ mặc ở nhà", href: "/products/home" },
       { label: "Đồ thể thao", href: "/products/sports" },
-      { label: "Phụ kiện", href: "/products/accessories" },
-    ],
-  },
-  {
-    label: "Bộ sưu tập",
-    href: "/collections",
-    dropdown: [
-      { label: "Hàng mới", href: "/collections/new-arrivals" },
-      { label: "Bán chạy", href: "/collections/best-sellers" },
-      { label: "Giảm giá", href: "/collections/sale" },
     ],
   },
   { label: "Giới thiệu", href: "/about" },
+  { label: "Chính sách", href: "/policy" },
   { label: "Liên hệ", href: "/contact" },
 ];
 
@@ -165,7 +156,7 @@ const MenuToggle: React.FC = () => {
                       </div>
                     </>
                   ) : (
-                    // Regular menu item without dropdown
+                    // menu k dropdown
                     <Link
                       href={item.href}
                       className="block px-4 py-3 hover:bg-gray-50 font-medium"

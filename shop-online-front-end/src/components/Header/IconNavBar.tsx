@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import NotificationsIcon from "@mui/icons-material/Notifications";
+// import NotificationsIcon from "@mui/icons-material/Notifications";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import Link from "next/link";
@@ -35,9 +35,9 @@ const IconNavBar: React.FC = () => {
 
   return (
     <div className="flex gap-4">
-      <Link href="/notifications" aria-label="Notifications">
+      {/* <Link href="/notifications" aria-label="Notifications">
         <NotificationsIcon />
-      </Link>
+      </Link> */}
       <Link href="/account" aria-label="Account">
         <AccountCircleIcon />
       </Link>
