@@ -1,6 +1,7 @@
 import Product from "./Product";
 import ProductDetail from "./ProductDetail";
 import ProductInventory from "./ProductInventory";
+import ProductImage from "./ProductImage";
 import Category from "./Category";
 import ProductCategory from "./ProductCategory";
 import Order from "./Order";
@@ -27,6 +28,16 @@ export default function initAssociations() {
     as: "productDetail",
   });
 
+  // ProductDetail - ProductImage relationship
+  ProductDetail.hasMany(ProductImage, {
+    foreignKey: "productDetailId",
+    as: "images",
+  });
+  ProductImage.belongsTo(ProductDetail, {
+    foreignKey: "productDetailId",
+    as: "productDetail",
+  });
+
   // Product - Category relationship (many-to-many)
   Product.belongsToMany(Category, {
     through: ProductCategory,
@@ -42,7 +53,11 @@ export default function initAssociations() {
   });
 
   // Order - OrderDetail relationship
-  Order.hasMany(OrderDetail, { foreignKey: "orderId", as: "orderDetails" });
+  Order.hasMany(OrderDetail, {
+    foreignKey: "orderId",
+    as: "orderDetails",
+    onDelete: "CASCADE",
+  });
   OrderDetail.belongsTo(Order, { foreignKey: "orderId", as: "order" });
 
   // Order - User relationship
@@ -59,7 +74,20 @@ export default function initAssociations() {
 
   // OrderDetail relationships
   OrderDetail.belongsTo(Product, { foreignKey: "productId", as: "product" });
-  OrderDetail.belongsTo(Voucher, { foreignKey: "voucherId", as: "voucher" });
+  OrderDetail.belongsTo(Voucher, {
+    foreignKey: "voucherId",
+    as: "voucher",
+    onDelete: "SET NULL",
+  });
+  OrderDetail.belongsTo(ProductDetail, {
+    foreignKey: "productDetailId",
+    as: "productDetail",
+    onDelete: "SET NULL",
+  });
+  ProductDetail.hasMany(OrderDetail, {
+    foreignKey: "productDetailId",
+    as: "productOrderDetails",
+  });
 
   // Order - PaymentMethod relationship
   Order.belongsTo(PaymentMethod, {

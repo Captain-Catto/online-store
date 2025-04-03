@@ -3,15 +3,21 @@ import sequelize from "../config/db";
 import Order from "./Order";
 import Product from "./Product";
 import Voucher from "./Voucher";
+import ProductDetail from "./ProductDetail";
 
 class OrderDetail extends Model {
   public id!: number;
   public orderId!: number;
-  public itemId!: number;
+  public productId!: number;
+  public productDetailId!: number;
   public quantity!: number;
   public color!: string;
   public size!: string;
-  public price!: number;
+  public originalPrice!: number;
+  public discountPrice!: number;
+  public discountPercent!: number;
+  public voucherId!: number | null;
+  public imageUrl!: string;
 }
 
 OrderDetail.init(
@@ -24,12 +30,17 @@ OrderDetail.init(
     orderId: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      references: { model: Order, key: "id" }, // Thay "orders" bằng Order
+      references: { model: Order, key: "id" },
     },
     productId: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      references: { model: Product, key: "id" }, // Thay "products" bằng Product
+      references: { model: Product, key: "id" },
+    },
+    productDetailId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: ProductDetail, key: "id" },
     },
     quantity: {
       type: DataTypes.INTEGER,
@@ -64,7 +75,7 @@ OrderDetail.init(
     voucherId: {
       type: DataTypes.INTEGER,
       allowNull: true,
-      references: { model: Voucher, key: "id" }, // Thay "vouchers" bằng Voucher
+      references: { model: Voucher, key: "id" },
     },
     imageUrl: {
       type: DataTypes.STRING,
@@ -74,6 +85,7 @@ OrderDetail.init(
   {
     sequelize,
     modelName: "OrderDetail",
+    tableName: "order_details",
   }
 );
 

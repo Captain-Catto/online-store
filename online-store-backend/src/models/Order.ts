@@ -1,34 +1,23 @@
-// import datatype và modêl thư viện sequelize
 import { DataTypes, Model } from "sequelize";
-// import sequelize từ config/db
 import sequelize from "../config/db";
 import OrderDetail from "./OrderDetail";
 import PaymentMethod from "./PaymentMethod";
 import PaymentStatus from "./PaymentStatus";
 import Users from "./Users";
 
-// khai báo interface Order để kiểm tra kiểu dữ liệu
-interface Order {
-  id: number;
-  userId: number;
-  total: number;
-  status: string;
-  paymentMethodId: string;
-  paymentStatus: string;
-}
-
-// khai báo class Order kế thừa class Model
 class Order extends Model {
-  // khai báo các thuộc tính của class Order
   public id!: number;
   public userId!: number;
   public total!: number;
+  public subtotal!: number;
+  public voucherDiscount!: number;
   public status!: string;
-  public paymentMethodId!: string;
-  public paymentStatus!: string;
+  public paymentMethodId!: number;
+  public paymentStatusId!: number;
+  public shippingAddress!: string;
+  public phoneNumber!: string;
 }
 
-// khai báo các trường của bảng Order
 Order.init(
   {
     id: {
@@ -45,9 +34,25 @@ Order.init(
       type: DataTypes.FLOAT,
       allowNull: false,
     },
-    status: {
-      type: DataTypes.STRING,
+    subtotal: {
+      type: DataTypes.FLOAT,
       allowNull: false,
+    },
+    voucherDiscount: {
+      type: DataTypes.FLOAT,
+      allowNull: false,
+      defaultValue: 0,
+    },
+    status: {
+      type: DataTypes.ENUM(
+        "pending",
+        "processing",
+        "shipped",
+        "delivered",
+        "cancelled"
+      ),
+      allowNull: false,
+      defaultValue: "pending",
     },
     paymentMethodId: {
       type: DataTypes.INTEGER,
@@ -59,6 +64,26 @@ Order.init(
       allowNull: false,
       references: { model: PaymentStatus, key: "id" },
     },
+    shippingAddress: {
+      type: DataTypes.TEXT,
+      allowNull: false,
+    },
+    phoneNumber: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    cancelNote: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    refundAmount: {
+      type: DataTypes.FLOAT,
+      allowNull: true,
+    },
+    refundReason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
   },
   {
     sequelize,
@@ -67,5 +92,4 @@ Order.init(
   }
 );
 
-// export class Order
 export default Order;

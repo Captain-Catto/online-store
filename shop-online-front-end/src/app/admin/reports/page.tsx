@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Chart } from "chart.js/auto";
+import Chart from "chart.js/auto";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
 import Link from "next/link";
@@ -15,7 +15,6 @@ export default function ReportsPage() {
 
   // Add new states for order analysis time periods
   const [orderTimeRange, setOrderTimeRange] = useState("week");
-  const [orderCompareWith, setOrderCompareWith] = useState("previous");
   const [orderTimeLabel, setOrderTimeLabel] = useState({
     current: "7 ngày gần nhất (26/03 - 02/04/2025)",
     previous: "kỳ trước (19/03 - 25/03/2025)",
@@ -453,6 +452,13 @@ export default function ReportsPage() {
         previousPeriodEnd
       )})`,
     };
+  };
+
+  const handleUpdateOrderAnalysis = () => {
+    // logic
+    // gọi api để lấy dữ liệu mới cho phân tích đơn hàng
+    // api khi gửi sẽ kèm theo orderTimeRange, dateFrom, dateTo
+    // khi nhận đc data thì cập nhật state để hiển thị trong phần so với kỳ trước
   };
 
   return (
@@ -916,7 +922,7 @@ export default function ReportsPage() {
                       </span>
                       <button
                         className="btn btn-sm btn-outline-primary ml-2"
-                        onClick={() => setOrderCompareWith("previous")}
+                        onClick={() => handleUpdateOrderAnalysis()}
                       >
                         <i className="fas fa-sync-alt"></i> Cập nhật
                       </button>
@@ -1366,12 +1372,6 @@ export default function ReportsPage() {
                                       <span className="info-box-number">
                                         Tỷ lệ: 7.9%
                                       </span>
-                                      <div className="progress">
-                                        <div
-                                          className="progress-bar bg-warning"
-                                          style={{ width: "79%" }}
-                                        ></div>
-                                      </div>
                                     </div>
                                   </div>
                                 </div>

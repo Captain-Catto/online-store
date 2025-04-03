@@ -4,7 +4,8 @@ import Users from "../models/Users";
 import Category from "../models/Category";
 import Product from "../models/Product";
 import ProductDetail from "../models/ProductDetail";
-import ProductInventory from "../models/ProductInventory"; // Thêm import này
+import ProductInventory from "../models/ProductInventory";
+import ProductImage from "../models/ProductImage"; // Thêm import này
 import ProductCategory from "../models/ProductCategory";
 import PaymentMethod from "../models/PaymentMethod";
 import PaymentStatus from "../models/PaymentStatus";
@@ -17,12 +18,17 @@ import {
   categories,
   products,
   productDetails,
-  productInventories, // Thêm import này
+  productInventories,
+  productImages, // Thêm import này
   productCategories,
   paymentMethods,
   paymentStatuses,
   vouchers,
 } from "./data";
+
+// Đảm bảo associations được thiết lập đúng
+import initAssociations from "../models/associations";
+initAssociations();
 
 const seedDatabase = async () => {
   try {
@@ -45,11 +51,14 @@ const seedDatabase = async () => {
     console.log("✓ Đã tạo products");
 
     await ProductDetail.bulkCreate(productDetails);
-    console.log("✓ Đã tạo product details với hình ảnh");
+    console.log("✓ Đã tạo product details");
 
-    // Thêm dòng này để tạo dữ liệu ProductInventory
     await ProductInventory.bulkCreate(productInventories);
     console.log("✓ Đã tạo product inventories (kho hàng)");
+
+    // Thêm dòng này để tạo dữ liệu ProductImage
+    await ProductImage.bulkCreate(productImages);
+    console.log("✓ Đã tạo product images");
 
     await ProductCategory.bulkCreate(productCategories);
     console.log("✓ Đã tạo product categories");

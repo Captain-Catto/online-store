@@ -31,6 +31,8 @@ import productDetailRoutes from "./routes/ProductDetail.route";
 import categoryRoutes from "./routes/Category.route";
 import voucherRoutes from "./routes/Voucher.route";
 import productCategoryRoutes from "./routes/ProductCategory.route";
+import productImageRoutes from "./routes/ProductImage.route";
+import orderRoutes from "./routes/Order.route";
 
 dotenv.config();
 
@@ -55,6 +57,8 @@ app.use("/api/product-details", productDetailRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/vouchers", voucherRoutes);
 app.use("/api/product-categories", productCategoryRoutes);
+app.use("/api/product-images", productImageRoutes);
+app.use("/api/orders", orderRoutes);
 // Middleware xử lý lỗi
 
 // Kết nối DB

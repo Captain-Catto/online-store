@@ -45,7 +45,7 @@ export default function UsersPage() {
       email: "levanc@example.com",
       phone: "0934567890",
       status: "inactive",
-      statusLabel: "Không hoạt động",
+      statusLabel: "Đã vô hiệu hóa",
       statusClass: "bg-danger",
       totalOrders: 1,
       totalSpent: "890.000đ",
@@ -171,7 +171,7 @@ export default function UsersPage() {
                     >
                       <option value="all">Tất cả trạng thái</option>
                       <option value="active">Đang hoạt động</option>
-                      <option value="inactive">Không hoạt động</option>
+                      <option value="inactive">Đã vô hiệu hóa</option>
                     </select>
                   </div>
                 </div>

@@ -50,10 +50,6 @@ export default function AdminNavbar({ toggleSidebar }: AdminNavbarProps) {
               <i className="fas fa-user mr-2"></i> Hồ sơ
             </Link>
             <div className="dropdown-divider"></div>
-            <Link href="/admin/settings" className="dropdown-item">
-              <i className="fas fa-cog mr-2"></i> Cài đặt
-            </Link>
-            <div className="dropdown-divider"></div>
             <Link href="/logout" className="dropdown-item">
               <i className="fas fa-sign-out-alt mr-2"></i> Đăng xuất
             </Link>

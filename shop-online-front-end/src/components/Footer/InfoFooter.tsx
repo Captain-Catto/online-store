@@ -52,7 +52,7 @@ const InfoFooter: React.FC = () => {
             </Link>
           </li>
           <li>
-            <Link href="/returns" className="hover:text-blue-400">
+            <Link href="/policy/return" className="hover:text-blue-400">
               Chính sách đổi trả
             </Link>
           </li>

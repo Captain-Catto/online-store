@@ -1,19 +1,23 @@
 import { Router } from "express";
 import {
-  createProductWithDetails,
   getProductsWithVariants,
   getProductById,
+  createProductWithDetails,
+  updateProduct,
+  deleteProduct,
 } from "../controllers/Product.controller";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { roleMiddleware } from "../middlewares/roleMiddleware";
 
 const router = Router();
 
-// Tạo sản phẩm mới (chỉ admin)
-router.post("/", authMiddleware, roleMiddleware([1]), createProductWithDetails);
-// Lấy danh sách sản phẩm
+// Public routes
 router.get("/", getProductsWithVariants);
-// lấy sản phẩm theo id
 router.get("/:id", getProductById);
+
+// Protected routes
+router.post("/", authMiddleware, roleMiddleware([1]), createProductWithDetails);
+router.put("/:id", authMiddleware, roleMiddleware([1]), updateProduct);
+router.delete("/:id", authMiddleware, roleMiddleware([1]), deleteProduct);
 
 export default router;

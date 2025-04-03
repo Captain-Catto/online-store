@@ -6,7 +6,8 @@ class ProductDetail extends Model {
   public id!: number;
   public productId!: number;
   public color!: string;
-  public imagePath!: string;
+  public price!: number;
+  public originalPrice!: number;
 }
 
 ProductDetail.init(
@@ -25,10 +26,14 @@ ProductDetail.init(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    imagePath: {
-      type: DataTypes.TEXT,
+    price: {
+      type: DataTypes.FLOAT,
       allowNull: false,
-      defaultValue: "[]",
+      defaultValue: 0,
+    },
+    originalPrice: {
+      type: DataTypes.FLOAT,
+      allowNull: true,
     },
   },
   {

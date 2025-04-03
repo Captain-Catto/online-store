@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
+import Image from "next/image";
+import logo from "@/assets/imgs/logo-coolmate-new-mobile-v2.svg";
 interface MenuItem {
   title: string;
   path: string;
@@ -19,7 +20,6 @@ export default function AdminSidebar({
 }: AdminSidebarProps) {
   const pathname = usePathname();
 
-  // Danh sách menu bên sidebar
   const menuItems: MenuItem[] = [
     {
       title: "Dashboard",
@@ -77,19 +77,20 @@ export default function AdminSidebar({
         {/* Sidebar user panel */}
         <div className="user-panel mt-3 pb-3 mb-3 d-flex">
           <div className="image">
-            <img
-              src="https://adminlte.io/themes/v3/dist/img/user2-160x160.jpg"
-              className="img-circle elevation-2"
-              alt="User Image"
+            <Image
+              src={logo}
+              alt="Shop Online Logo"
+              width={50}
+              height={50}
+              priority
             />
           </div>
           <div className="info">
             <a href="#" className="d-block">
-              Admin User
+              Admin Name
             </a>
           </div>
         </div>
-
         {/* Sidebar Menu */}
         <nav className="mt-2">
           <ul
@@ -110,7 +111,6 @@ export default function AdminSidebar({
                 }`}
               >
                 {item.children ? (
-                  // Nếu có menu con, thì onClick sẽ chỉ toggle dropdown
                   <a
                     href="#"
                     className={`nav-link ${
@@ -132,7 +132,6 @@ export default function AdminSidebar({
                     </p>
                   </a>
                 ) : (
-                  // Nếu không có menu con, sử dụng Link bình thường
                   <Link
                     href={item.path}
                     className={`nav-link ${

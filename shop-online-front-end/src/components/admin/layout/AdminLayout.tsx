@@ -1,10 +1,11 @@
 "use client";
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import Head from "next/head";
 import Script from "next/script";
 import AdminNavbar from "./AdminNavbar";
 import AdminSidebar from "./AdminSidebar";
 import AdminFooter from "./AdminFooter";
+import { useDevice } from "@/contexts/DeviceContext";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -17,6 +18,21 @@ export default function AdminLayout({
 }: AdminLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [openMenus, setOpenMenus] = useState<string[]>([]);
+  const { isMobile, isTablet } = useDevice();
+
+  // Automatically collapse sidebar on mobile
+  useEffect(() => {
+    if (isMobile) {
+      // On mobile: completely hide sidebar
+      setSidebarCollapsed(true);
+    } else if (isTablet) {
+      // On tablet: show icon-only sidebar
+      setSidebarCollapsed(true);
+    } else {
+      // On desktop: show full sidebar by default
+      setSidebarCollapsed(false);
+    }
+  }, [isMobile, isTablet]);
 
   const toggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed);
@@ -48,8 +64,29 @@ export default function AdminLayout({
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
       />
 
-      <div className={`wrapper ${sidebarCollapsed ? "sidebar-collapse" : ""}`}>
+      {/* Custom CSS for mobile sidebar */}
+      <style jsx global>{`
+        @media (max-width: 767.98px) {
+          body:not(.sidebar-open) .main-sidebar {
+            transform: translateX(-250px);
+          }
+
+          body .content-wrapper,
+          body .main-footer {
+            margin-left: 0 !important;
+          }
+        }
+      `}</style>
+
+      <div
+        className={`wrapper 
+              ${sidebarCollapsed ? "sidebar-collapse" : ""} 
+              ${isMobile ? "sidebar-closed sidebar-collapse" : ""} 
+              ${!isMobile && isTablet ? "sidebar-mini-md sidebar-mini" : ""} 
+              sidebar-mini layout-fixed`}
+      >
         <AdminNavbar toggleSidebar={toggleSidebar} />
+        {/* Conditionally render sidebar based on screen size */}
         <AdminSidebar openMenus={openMenus} toggleMenu={toggleMenu} />
 
         {/* Content Wrapper */}
@@ -57,6 +94,84 @@ export default function AdminLayout({
 
         <AdminFooter />
       </div>
+
+      {/* Custom CSS for responsive sidebar */}
+      <style jsx global>{`
+        /* Mobile sidebar (hidden) */
+        @media (max-width: 767.98px) {
+          body:not(.sidebar-open) .main-sidebar {
+            transform: translateX(-250px);
+          }
+
+          body .content-wrapper,
+          body .main-footer {
+            margin-left: 0 !important;
+          }
+        }
+
+        /* Tablet sidebar (icon-only) */
+        @media (min-width: 768px) and (max-width: 991.98px) {
+          /* khi ở tablet thì sidebar sẽ hiển thị đúng icon thôi */
+          body.sidebar-mini .content-wrapper,
+          body.sidebar-mini .main-footer {
+            margin-left: 4.6rem !important;
+          }
+
+          /* Ensure text is hidden in sidebar */
+          body.sidebar-mini .nav-sidebar .nav-link p {
+            width: 0;
+            white-space: nowrap;
+          }
+
+          /* Ẩn thông tin user panel */
+          .user-panel .info {
+            display: none !important;
+          }
+
+          /* Ẩn brand text trên logo */
+          body.sidebar-mini .brand-text {
+            display: none !important;
+          }
+
+          /* Adjust sidebar width in mini mode */
+          body.sidebar-mini .main-sidebar,
+          body.sidebar-mini .main-sidebar::before {
+            width: 4.6rem;
+          }
+
+          /* Show sidebar text on hover */
+          body.sidebar-mini .main-sidebar:hover {
+            width: 250px;
+          }
+
+          /* Hiển thị text navigation khi hover */
+          body.sidebar-mini .main-sidebar:hover .nav-sidebar .nav-link p {
+            width: auto;
+          }
+
+          /* Hiển thị info user panel khi hover */
+          body.sidebar-mini .main-sidebar:hover .info:hover {
+            display: block !important;
+          }
+
+          /* Hiển thị brand text khi hover */
+          body.sidebar-mini .main-sidebar:hover .brand-text {
+            display: inline-block !important;
+          }
+
+          /* Điều chỉnh kích thước hình ảnh user */
+          .user-panel .image img {
+            width: 2.5rem;
+            height: 2.5rem;
+            object-fit: cover;
+            border-radius: 50%;
+            padding-left: 0;
+          }
+          .brand-link span {
+            display: none !important;
+          }
+        }
+      `}</style>
 
       {/* JS Scripts */}
       <Script

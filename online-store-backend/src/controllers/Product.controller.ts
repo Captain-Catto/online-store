@@ -3,8 +3,10 @@ import sequelize from "../config/db";
 import Product from "../models/Product";
 import ProductDetail from "../models/ProductDetail";
 import ProductInventory from "../models/ProductInventory";
+import ProductImage from "../models/ProductImage";
 import ProductCategory from "../models/ProductCategory";
 import Category from "../models/Category";
+import { getPublicUrl, deleteFile } from "../services/imageUpload";
 
 /**
  * Create a product with details and inventory
@@ -14,35 +16,61 @@ export const createProductWithDetails = async (
   res: Response
 ): Promise<void> => {
   const t = await sequelize.transaction();
-  // sử dụng transaction để khi tạo data ở nhiều csdl nếu có lỗi
-  // ở 1 trong số đó thì sẽ rollback lại
 
   try {
-    const { name, details, categories } = req.body;
+    const {
+      name,
+      sku,
+      description,
+      brand,
+      material,
+      featured,
+      status,
+      tags,
+      suitability,
+      details,
+      categories,
+    } = req.body;
 
-    // Check if product already exists
-    const existingProduct = await Product.findOne({
-      where: { name },
-      transaction: t,
-    });
+    // Check if product with same SKU already exists
+    if (sku) {
+      const existingProduct = await Product.findOne({
+        where: { sku },
+        transaction: t,
+      });
 
-    if (existingProduct) {
-      await t.rollback();
-      res.status(400).json({ message: "Sản phẩm đã tồn tại" });
-      return;
+      if (existingProduct) {
+        await t.rollback();
+        res.status(400).json({ message: "Sản phẩm với SKU này đã tồn tại" });
+        return;
+      }
     }
 
     // Create new product
-    const newProduct = await Product.create({ name }, { transaction: t });
+    const newProduct = await Product.create(
+      {
+        name,
+        sku,
+        description,
+        brand,
+        material,
+        featured: featured || false,
+        status: status || "draft",
+        tags,
+        suitability,
+      },
+      { transaction: t }
+    );
 
-    // Create product details with their respective inventories
+    // Create product details with their respective inventories and prices
     for (const detail of details) {
-      // Create product detail (color and images)
+      // Create product detail (color and price)
       const productDetail = await ProductDetail.create(
         {
           productId: newProduct.id,
           color: detail.color,
-          imagePath: JSON.stringify(detail.images || []),
+          price: detail.price || 0,
+          originalPrice: detail.originalPrice || detail.price || 0,
         },
         { transaction: t }
       );
@@ -88,15 +116,13 @@ export const createProductWithDetails = async (
   }
 };
 
-/**
- * Get all products with their variants, inventory and categories
- */
+// Cập nhật cả phương thức getProductsWithVariants
 export const getProductsWithVariants = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    // Get products with details, inventory and categories
+    // Get products with details, inventory, images and categories
     const products = await Product.findAll({
       include: [
         {
@@ -106,6 +132,10 @@ export const getProductsWithVariants = async (
             {
               model: ProductInventory,
               as: "inventories",
+            },
+            {
+              model: ProductImage,
+              as: "images",
             },
           ],
         },
@@ -127,63 +157,120 @@ export const getProductsWithVariants = async (
         ...new Set(details.map((detail: any) => detail.color)),
       ];
 
-      // Create mapping for each color: images and available sizes
+      // Get all unique sizes
+      const uniqueSizes = [
+        ...new Set(
+          details.flatMap((detail: any) =>
+            detail.inventories.map((inv: any) => inv.size)
+          )
+        ),
+      ];
+
+      // Calculate total stock
+      const totalStock = details.reduce(
+        (sum: number, detail: any) =>
+          sum +
+          detail.inventories.reduce(
+            (detailSum: number, inv: any) => detailSum + inv.stock,
+            0
+          ),
+        0
+      );
+
+      // Create mapping for each color: images, price and available sizes
       const variantMap: Record<string, any> = {};
 
       uniqueColors.forEach((color) => {
-        // Get the detail record for this color
         const detailWithColor = details.find((d: any) => d.color === color);
 
         if (!detailWithColor) return;
 
-        // Parse images - add debugging
-        let images = [];
-        try {
-          // Add validation to make sure imagePath is a complete valid string
-          let rawPath = detailWithColor.imagePath || "[]";
-
-          // If the JSON is malformed but we can identify the issue is truncation
-          if (rawPath.includes("[") && !rawPath.includes("]")) {
-            // Try to repair the JSON by adding closing bracket
-            rawPath += '"]';
-            console.log("Attempted to repair truncated JSON");
-          }
-
-          images = JSON.parse(rawPath);
-        } catch (e) {
-          console.error("Error parsing imagePath:", e);
-          // Return empty array on error
-          images = [];
-        }
+        // Get images for this color
+        const images = detailWithColor.images || [];
 
         // Get inventory for this color
         const inventories = detailWithColor.inventories || [];
 
-        // Map inventory to a simple size->stock object
+        // Map inventory to a simple size->stock object and calculate variants
         const sizeInventory: Record<string, number> = {};
-        inventories.forEach((inv: any) => {
+        const variants = [];
+
+        for (const inv of inventories) {
           if (inv.stock > 0) {
             sizeInventory[inv.size] = inv.stock;
+            variants.push({
+              color: color as string,
+              size: inv.size,
+              stock: inv.stock,
+            });
           }
-        });
+        }
 
-        // Add to variant map with explicit images property
+        // Add to variant map
         variantMap[color as string] = {
           detailId: detailWithColor.id,
-          images: images, // Ensure this is included
-          sizes: sizeInventory,
+          price: detailWithColor.price,
+          originalPrice: detailWithColor.originalPrice,
+          images: images.map((img: any) => ({
+            id: img.id,
+            url: img.url,
+            isMain: img.isMain,
+          })),
           availableSizes: Object.keys(sizeInventory),
+          inventory: sizeInventory,
+          variants,
         };
       });
 
+      // Generate status label and CSS class
+      let statusLabel = "";
+      let statusClass = "";
+
+      switch (product.status) {
+        case "active":
+          statusLabel = "Đang bán";
+          statusClass = "success";
+          break;
+        case "outofstock":
+          statusLabel = "Hết hàng";
+          statusClass = "danger";
+          break;
+        case "draft":
+          statusLabel = "Nháp";
+          statusClass = "warning";
+          break;
+      }
+
+      // Return formatted product
       return {
         id: product.id,
         name: product.name,
+        sku: product.sku || "",
+        description: product.description || "",
         categories: product.categories || [],
-        variants: {
-          colors: uniqueColors,
-          details: variantMap,
+        brand: product.brand || "",
+        material: product.material || "",
+        featured: product.featured || false,
+        status: product.status,
+        statusLabel,
+        statusClass,
+        tags: product.tags || [],
+        suitability: product.suitability || [],
+        colors: uniqueColors,
+        sizes: uniqueSizes,
+        createdAt: product.createdAt,
+        updatedAt: product.updatedAt,
+        stock: {
+          total: totalStock,
+          variants: details.flatMap((detail: any) =>
+            detail.inventories.map((inv: any) => ({
+              color: detail.color,
+              size: inv.size,
+              stock: inv.stock,
+            }))
+          ),
         },
+        variants: variantMap,
       };
     });
 
@@ -192,9 +279,8 @@ export const getProductsWithVariants = async (
     res.status(500).json({ message: error.message });
   }
 };
-
 /**
- * Get a specific product by ID
+ * Get product by ID with details, inventory, images and categories
  */
 export const getProductById = async (
   req: Request,
@@ -203,6 +289,7 @@ export const getProductById = async (
   try {
     const { id } = req.params;
 
+    // Find product by ID
     const product = await Product.findByPk(id, {
       include: [
         {
@@ -212,6 +299,10 @@ export const getProductById = async (
             {
               model: ProductInventory,
               as: "inventories",
+            },
+            {
+              model: ProductImage,
+              as: "images",
             },
           ],
         },
@@ -225,16 +316,39 @@ export const getProductById = async (
     });
 
     if (!product) {
-      res.status(404).json({ message: "Sản phẩm không tồn tại" });
+      res.status(404).json({ message: "Không tìm thấy sản phẩm" });
       return;
     }
 
-    // Format product details similar to getProductsWithVariants
+    // Format product like in getProductsWithVariants
     const details = (product as any).details || [];
+
+    // Get all unique colors
     const uniqueColors = [
       ...new Set(details.map((detail: any) => detail.color)),
     ];
 
+    // Get all unique sizes
+    const uniqueSizes = [
+      ...new Set(
+        details.flatMap((detail: any) =>
+          detail.inventories.map((inv: any) => inv.size)
+        )
+      ),
+    ];
+
+    // Calculate total stock
+    const totalStock = details.reduce(
+      (sum: number, detail: any) =>
+        sum +
+        detail.inventories.reduce(
+          (detailSum: number, inv: any) => detailSum + inv.stock,
+          0
+        ),
+      0
+    );
+
+    // Create mapping for each color: images, price and available sizes
     const variantMap: Record<string, any> = {};
 
     uniqueColors.forEach((color) => {
@@ -242,42 +356,92 @@ export const getProductById = async (
 
       if (!detailWithColor) return;
 
-      // Parse images
-      let images = [];
-      try {
-        images = JSON.parse(detailWithColor.imagePath || "[]");
-      } catch (e) {
-        images = [];
-      }
+      // Get images for this color
+      const images = detailWithColor.images || [];
 
       // Get inventory for this color
       const inventories = detailWithColor.inventories || [];
 
-      // Map inventory to a simple size->stock object
+      // Map inventory to a simple size->stock object and calculate variants
       const sizeInventory: Record<string, number> = {};
-      inventories.forEach((inv: any) => {
+      const variants = [];
+
+      for (const inv of inventories) {
         sizeInventory[inv.size] = inv.stock;
-      });
+        if (inv.stock > 0) {
+          variants.push({
+            color: color as string,
+            size: inv.size,
+            stock: inv.stock,
+          });
+        }
+      }
 
       // Add to variant map
       variantMap[color as string] = {
         detailId: detailWithColor.id,
-        images,
-        sizes: Object.keys(sizeInventory).filter(
-          (size) => sizeInventory[size] > 0
-        ),
+        price: detailWithColor.price,
+        originalPrice: detailWithColor.originalPrice,
+        images: images.map((img: any) => ({
+          id: img.id,
+          url: img.url,
+          isMain: img.isMain,
+        })),
+        availableSizes: Object.keys(sizeInventory),
         inventory: sizeInventory,
+        variants,
       };
     });
 
+    // Generate status label and CSS class
+    let statusLabel = "";
+    let statusClass = "";
+
+    switch ((product as any).status) {
+      case "active":
+        statusLabel = "Đang bán";
+        statusClass = "success";
+        break;
+      case "outofstock":
+        statusLabel = "Hết hàng";
+        statusClass = "danger";
+        break;
+      case "draft":
+        statusLabel = "Nháp";
+        statusClass = "warning";
+        break;
+    }
+
+    // Format product response
     const formattedProduct = {
-      id: product.id,
+      id: (product as any).id,
       name: (product as any).name,
+      sku: (product as any).sku || "",
+      description: (product as any).description || "",
       categories: (product as any).categories || [],
-      variants: {
-        colors: uniqueColors,
-        details: variantMap,
+      brand: (product as any).brand || "",
+      material: (product as any).material || "",
+      featured: (product as any).featured || false,
+      status: (product as any).status,
+      statusLabel,
+      statusClass,
+      tags: (product as any).tags || [],
+      suitability: (product as any).suitability || [],
+      colors: uniqueColors,
+      sizes: uniqueSizes,
+      createdAt: (product as any).createdAt,
+      updatedAt: (product as any).updatedAt,
+      stock: {
+        total: totalStock,
+        variants: details.flatMap((detail: any) =>
+          detail.inventories.map((inv: any) => ({
+            color: detail.color,
+            size: inv.size,
+            stock: inv.stock,
+          }))
+        ),
       },
+      variants: variantMap,
     };
 
     res.status(200).json(formattedProduct);
@@ -297,7 +461,18 @@ export const updateProduct = async (
 
   try {
     const { id } = req.params;
-    const { name, categories } = req.body;
+    const {
+      name,
+      sku,
+      description,
+      brand,
+      material,
+      featured,
+      status,
+      tags,
+      suitability,
+      categories,
+    } = req.body;
 
     // Find product
     const product = await Product.findByPk(id, { transaction: t });
@@ -308,10 +483,21 @@ export const updateProduct = async (
       return;
     }
 
-    // Update product name if provided
-    if (name) {
-      await product.update({ name }, { transaction: t });
-    }
+    // Update product basic information
+    await product.update(
+      {
+        name,
+        sku,
+        description,
+        brand,
+        material,
+        featured,
+        status,
+        tags,
+        suitability,
+      },
+      { transaction: t }
+    );
 
     // Update categories if provided
     if (categories) {
@@ -368,25 +554,37 @@ export const deleteProduct = async (
       return;
     }
 
-    // Get all product details to delete their inventories
+    // Get all product details to delete their inventories and images
     const details = await ProductDetail.findAll({
       where: { productId: id },
       transaction: t,
+      include: [
+        {
+          model: ProductImage,
+          as: "images",
+        },
+      ],
     });
 
-    // Delete inventories for each detail
+    // Delete related data for each product detail
     for (const detail of details) {
+      // Delete images (both DB records and files)
+      const images = (detail as any).images || [];
+      for (const image of images) {
+        const imageUrl = image.url;
+        await image.destroy({ transaction: t });
+        deleteFile(imageUrl);
+      }
+
+      // Delete inventories
       await ProductInventory.destroy({
         where: { productDetailId: (detail as any).id },
         transaction: t,
       });
-    }
 
-    // Delete product details
-    await ProductDetail.destroy({
-      where: { productId: id },
-      transaction: t,
-    });
+      // Delete the product detail
+      await detail.destroy({ transaction: t });
+    }
 
     // Delete product categories
     await ProductCategory.destroy({
@@ -408,112 +606,3 @@ export const deleteProduct = async (
     });
   }
 };
-
-/**
- * Add a new color variant to an existing product
- */
-export const addProductVariant = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  const t = await sequelize.transaction();
-
-  try {
-    const { id } = req.params;
-    const { color, images, sizes } = req.body;
-
-    // Check if product exists
-    const product = await Product.findByPk(id, { transaction: t });
-
-    if (!product) {
-      await t.rollback();
-      res.status(404).json({ message: "Sản phẩm không tồn tại" });
-      return;
-    }
-
-    // Check if color already exists for this product
-    const existingDetail = await ProductDetail.findOne({
-      where: { productId: id, color },
-      transaction: t,
-    });
-
-    if (existingDetail) {
-      await t.rollback();
-      res.status(400).json({ message: "Màu này đã tồn tại cho sản phẩm" });
-      return;
-    }
-
-    // Create new product detail
-    const productDetail = await ProductDetail.create(
-      {
-        productId: id,
-        color,
-        imagePath: JSON.stringify(images || []),
-      },
-      { transaction: t }
-    );
-
-    // Add sizes and inventory
-    if (sizes && sizes.length > 0) {
-      for (const sizeInfo of sizes) {
-        await ProductInventory.create(
-          {
-            productDetailId: (productDetail as any).id,
-            size: sizeInfo.size,
-            stock: sizeInfo.stock || 0,
-          },
-          { transaction: t }
-        );
-      }
-    }
-
-    await t.commit();
-
-    res.status(201).json({
-      message: "Thêm biến thể màu mới thành công",
-      detailId: (productDetail as any).id,
-    });
-  } catch (error: any) {
-    await t.rollback();
-    res.status(500).json({
-      message: "Lỗi khi thêm biến thể màu",
-      error: error.message,
-    });
-  }
-};
-
-//
-const data = [
-  {
-    id: "1234649896",
-    name: "Khoa ở trần",
-    color: ["white", "black", "yellow"],
-    sizes: ["S", "M", "L"],
-    stock: [
-      { size: "S", color: "white", stock: 10 },
-      { size: "M", color: "white", stock: 20 },
-      { size: "L", color: "white", stock: 30 },
-      { size: "S", color: "black", stock: 10 },
-      { size: "M", color: "black", stock: 20 },
-      { size: "L", color: "black", stock: 30 },
-    ],
-    images: [
-      {
-        src: "https://www.google.com.vn",
-        color: "white",
-        size: "S",
-        isFront: true,
-        isProductOnly: false,
-        stock: 10,
-      },
-      {
-        src: "https://www.google.com.vn",
-        color: "white",
-        size: "S",
-        isFront: false,
-        isProductOnly: true,
-        stock: 10,
-      },
-    ],
-  },
-];

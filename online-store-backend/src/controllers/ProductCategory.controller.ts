@@ -19,17 +19,26 @@ export const addCategoryToProduct = async (
       res.status(404).json({ message: "Sản phẩm hoặc danh mục không tồn tại" });
       return;
     }
+    // nếu danh mục có rồi thì báo lỗi
+    const existingProductCategory = await ProductCategory.findOne({
+      where: { productId, categoryId },
+    });
+    // nếu đã có rồi thì thông báo là đã có rồi
+    if (existingProductCategory) {
+      res.status(400).json({
+        message: "Danh mục đã được thêm vào sản phẩm này",
+      });
+      return;
+    }
 
     // Thêm danh mục vào sản phẩm
     await ProductCategory.create({ productId, categoryId });
 
-    res
-      .status(201)
-      .json({
-        message: "Thêm danh mục vào sản phẩm thành công",
-        productId,
-        categoryId,
-      });
+    res.status(201).json({
+      message: "Thêm danh mục vào sản phẩm thành công",
+      productId,
+      categoryId,
+    });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
