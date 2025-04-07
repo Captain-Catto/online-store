@@ -7,6 +7,7 @@ import ProductImage from "../models/ProductImage";
 import ProductCategory from "../models/ProductCategory";
 import Category from "../models/Category";
 import { getPublicUrl, deleteFile } from "../services/imageUpload";
+import { Op } from "sequelize";
 
 /**
  * Create a product with details and inventory
@@ -122,8 +123,36 @@ export const getProductsWithVariants = async (
   res: Response
 ): Promise<void> => {
   try {
-    // Get products with details, inventory, images and categories
+    // Lấy query parameters
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const search = req.query.search as string;
+    const category = req.query.category as string;
+    const status = req.query.status as string;
+    const brand = req.query.brand as string;
+
+    // Tính offset
+    const offset = (page - 1) * limit;
+
+    // Tạo where condition
+    const where: any = {};
+
+    if (search) {
+      where.name = { [Op.like]: `%${search}%` };
+    }
+    if (status) {
+      where.status = status;
+    }
+    if (brand) {
+      where.brand = brand;
+    }
+
+    // Lấy tổng số sản phẩm
+    const count = await Product.count({ where });
+
+    // Get products với phân trang và filter
     const products = await Product.findAll({
+      where,
       include: [
         {
           model: ProductDetail,
@@ -144,10 +173,13 @@ export const getProductsWithVariants = async (
           as: "categories",
           attributes: ["id", "name"],
           through: { attributes: [] },
+          ...(category && { where: { id: category } }),
         },
       ],
+      limit,
+      offset,
+      order: [["createdAt", "DESC"]],
     });
-
     // Format data for optimized response
     const formattedProducts = products.map((product: any) => {
       const details = product.details || [];
@@ -273,8 +305,16 @@ export const getProductsWithVariants = async (
         variants: variantMap,
       };
     });
-
-    res.status(200).json(formattedProducts);
+    // Trả về response với thông tin phân trang
+    res.status(200).json({
+      products: formattedProducts,
+      pagination: {
+        total: count,
+        totalPages: Math.ceil(count / limit),
+        currentPage: page,
+        limit,
+      },
+    });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -604,5 +644,205 @@ export const deleteProduct = async (
       message: "Lỗi khi xóa sản phẩm",
       error: error.message,
     });
+  }
+};
+
+/**
+ * Get products by category ID with pagination
+ */
+export const getProductsByCategory = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { categoryId } = req.params;
+
+    // Pagination parameters
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const offset = (page - 1) * limit;
+
+    // Find category to check if exists
+    const category = await Category.findByPk(categoryId);
+    if (!category) {
+      res.status(404).json({ message: "Danh mục không tồn tại" });
+      return;
+    }
+
+    // Count products in this category for pagination
+    const count = await Product.count({
+      include: [
+        {
+          model: Category,
+          as: "categories",
+          where: { id: categoryId },
+          through: { attributes: [] },
+        },
+      ],
+    });
+
+    // Get products with details
+    const products = await Product.findAll({
+      include: [
+        {
+          model: ProductDetail,
+          as: "details",
+          include: [
+            { model: ProductInventory, as: "inventories" },
+            { model: ProductImage, as: "images" },
+          ],
+        },
+        {
+          model: Category,
+          as: "categories",
+          where: { id: categoryId },
+          attributes: ["id", "name"],
+          through: { attributes: [] },
+        },
+      ],
+      limit,
+      offset,
+      order: [["createdAt", "DESC"]],
+    });
+
+    // Format products (same as in getProductsWithVariants)
+    const formattedProducts = products.map((product: any) => {
+      const details = product.details || [];
+
+      // Get all unique colors
+      const uniqueColors = [
+        ...new Set(details.map((detail: any) => detail.color)),
+      ];
+
+      // Get all unique sizes
+      const uniqueSizes = [
+        ...new Set(
+          details.flatMap((detail: any) =>
+            detail.inventories.map((inv: any) => inv.size)
+          )
+        ),
+      ];
+
+      // Calculate total stock
+      const totalStock = details.reduce(
+        (sum: number, detail: any) =>
+          sum +
+          detail.inventories.reduce(
+            (detailSum: number, inv: any) => detailSum + inv.stock,
+            0
+          ),
+        0
+      );
+
+      // Create variant map
+      const variantMap: Record<string, any> = {};
+
+      uniqueColors.forEach((color) => {
+        const detailWithColor = details.find((d: any) => d.color === color);
+
+        if (!detailWithColor) return;
+
+        // Get images for this color
+        const images = detailWithColor.images || [];
+
+        // Get inventory for this color
+        const inventories = detailWithColor.inventories || [];
+
+        // Map inventory to a simple size->stock object
+        const sizeInventory: Record<string, number> = {};
+        const variants = [];
+
+        for (const inv of inventories) {
+          if (inv.stock > 0) {
+            sizeInventory[inv.size] = inv.stock;
+            variants.push({
+              color: color as string,
+              size: inv.size,
+              stock: inv.stock,
+            });
+          }
+        }
+
+        // Add to variant map
+        variantMap[color as string] = {
+          detailId: detailWithColor.id,
+          price: detailWithColor.price,
+          originalPrice: detailWithColor.originalPrice,
+          images: images.map((img: any) => ({
+            id: img.id,
+            url: img.url,
+            isMain: img.isMain,
+          })),
+          availableSizes: Object.keys(sizeInventory),
+          inventory: sizeInventory,
+          variants,
+        };
+      });
+
+      // Generate status label
+      let statusLabel = "";
+      let statusClass = "";
+
+      switch (product.status) {
+        case "active":
+          statusLabel = "Đang bán";
+          statusClass = "success";
+          break;
+        case "outofstock":
+          statusLabel = "Hết hàng";
+          statusClass = "danger";
+          break;
+        case "draft":
+          statusLabel = "Nháp";
+          statusClass = "warning";
+          break;
+      }
+
+      // Return formatted product
+      return {
+        id: product.id,
+        name: product.name,
+        sku: product.sku || "",
+        description: product.description || "",
+        categories: product.categories || [],
+        brand: product.brand || "",
+        material: product.material || "",
+        featured: product.featured || false,
+        status: product.status,
+        statusLabel,
+        statusClass,
+        tags: product.tags || [],
+        suitability: product.suitability || [],
+        colors: uniqueColors,
+        sizes: uniqueSizes,
+        createdAt: product.createdAt,
+        updatedAt: product.updatedAt,
+        stock: {
+          total: totalStock,
+          variants: details.flatMap((detail: any) =>
+            detail.inventories.map((inv: any) => ({
+              color: detail.color,
+              size: inv.size,
+              stock: inv.stock,
+            }))
+          ),
+        },
+        variants: variantMap,
+      };
+    });
+
+    // Return with pagination info
+    res.status(200).json({
+      categoryName: category.getDataValue("name"),
+      products: formattedProducts,
+      pagination: {
+        total: count,
+        totalPages: Math.ceil(count / limit),
+        currentPage: page,
+        limit,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
   }
 };

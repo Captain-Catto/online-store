@@ -5,6 +5,7 @@ import {
   createProductWithDetails,
   updateProduct,
   deleteProduct,
+  getProductsByCategory,
 } from "../controllers/Product.controller";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { roleMiddleware } from "../middlewares/roleMiddleware";
@@ -13,6 +14,7 @@ const router = Router();
 
 // Public routes
 router.get("/", getProductsWithVariants);
+router.get("/category/:categoryId", getProductsByCategory);
 router.get("/:id", getProductById);
 
 // Protected routes

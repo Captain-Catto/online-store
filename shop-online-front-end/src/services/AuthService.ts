@@ -27,9 +27,27 @@ export const AuthService = {
     }
     return null;
   },
+};
 
-  // Nếu cần thiết, bạn có thể thêm các phương thức khác
-  // như setToken và removeToken, nhưng trong trường hợp
-  // cookie được đặt từ backend, bạn chỉ cần các phương thức
-  // để kiểm tra
+//schema cho user
+export interface User {
+  email: string;
+  password: string;
+}
+
+// hàm xử lý để tạo user
+export const createUser = async (user: User) => {
+  const response = await fetch("/api/auth/register", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(user),
+  });
+  if (!response.ok) {
+    throw new Error("Đăng ký thất bại");
+  }
+
+  const data = await response.json();
+  return data;
 };

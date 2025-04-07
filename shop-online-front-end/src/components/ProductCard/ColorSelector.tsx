@@ -16,7 +16,6 @@ const colorMap: Record<string, string> = {
   green: "#008000",
   red: "#FF0000",
   navy: "#000080",
-  // Thêm các màu khác nếu cần
 };
 
 const ColorSelector: React.FC<ColorSelectorProps> = ({
@@ -29,7 +28,7 @@ const ColorSelector: React.FC<ColorSelectorProps> = ({
       <div className="flex items-center gap-2">
         <span className="text-sm text-gray-500">Màu sắc:</span>
         <div className="flex gap-1">
-          {product.variants.colors.map((color) => (
+          {product.colors.map((color) => (
             <button
               key={color}
               className={`w-6 h-6 rounded-full border hover:scale-110 transition-transform ${
@@ -49,25 +48,38 @@ const ColorSelector: React.FC<ColorSelectorProps> = ({
       </div>
 
       {/* Giá sản phẩm */}
-      <div className="mt-2 flex justify-between items-center">
+      {/* <div className="mt-2 flex justify-between items-center">
         <div>
           <span className="text-lg font-bold">
-            {product.price
-              ? `${product.price.toLocaleString("vi-VN")}₫`
+            {product.variants[selectedColor]?.price
+              ? `${product.variants[selectedColor].price.toLocaleString(
+                  "vi-VN"
+                )}₫`
               : "Liên hệ"}
           </span>
-          {product.originalPrice && (
+          {product.variants[selectedColor]?.originalPrice && (
             <span className="ml-2 text-sm text-gray-500 line-through">
-              {product.originalPrice.toLocaleString("vi-VN")}₫
+              {product.variants[selectedColor].originalPrice.toLocaleString(
+                "vi-VN"
+              )}
+              ₫
             </span>
           )}
         </div>
-        {product.price && product.originalPrice && (
-          <span className="text-sm font-medium text-red-500 bg-red-50 px-2 py-1 rounded">
-            -{Math.round((1 - product.price / product.originalPrice) * 100)}%
-          </span>
-        )}
-      </div>
+        {product.variants[selectedColor]?.price &&
+          product.variants[selectedColor]?.originalPrice && (
+            <span className="text-sm font-medium text-red-500 bg-red-50 px-2 py-1 rounded">
+              -
+              {Math.round(
+                (1 -
+                  product.variants[selectedColor].price /
+                    product.variants[selectedColor].originalPrice) *
+                  100
+              )}
+              %
+            </span>
+          )}
+      </div> */}
     </div>
   );
 };

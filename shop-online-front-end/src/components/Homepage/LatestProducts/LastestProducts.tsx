@@ -2,15 +2,51 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import Slider from "react-slick";
-import { fetchData } from "../../../util/fetchData";
-import { PrevArrow, NextArrow } from "../../../util/CustomArrowSlick";
 import Link from "next/link";
-import ProductCard from "../../ProductCard/ProductCard";
-import { Product } from "../../ProductCard/ProductInterface";
+import { PrevArrow, NextArrow } from "@/util/CustomArrowSlick";
+import ProductCard from "@/components/ProductCard/ProductCard";
+import { ProductService } from "@/services/ProductService";
+
+// Định nghĩa interface Product để khớp với API response
+interface ProductImage {
+  id: number;
+  url: string;
+  isMain: boolean;
+}
+
+interface VariantDetail {
+  detailId: number;
+  price: number;
+  originalPrice: number;
+  images: ProductImage[];
+  availableSizes: string[];
+  inventory: Record<string, number>;
+  variants: any[];
+}
+
+interface Product {
+  id: number;
+  name: string;
+  sku: string;
+  description: string;
+  categories: Array<{ id: number; name: string }>;
+  brand: string;
+  colors: string[];
+  sizes: string[];
+  featured: boolean;
+  status: string;
+  statusLabel: string;
+  statusClass: string;
+  variants: Record<string, VariantDetail>;
+  createdAt: string;
+  updatedAt: string;
+}
 
 const LatestProducts: React.FC = () => {
   const sliderRef = useRef<Slider>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedColors, setSelectedColors] = useState<{
     [productId: number]: string;
   }>({});
@@ -21,62 +57,88 @@ const LatestProducts: React.FC = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const data = await fetchData<Product[]>("/api/products");
-        console.log("Fetched products:", data);
+        setLoading(true);
+        const response = await ProductService.getProducts(1, 10, {
+          featured: true,
+          sort: "createdAt:desc",
+        });
 
-        // Xử lý dữ liệu sau khi fetch
-        const initialColors: { [productId: number]: string } = {};
-        const initialImages: { [productId: number]: string } = {};
+        const initialColors: { [key: number]: string } = {};
+        const initialImages: { [key: number]: string } = {};
 
-        data.forEach((product) => {
-          // Thiết lập màu mặc định cho mỗi sản phẩm (màu đầu tiên)
-          if (product.variants.colors.length > 0) {
-            const defaultColor = product.variants.colors[0];
+        // Xử lý dữ liệu từ API
+        response.products.forEach((product) => {
+          // Chọn màu mặc định là màu đầu tiên
+          const defaultColor = product.colors[0];
+
+          // Nếu có thông tin variant của màu này
+          if (defaultColor && product.variants[defaultColor]) {
             initialColors[product.id] = defaultColor;
 
-            // Lấy hình ảnh đầu tiên của màu mặc định
-            const detail = product.variants.details[defaultColor];
-            if (detail && detail.images.length > 0) {
-              initialImages[product.id] = detail.images[0];
+            // Lấy chi tiết variant của màu mặc định
+            const variantDetail = product.variants[defaultColor];
+
+            // Tìm hình ảnh chính của màu này, nếu không có thì lấy hình đầu tiên
+            const mainImage =
+              variantDetail.images.find((img) => img.isMain) ||
+              variantDetail.images[0];
+
+            // Nếu có hình ảnh, lưu URL vào state
+            if (mainImage) {
+              initialImages[product.id] = mainImage.url;
             }
           }
         });
 
-        setProducts(data);
+        setProducts(response.products);
         setSelectedColors(initialColors);
         setProductImages(initialImages);
       } catch (error) {
         console.error("Failed to fetch products:", error);
+        setError("Không thể tải sản phẩm. Vui lòng thử lại sau.");
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchProducts();
   }, []);
 
+  // Handler khi người dùng chọn màu khác
   const handleColorSelect = (productId: number, color: string) => {
     setSelectedColors((prev) => ({ ...prev, [productId]: color }));
 
-    // Cập nhật hình ảnh khi chọn màu mới
+    // Tìm sản phẩm tương ứng
     const product = products.find((p) => p.id === productId);
-    if (product) {
-      const detail = product.variants.details[color];
-      if (detail && detail.images.length > 0) {
+
+    // Nếu tìm thấy sản phẩm và có thông tin variant của màu đã chọn
+    if (product && product.variants[color]) {
+      const variantDetail = product.variants[color];
+
+      // Tìm hình ảnh chính hoặc hình đầu tiên
+      const mainImage =
+        variantDetail.images.find((img) => img.isMain) ||
+        variantDetail.images[0];
+
+      // Cập nhật hình ảnh cho sản phẩm
+      if (mainImage) {
         setProductImages((prev) => ({
           ...prev,
-          [productId]: detail.images[0],
+          [productId]: mainImage.url,
         }));
       }
     }
   };
 
+  // Cấu hình slider
   const settings = {
     dots: false,
     infinite: true,
     speed: 500,
     slidesToShow: 5,
     slidesToScroll: 2,
-    prevArrow: <PrevArrow />,
-    nextArrow: <NextArrow />,
+    prevArrow: <PrevArrow onClick={() => {}} />,
+    nextArrow: <NextArrow onClick={() => {}} />,
     responsive: [
       { breakpoint: 1440, settings: { slidesToShow: 4 } },
       { breakpoint: 1024, settings: { slidesToShow: 3 } },
@@ -84,12 +146,36 @@ const LatestProducts: React.FC = () => {
     ],
   };
 
-  // Lọc sản phẩm mới nhất (sản phẩm có category "Hàng mới")
+  // Loading state
+  if (loading) {
+    return (
+      <div className="w-full py-8 flex justify-center items-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="w-full text-center py-8 text-red-500">
+        <p>{error}</p>
+        <button
+          className="mt-4 px-4 py-2 bg-black text-white rounded"
+          onClick={() => window.location.reload()}
+        >
+          Thử lại
+        </button>
+      </div>
+    );
+  }
+
+  // Lọc sản phẩm mới theo category (Áo)
   const latestProducts = products.filter((product) =>
-    product.categories.some((category) => category.name === "Áo")
+    product.categories.some((category) => category.name === "")
   );
 
-  // Sử dụng latestProducts nếu có, nếu không thì sử dụng tất cả sản phẩm
+  // Sử dụng sản phẩm đã lọc hoặc tất cả sản phẩm nếu không có
   const displayProducts = latestProducts.length > 0 ? latestProducts : products;
 
   return (
@@ -103,18 +189,29 @@ const LatestProducts: React.FC = () => {
           Xem thêm
         </Link>
       </div>
-      <div className="relative">
+
+      <div className="relative mt-6">
         <Slider ref={sliderRef} {...settings}>
-          {displayProducts.map((product) => (
-            <div key={product.id} className="p-2">
-              <ProductCard
-                product={product}
-                selectedColor={selectedColors[product.id]}
-                productImage={productImages[product.id]}
-                onColorSelect={handleColorSelect}
-              />
-            </div>
-          ))}
+          {displayProducts.map((product) => {
+            const color = selectedColors[product.id] || product.colors[0];
+            const variant = product.variants[color];
+
+            return (
+              <div key={product.id} className="p-2">
+                <ProductCard
+                  product={{
+                    id: product.id,
+                    name: product.name,
+                    colors: product.colors,
+                    variants: product.variants,
+                  }}
+                  selectedColor={color}
+                  productImage={productImages[product.id] || ""}
+                  onColorSelect={handleColorSelect}
+                />
+              </div>
+            );
+          })}
         </Slider>
       </div>
     </div>

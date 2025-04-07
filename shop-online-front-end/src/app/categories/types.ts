@@ -1,54 +1,50 @@
-// src/app/categories/types.ts
-export interface Product {
-  id: string;
+// src/types/product.ts
+interface ProductVariant {
+  color: string;
+  size: string;
+  stock: number;
+}
+
+interface ProductImage {
+  id: number;
+  url: string;
+  isMain: boolean;
+}
+
+interface VariantDetail {
+  detailId: number;
+  price: number;
+  originalPrice: number;
+  images: ProductImage[];
+  availableSizes: string[];
+  inventory: Record<string, number>;
+  variants: ProductVariant[];
+}
+
+interface Product {
+  id: number;
   name: string;
-  color: string[];
+  sku: string;
+  description: string;
+  categories: Array<{
+    id: number;
+    name: string;
+  }>;
+  brand: string;
+  material: string;
+  featured: boolean;
+  status: string;
+  statusLabel: string;
+  statusClass: string;
+  tags: string;
+  suitability: string;
+  colors: string[];
   sizes: string[];
-  suitability?: string[];
-  stock: Array<{
-    size: string;
-    color: string;
-    stock: number;
-  }>;
-  images: Array<{
-    src: string;
-    color: string;
-    size: string;
-    isFront: boolean;
-    isProductOnly: boolean;
-    stock: number;
-  }>;
-  price?: number;
-  originalPrice?: number;
-  rating?: {
-    value: number;
-    count: number;
+  stock: {
+    total: number;
+    variants: ProductVariant[];
   };
+  variants: Record<string, VariantDetail>;
+  createdAt: string;
+  updatedAt: string;
 }
-
-export enum SuitabilityType {
-  HOME = "Mặc Ở Nhà",
-  DAILY = "Mặc Hàng Ngày",
-  SPORT = "Chơi Thể Thao",
-}
-
-export enum SuitabilityValue {
-  HOME = "home",
-  DAILY = "daily",
-  SPORT = "sport",
-}
-
-export const suitabilities = [
-  {
-    label: SuitabilityType.HOME,
-    value: SuitabilityValue.HOME,
-  },
-  {
-    label: SuitabilityType.DAILY,
-    value: SuitabilityValue.DAILY,
-  },
-  {
-    label: SuitabilityType.SPORT,
-    value: SuitabilityValue.SPORT,
-  },
-];

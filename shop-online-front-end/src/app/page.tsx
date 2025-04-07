@@ -27,7 +27,6 @@ export default function Home() {
       <RunningProductsBanner />
       <RunningProducts />
       <Membership />
-      {/* <User /> */}
       <Footer />
     </div>
   );
