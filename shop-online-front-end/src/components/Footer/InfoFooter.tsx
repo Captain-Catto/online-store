@@ -14,26 +14,26 @@ const InfoFooter: React.FC = () => {
               Giới thiệu
             </Link>
           </li>
-          <li>
+          {/* <li>
             <Link href="/careers" className="hover:text-blue-400">
               Tuyển dụng
             </Link>
-          </li>
+          </li> */}
           <li>
-            <Link href="/stores" className="hover:text-blue-400">
+            <Link href="/policy/stores" className="hover:text-blue-400">
               Hệ thống cửa hàng
             </Link>
           </li>
-          <li>
+          {/* <li>
             <Link href="/news" className="hover:text-blue-400">
               Tin tức & Sự kiện
             </Link>
-          </li>
-          <li>
+          </li> */}
+          {/* <li>
             <Link href="/sustainability" className="hover:text-blue-400">
               Phát triển bền vững
             </Link>
-          </li>
+          </li> */}
         </ul>
       </div>
 
@@ -42,12 +42,12 @@ const InfoFooter: React.FC = () => {
         <h3 className="text-lg font-semibold mb-4">Hỗ trợ khách hàng</h3>
         <ul className="space-y-2">
           <li>
-            <Link href="/faqs" className="hover:text-blue-400">
+            <Link href="/policy" className="hover:text-blue-400">
               Câu hỏi thường gặp
             </Link>
           </li>
           <li>
-            <Link href="/shipping" className="hover:text-blue-400">
+            <Link href="/policy/shipping" className="hover:text-blue-400">
               Chính sách vận chuyển
             </Link>
           </li>
@@ -57,7 +57,7 @@ const InfoFooter: React.FC = () => {
             </Link>
           </li>
           <li>
-            <Link href="/warranty" className="hover:text-blue-400">
+            <Link href="/policy/warranty" className="hover:text-blue-400">
               Chính sách bảo hành
             </Link>
           </li>

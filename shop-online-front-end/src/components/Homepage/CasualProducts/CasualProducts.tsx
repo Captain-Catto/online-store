@@ -131,7 +131,7 @@ const CasualProducts: React.FC = () => {
           SẢN PHẨM MẶC HẰNG NGÀY
         </h2>
         <Link
-          href="/category/3" // hiện chưa làm category, để sau
+          href="/categories?suitability=casual"
           className="text-right text-lg text-gray-500 hover:underline hover:text-gray-700"
         >
           Xem thêm

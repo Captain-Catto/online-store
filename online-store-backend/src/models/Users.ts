@@ -12,6 +12,8 @@ interface User {
   email: string;
   password: string;
   roleId: number;
+  phoneNumber?: string;
+  dateOfBirth?: Date;
 }
 
 // khai báo class Users kế thừa class Model
@@ -22,6 +24,8 @@ class Users extends Model {
   public email!: string;
   public password!: string;
   public roleId!: number;
+  public phoneNumber?: string;
+  public dateOfBirth?: Date;
 }
 
 // khai báo các trường của bảng Users
@@ -52,6 +56,14 @@ Users.init(
       references: { model: Role, key: "id" },
       defaultValue: 2,
     },
+    // phoneNumber: {
+    //   type: DataTypes.STRING,
+    //   allowNull: true,
+    // },
+    // dateOfBirth: {
+    //   type: DataTypes.DATE,
+    //   allowNull: true,
+    // },
   },
   {
     sequelize,

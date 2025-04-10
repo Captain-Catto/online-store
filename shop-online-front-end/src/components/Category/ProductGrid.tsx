@@ -1,15 +1,12 @@
-// src/components/Category/ProductGrid.tsx
 import React from "react";
-import ProductCard from "./ProductCard";
-import { Product } from "../../app/categories/types";
+import ProductCard from "../ProductCard/ProductCard";
+import { Product } from "@/components/ProductCard/ProductInterface";
 
 interface ProductGridProps {
   products: Product[];
   selectedColors: { [productId: string]: string };
-  onColorSelect: (productId: string, color: string) => void;
-  getProductImage: (product: Product, color: string) => string;
-  calculateDiscount: (price?: number, originalPrice?: number) => number;
-  colorMap: Record<string, string>;
+  productImages: { [productId: string]: string };
+  onColorSelect: (productId: number, color: string) => void;
   category?: string;
   currentPage: number;
   itemsPerPage: number;
@@ -19,10 +16,8 @@ interface ProductGridProps {
 export default function ProductGrid({
   products,
   selectedColors,
+  productImages,
   onColorSelect,
-  getProductImage,
-  calculateDiscount,
-  colorMap,
   category,
   currentPage,
   itemsPerPage,
@@ -32,7 +27,9 @@ export default function ProductGrid({
     <div className="w-full">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">
-          {category ? decodeURIComponent(category) : "Tất cả sản phẩm"}
+          {category
+            ? `Danh mục: ${decodeURIComponent(category)}`
+            : "Tất cả sản phẩm"}
         </h1>
         <div className="text-sm">
           Hiển thị {(currentPage - 1) * itemsPerPage + 1} -{" "}
@@ -54,11 +51,11 @@ export default function ProductGrid({
             <ProductCard
               key={product.id}
               product={product}
-              selectedColor={selectedColors[product.id]}
+              selectedColor={
+                selectedColors[product.id.toString()] || product.colors[0] || ""
+              }
+              productImage={productImages[product.id.toString()] || ""}
               onColorSelect={onColorSelect}
-              getProductImage={getProductImage}
-              calculateDiscount={calculateDiscount}
-              colorMap={colorMap}
             />
           ))}
         </div>

@@ -19,7 +19,6 @@ export interface VariantDetail {
   detailId: number;
   price: number;
   originalPrice: number;
-  images: ProductImage[];
   availableSizes: string[];
   inventory: { [key: string]: number };
   variants: ProductVariant[];
@@ -37,8 +36,8 @@ export interface Product {
   status: string;
   statusLabel: string;
   statusClass: string;
-  tags: string;
-  suitability: string;
+  tags: string[];
+  suitability: string[];
   colors: string[];
   sizes: string[];
   createdAt: string;

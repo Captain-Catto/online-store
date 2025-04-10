@@ -7,7 +7,11 @@ import ProductImage from "../models/ProductImage";
 import ProductCategory from "../models/ProductCategory";
 import Category from "../models/Category";
 import { getPublicUrl, deleteFile } from "../services/imageUpload";
-import { Op } from "sequelize";
+import { Op, FindOptions } from "sequelize";
+
+interface ExtendedFindOptions extends FindOptions {
+  distinct?: boolean;
+}
 
 /**
  * Create a product with details and inventory
@@ -130,12 +134,21 @@ export const getProductsWithVariants = async (
     const category = req.query.category as string;
     const status = req.query.status as string;
     const brand = req.query.brand as string;
+    // Thêm lọc theo color và size
+    const color = req.query.color as string;
+    const sizeParam = req.query.size as string;
+    const sizes = sizeParam ? sizeParam.split(",") : [];
+    const suitabilityParam = req.query.suitability as string;
+    const suitabilities = suitabilityParam ? suitabilityParam.split(",") : [];
 
     // Tính offset
     const offset = (page - 1) * limit;
 
     // Tạo where condition
     const where: any = {};
+
+    // Xây dựng include
+    const include: any[] = [];
 
     if (search) {
       where.name = { [Op.like]: `%${search}%` };
@@ -146,40 +159,63 @@ export const getProductsWithVariants = async (
     if (brand) {
       where.brand = brand;
     }
+    if (suitabilities.length > 0) {
+      where[Op.and] = suitabilities.map((suit) => ({
+        suitability: { [Op.like]: `%${suit}%` },
+      }));
+    }
 
-    // Lấy tổng số sản phẩm
-    const count = await Product.count({ where });
+    // Category include
+    const categoryInclude: any = {
+      model: Category,
+      as: "categories",
+      attributes: ["id", "name"],
+      through: { attributes: [] },
+    };
 
-    // Get products với phân trang và filter
-    const products = await Product.findAll({
-      where,
+    if (category) {
+      categoryInclude.where = { id: category };
+    }
+
+    include.push(categoryInclude);
+
+    // ProductDetail include với lọc
+    const detailsInclude: any = {
+      model: ProductDetail,
+      as: "details",
       include: [
         {
-          model: ProductDetail,
-          as: "details",
-          include: [
-            {
-              model: ProductInventory,
-              as: "inventories",
-            },
-            {
-              model: ProductImage,
-              as: "images",
-            },
-          ],
+          model: ProductInventory,
+          as: "inventories",
+          where: sizes.length > 0 ? { size: { [Op.in]: sizes } } : undefined,
         },
-        {
-          model: Category,
-          as: "categories",
-          attributes: ["id", "name"],
-          through: { attributes: [] },
-          ...(category && { where: { id: category } }),
-        },
+        { model: ProductImage, as: "images" },
       ],
+    };
+
+    if (color) {
+      detailsInclude.where = { color };
+    }
+
+    include.push(detailsInclude);
+
+    // Đếm tổng số sản phẩm phù hợp với bộ lọc
+    const count = await Product.count({
+      where,
+      include,
+      distinct: true,
+    } as ExtendedFindOptions);
+
+    // Lấy sản phẩm đã lọc
+    const products = await Product.findAll({
+      where,
+      include,
       limit,
       offset,
       order: [["createdAt", "DESC"]],
-    });
+      distinct: true,
+    } as ExtendedFindOptions);
+
     // Format data for optimized response
     const formattedProducts = products.map((product: any) => {
       const details = product.details || [];
@@ -286,8 +322,16 @@ export const getProductsWithVariants = async (
         status: product.status,
         statusLabel,
         statusClass,
-        tags: product.tags || [],
-        suitability: product.suitability || [],
+        tags: Array.isArray(product.tags)
+          ? product.tags
+          : typeof product.tags === "string"
+          ? JSON.parse(product.tags)
+          : [],
+        suitability: Array.isArray(product.suitability)
+          ? product.suitability
+          : typeof product.suitability === "string"
+          ? JSON.parse(product.suitability)
+          : [],
         colors: uniqueColors,
         sizes: uniqueSizes,
         createdAt: product.createdAt,
@@ -305,9 +349,31 @@ export const getProductsWithVariants = async (
         variants: variantMap,
       };
     });
+
     // Trả về response với thông tin phân trang
     res.status(200).json({
       products: formattedProducts,
+      filters: {
+        search: search || null,
+        category: category || null,
+        status: status || null,
+        brand: brand || null,
+        color: color || null,
+        size: sizeParam || null,
+        suitability: products
+          .flatMap((product: any) => {
+            try {
+              return Array.isArray(product.suitability)
+                ? product.suitability
+                : typeof product.suitability === "string"
+                ? JSON.parse(product.suitability)
+                : [];
+            } catch (e) {
+              return [];
+            }
+          })
+          .filter((value, index, self) => self.indexOf(value) === index), // loại bỏ trùng lặp
+      },
       pagination: {
         total: count,
         totalPages: Math.ceil(count / limit),
@@ -465,8 +531,16 @@ export const getProductById = async (
       status: (product as any).status,
       statusLabel,
       statusClass,
-      tags: (product as any).tags || [],
-      suitability: (product as any).suitability || [],
+      tags: Array.isArray((product as any).tags)
+        ? (product as any).tags
+        : typeof (product as any).tags === "string"
+        ? JSON.parse((product as any).tags)
+        : [],
+      suitability: Array.isArray((product as any).suitability)
+        ? (product as any).suitability
+        : typeof (product as any).suitability === "string"
+        ? JSON.parse((product as any).suitability)
+        : [],
       colors: uniqueColors,
       sizes: uniqueSizes,
       createdAt: (product as any).createdAt,
@@ -662,6 +736,13 @@ export const getProductsByCategory = async (
     const limit = parseInt(req.query.limit as string) || 10;
     const offset = (page - 1) * limit;
 
+    // New filter parameters
+    const color = req.query.color as string;
+    const sizeParam = req.query.size as string;
+    const sizes = sizeParam ? sizeParam.split(",") : [];
+    const suitabilityParam = req.query.suitability as string;
+    const suitabilities = suitabilityParam ? suitabilityParam.split(",") : [];
+
     // Find category to check if exists
     const category = await Category.findByPk(categoryId);
     if (!category) {
@@ -669,41 +750,65 @@ export const getProductsByCategory = async (
       return;
     }
 
-    // Count products in this category for pagination
-    const count = await Product.count({
-      include: [
-        {
-          model: Category,
-          as: "categories",
-          where: { id: categoryId },
-          through: { attributes: [] },
-        },
-      ],
-    });
+    // Start with basic include for category filtering
+    const include: any[] = [
+      {
+        model: Category,
+        as: "categories",
+        where: { id: categoryId },
+        attributes: ["id", "name"],
+        through: { attributes: [] },
+      },
+    ];
 
-    // Get products with details
-    const products = await Product.findAll({
+    // Where condition for product filtering
+    const where: any = {};
+
+    // Add suitability filter if present
+    if (suitabilities.length > 0) {
+      where[Op.and] = suitabilities.map((suit) => ({
+        suitability: { [Op.like]: `%${suit}%` },
+      }));
+    }
+
+    // ProductDetail include with filtering
+    const detailsInclude: any = {
+      model: ProductDetail,
+      as: "details",
       include: [
         {
-          model: ProductDetail,
-          as: "details",
-          include: [
-            { model: ProductInventory, as: "inventories" },
-            { model: ProductImage, as: "images" },
-          ],
+          model: ProductInventory,
+          as: "inventories",
+          where: sizes.length > 0 ? { size: { [Op.in]: sizes } } : undefined,
         },
-        {
-          model: Category,
-          as: "categories",
-          where: { id: categoryId },
-          attributes: ["id", "name"],
-          through: { attributes: [] },
-        },
+        { model: ProductImage, as: "images" },
       ],
+    };
+
+    // Apply color filter if provided
+    if (color) {
+      detailsInclude.where = { color };
+    }
+
+    // Add details include to main include array
+    include.push(detailsInclude);
+
+    // Count total matching products
+    const count = await Product.count({
+      where,
+      include,
+      distinct: true,
+    } as ExtendedFindOptions);
+
+    // Get filtered products
+    const products = await Product.findAll({
+      where,
+      include,
       limit,
       offset,
       order: [["createdAt", "DESC"]],
-    });
+      distinct: true,
+    } as ExtendedFindOptions);
 
     // Format products (same as in getProductsWithVariants)
     const formattedProducts = products.map((product: any) => {
@@ -811,8 +916,16 @@ export const getProductsByCategory = async (
         status: product.status,
         statusLabel,
         statusClass,
-        tags: product.tags || [],
-        suitability: product.suitability || [],
+        tags: Array.isArray(product.tags)
+          ? product.tags
+          : typeof product.tags === "string"
+          ? JSON.parse(product.tags)
+          : [],
+        suitability: Array.isArray(product.suitability)
+          ? product.suitability
+          : typeof product.suitability === "string"
+          ? JSON.parse(product.suitability)
+          : [],
         colors: uniqueColors,
         sizes: uniqueSizes,
         createdAt: product.createdAt,
@@ -835,6 +948,12 @@ export const getProductsByCategory = async (
     res.status(200).json({
       categoryName: category.getDataValue("name"),
       products: formattedProducts,
+      filters: {
+        category: categoryId,
+        color: color || null,
+        size: sizeParam || null,
+        suitability: suitabilityParam || null,
+      },
       pagination: {
         total: count,
         totalPages: Math.ceil(count / limit),
@@ -844,5 +963,38 @@ export const getProductsByCategory = async (
     });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+export const getSuitabilities = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    // Lấy tất cả sản phẩm và trích xuất các giá trị `suitability`
+    const products = await Product.findAll({
+      attributes: ["suitability"],
+    });
+
+    // Tạo danh sách `suitabilities` duy nhất
+    const suitabilities = products
+      .flatMap((product: any) => {
+        try {
+          return Array.isArray(product.suitability)
+            ? product.suitability
+            : typeof product.suitability === "string"
+            ? JSON.parse(product.suitability)
+            : [];
+        } catch (e) {
+          return [];
+        }
+      })
+      .filter((value, index, self) => self.indexOf(value) === index); // Loại bỏ trùng lặp
+
+    // Trả về danh sách `suitabilities`
+    res.status(200).json({ suitabilities });
+  } catch (error: any) {
+    console.error("Error fetching suitabilities:", error);
+    res.status(500).json({ message: "Lỗi khi lấy danh sách suitabilities" });
   }
 };

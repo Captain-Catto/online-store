@@ -13,8 +13,7 @@ import { roleMiddleware } from "../middlewares/roleMiddleware";
 const router = Router();
 
 // Tạo chi tiết sản phẩm (chỉ admin)
-// router.post("/", authMiddleware, roleMiddleware([1]), createProductDetail);
-router.post("/", createProductDetail);
+router.post("/", authMiddleware, roleMiddleware([1]), createProductDetail);
 
 // Lấy danh sách chi tiết sản phẩm
 router.get("/", getProductDetails);

@@ -1,21 +1,34 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
-import { getMockPaginatedData } from "./data";
+import {
+  useRouter,
+  useParams,
+  usePathname,
+  useSearchParams,
+} from "next/navigation";
+import { ProductService } from "@/services/ProductService";
 import Header from "@/components/Header/Header";
 import Footer from "@/components/Footer/Footer";
 import FilterSidebar from "@/components/Category/FilterSidebar";
 import ProductGrid from "@/components/Category/ProductGrid";
 import Pagination from "@/components/Category/Pagination";
-import type { Product } from "@/app/categories/types";
+import { Product, PaginatedResponse } from "@/app/categories/types";
 
 export default function CategoryPage() {
+  // Các state hiện tại giữ nguyên
   const params = useParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedColors, setSelectedColors] = useState<{
+    [productId: string]: string;
+  }>({});
+  const [productImages, setProductImages] = useState<{
     [productId: string]: string;
   }>({});
   const [availableSuitability, setAvailableSuitability] = useState<string[]>(
@@ -23,7 +36,9 @@ export default function CategoryPage() {
   );
 
   // State cho pagination
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(() => {
+    return Number(searchParams.get("page") || "1");
+  });
   const [itemsPerPage] = useState(12);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -35,42 +50,155 @@ export default function CategoryPage() {
     color: false,
   });
 
-  const [Filters, setFilters] = useState({
-    suitability: [] as string[],
-    size: [] as string[],
-    color: "",
+  // Khởi tạo filter từ URL params
+  const [Filters, setFilters] = useState(() => {
+    return {
+      suitability: searchParams.get("suitability")
+        ? searchParams.get("suitability")!.split(",")
+        : [],
+      size: searchParams.get("size")
+        ? searchParams.get("size")!.split(",")
+        : [],
+      color: searchParams.get("color") || "",
+      category: params.id ? String(params.id) : "",
+    };
   });
 
-  console.log("Filters", Filters);
+  // Thêm useEffect mới để fetch suitabilities riêng biệt
+  useEffect(() => {
+    const fetchSuitabilities = async () => {
+      try {
+        const response = await fetch(
+          "http://localhost:3000/api/products/suitabilities"
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setAvailableSuitability(data.suitabilities);
+          console.log("Fetched suitabilities:", data.suitabilities);
+        } else {
+          console.error("Failed to fetch suitabilities");
+        }
+      } catch (error) {
+        console.error("Error fetching suitabilities:", error);
+      }
+    };
+
+    fetchSuitabilities();
+  }, []);
+
+  // Cập nhật URL khi filters thay đổi - sử dụng shallow routing
+  const updateUrlWithFilters = () => {
+    const params = new URLSearchParams();
+
+    if (currentPage > 1) {
+      params.set("page", currentPage.toString());
+    }
+
+    if (Filters.color) {
+      params.set("color", Filters.color);
+    }
+
+    if (Filters.size.length > 0) {
+      params.set("size", Filters.size.join(","));
+    }
+
+    if (Filters.suitability.length > 0) {
+      params.set("suitability", Filters.suitability.join(","));
+    }
+
+    const newUrl =
+      pathname + (params.toString() ? `?${params.toString()}` : "");
+
+    // Thêm shallow: true để tránh reload trang khi cập nhật URL
+    router.push(newUrl, { scroll: false, shallow: true });
+  };
+
+  // Cập nhật URL khi filter hoặc trang thay đổi
+  useEffect(() => {
+    updateUrlWithFilters();
+  }, [Filters, currentPage]);
 
   const fetchProducts = async (page: number) => {
     try {
       setLoading(true);
-      const paginatedResult = getMockPaginatedData(page, itemsPerPage);
 
-      // Lấy danh sách suitability có sẵn từ API
-      setAvailableSuitability(
-        paginatedResult.filters.availableSuitability || []
-      );
+      // Tạo object chứa các filter
+      const apiFilters: {
+        page: string;
+        limit: string;
+        color?: string;
+        size?: string;
+        suitability?: string;
+      } = {
+        page: page.toString(),
+        limit: itemsPerPage.toString(),
+      };
 
-      // Chuẩn hóa dữ liệu sản phẩm, đảm bảo tất cả đều có trường suitability
-      const normalizedProducts = paginatedResult.data.map((product) => ({
-        ...product,
-        suitability: product.suitability || [],
-      }));
+      // Thêm các filter khác nếu có
+      if (Filters.color) apiFilters.color = Filters.color;
+      if (Filters.size.length > 0) apiFilters.size = Filters.size.join(",");
+      if (Filters.suitability.length > 0) {
+        apiFilters.suitability = Filters.suitability.join(",");
+      }
 
-      // Khởi tạo màu mặc định cho mỗi sản phẩm
+      // Nếu có categoryId, dùng getProductsByCategory, nếu không dùng getProducts
+      let response;
+      if (Filters.category) {
+        response = await ProductService.getProductsByCategory(
+          Filters.category,
+          apiFilters
+        );
+      } else {
+        response = await ProductService.getProducts(
+          page,
+          itemsPerPage,
+          apiFilters
+        );
+      }
+
+      const { products: productsData, pagination: paginationData } =
+        response as PaginatedResponse;
+
+      // Xử lý dữ liệu sản phẩm
       const initialColors: { [productId: string]: string } = {};
-      normalizedProducts.forEach((product) => {
-        if (product.color.length > 0) {
-          initialColors[product.id] = product.color[0];
+      const initialImages: { [productId: string]: string } = {};
+
+      // Tạo danh sách suitability duy nhất từ tất cả sản phẩm
+      const allSuitability = new Set<string>();
+
+      productsData.forEach((product) => {
+        // Thêm tất cả suitability vào Set để loại bỏ trùng lặp
+        if (product.suitability) {
+          product.suitability.forEach((item) =>
+            allSuitability.add(item.trim())
+          );
+        }
+
+        // Thiết lập màu mặc định cho mỗi sản phẩm (màu đầu tiên)
+        if (product.colors && product.colors.length > 0) {
+          const defaultColor = product.colors[0];
+          initialColors[product.id.toString()] = defaultColor;
+
+          // Lấy hình ảnh từ variant
+          const variant = product.variants[defaultColor];
+          if (variant) {
+            let imageUrl = "";
+            if (variant.images && variant.images.length > 0) {
+              const mainImage =
+                variant.images.find((img) => img.isMain) || variant.images[0];
+              imageUrl = mainImage.url;
+            }
+            initialImages[product.id.toString()] = imageUrl;
+          }
         }
       });
 
-      setProducts(normalizedProducts);
-      setTotalItems(paginatedResult.pagination.totalItems);
-      setTotalPages(paginatedResult.pagination.totalPages);
-      setSelectedColors((prev) => ({ ...prev, ...initialColors }));
+      setProducts(productsData);
+      setAvailableSuitability(Array.from(allSuitability));
+      setTotalItems(paginationData.total);
+      setTotalPages(paginationData.totalPages);
+      setSelectedColors(initialColors);
+      setProductImages(initialImages);
       setLoading(false);
     } catch (error) {
       console.error("Không thể tải sản phẩm:", error);
@@ -78,6 +206,13 @@ export default function CategoryPage() {
       setLoading(false);
     }
   };
+
+  // Thêm useEffect để theo dõi thay đổi của filter
+  useEffect(() => {
+    // Reset về trang 1 khi filter thay đổi
+    setCurrentPage(1);
+    fetchProducts(1);
+  }, [Filters.category, Filters.color, Filters.size, Filters.suitability]);
 
   // Hàm xử lý khi chuyển trang
   const handlePageChange = (page: number) => {
@@ -90,12 +225,31 @@ export default function CategoryPage() {
 
   // Chỉ gọi API một lần khi component mount
   useEffect(() => {
-    fetchProducts(currentPage);
+    const page = Number(searchParams.get("page") || "1");
+    fetchProducts(page);
   }, []);
 
   // Hàm xử lý khi người dùng chọn màu cho sản phẩm
-  const handleColorSelect = (productId: string, color: string) => {
-    setSelectedColors((prev) => ({ ...prev, [productId]: color }));
+  const handleColorSelect = (productId: number, color: string) => {
+    setSelectedColors((prev) => ({ ...prev, [productId.toString()]: color }));
+
+    // Cập nhật hình ảnh khi đổi màu
+    const product = products.find((p) => p.id === productId);
+    if (product) {
+      const variant = product.variants[color];
+      if (variant) {
+        let imageUrl = "";
+        if (variant.images && variant.images.length > 0) {
+          const mainImage =
+            variant.images.find((img) => img.isMain) || variant.images[0];
+          imageUrl = mainImage.url;
+        }
+        setProductImages((prev) => ({
+          ...prev,
+          [productId.toString()]: imageUrl,
+        }));
+      }
+    }
   };
 
   // Hàm đóng/mở các mục filter
@@ -156,77 +310,56 @@ export default function CategoryPage() {
     }));
   };
 
-  // Hàm lấy ảnh sản phẩm dựa trên màu đã chọn
-  const getProductImage = (product: Product, color: string) => {
-    const frontImage = product.images.find(
-      (img) => img.color === color && img.isFront
-    );
-    return frontImage ? frontImage.src : product.images[0]?.src;
+  // Xử lý filter category
+  const handleCategoryFilter = (categoryId: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      category: prev.category === categoryId ? "" : categoryId,
+    }));
   };
 
-  // Tính toán phần trăm giảm giá
-  const calculateDiscount = (price?: number, originalPrice?: number) => {
-    if (price && originalPrice && originalPrice > price) {
-      return Math.round(100 - (price / originalPrice) * 100);
-    }
-    return 0;
-  };
-
-  // Map màu sắc sang mã hex
-  const colorMap: Record<string, string> = {
-    black: "#000000",
-    white: "#FFFFFF",
-    blue: "#0066CC",
-    red: "#FF0000",
-    green: "#008000",
-    yellow: "#FFFF00",
-    purple: "#800080",
-    gray: "#808080",
-  };
-
-  // Logic lọc sản phẩm
+  // Logic lọc sản phẩm (phía client)
   const filteredProducts = products.filter((product) => {
-    // Nếu không có filter nào được chọn, hiển thị tất cả sản phẩm
-    if (
-      Filters.suitability.length === 0 &&
-      Filters.size.length === 0 &&
-      !Filters.color
-    ) {
-      return true;
+    // Nếu có suitability filter và không khớp
+    if (Filters.suitability.length > 0) {
+      if (
+        !Filters.suitability.some((filter) =>
+          product.suitability.includes(filter)
+        )
+      ) {
+        return false;
+      }
     }
-
-    // Kiểm tra filter theo màu sắc (filter dạng string)
-    if (Filters.color && !product.color.includes(Filters.color)) {
+    // Nếu có category filter và không khớp
+    if (
+      Filters.category &&
+      (!product.categories ||
+        !product.categories.some(
+          (cat) => cat.id.toString() === Filters.category
+        ))
+    ) {
       return false;
     }
 
-    // Kiểm tra filter theo suitability (filter dạng mảng)
-    if (Filters.suitability.length > 0) {
-      const productSuitability = product.suitability || [];
-
-      // Kiểm tra xem product có ít nhất một suitability khớp với filter không
-      const hasSuitability = Filters.suitability.some((filterSuitability) =>
-        productSuitability.includes(filterSuitability)
-      );
-
-      if (!hasSuitability) {
-        return false;
-      }
+    // Nếu có color filter và không khớp
+    if (
+      Filters.color &&
+      (!product.colors || !product.colors.includes(Filters.color))
+    ) {
+      return false;
     }
 
-    // Kiểm tra filter theo size (filter dạng mảng)
+    // Nếu có size filter và không khớp
     if (Filters.size.length > 0) {
-      // Kiểm tra xem product có ít nhất một size khớp với filter không
-      const hasSize = Filters.size.some((filterSize) =>
-        product.sizes.includes(filterSize)
-      );
-
-      if (!hasSize) {
+      if (
+        !product.sizes ||
+        !Filters.size.some((filterSize) => product.sizes.includes(filterSize))
+      ) {
         return false;
       }
     }
 
-    // Nếu vượt qua tất cả điều kiện lọc, hiển thị sản phẩm
+    // Nếu vượt qua tất cả filter, hiển thị sản phẩm
     return true;
   });
 
@@ -249,10 +382,8 @@ export default function CategoryPage() {
     );
   }
 
-  console.log("Filters.suitability:", Filters.suitability);
-
   return (
-    <div>
+    <>
       <Header />
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col lg:flex-row gap-8">
@@ -263,6 +394,7 @@ export default function CategoryPage() {
             handleSuitabilityFilter={handleSuitabilityFilter}
             handleSizeFilter={handleSizeFilter}
             handleColorFilter={handleColorFilter}
+            handleCategoryFilter={handleCategoryFilter}
             availableSuitability={availableSuitability}
           />
 
@@ -270,10 +402,8 @@ export default function CategoryPage() {
             <ProductGrid
               products={filteredProducts}
               selectedColors={selectedColors}
+              productImages={productImages}
               onColorSelect={handleColorSelect}
-              getProductImage={getProductImage}
-              calculateDiscount={calculateDiscount}
-              colorMap={colorMap}
               category={params.id as string}
               currentPage={currentPage}
               itemsPerPage={itemsPerPage}
@@ -290,6 +420,6 @@ export default function CategoryPage() {
       </div>
 
       <Footer />
-    </div>
+    </>
   );
 }

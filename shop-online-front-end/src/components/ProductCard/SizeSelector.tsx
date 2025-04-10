@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Product } from "./ProductInterface";
 import { addToCart } from "@/util/cartUtils";
 
@@ -19,13 +19,27 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
   const variant = product.variants[selectedColor];
   const availableSizes = variant?.availableSizes || [];
 
-  const handleAddToCart = (size: string) => {
+  // State để lưu size đã chọn
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+
+  // Hàm xử lý khi chọn size
+  const handleSizeSelect = (size: string) => {
+    setSelectedSize(size); // Cập nhật size đã chọn
+  };
+
+  // Hàm thêm vào giỏ hàng
+  const handleAddToCart = () => {
+    if (!selectedSize) {
+      alert("Vui lòng chọn kích thước trước khi thêm vào giỏ hàng!");
+      return;
+    }
+
     try {
       const cartItem = {
         id: product.id.toString(),
         name: product.name,
         color: selectedColor,
-        size: size,
+        size: selectedSize,
         quantity: 1,
         price: variant.price,
         image: productImage,
@@ -35,7 +49,7 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
       addToCart(cartItem);
 
       // Thông báo cho component cha
-      onProductAdded(product, selectedColor, size);
+      onProductAdded(product, selectedColor, selectedSize);
 
       // Cập nhật số lượng trong header
       const cartItems = JSON.parse(localStorage.getItem("shop_cart") || "[]");
@@ -50,18 +64,29 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
 
   return (
     <div className="size-selector bg-white/90 p-4 rounded-lg w-full">
-      <span className="text-black font-medium">Thêm nhanh vào giỏ hàng:</span>
+      <span className="text-black font-medium">Chọn kích thước:</span>
       <div className="flex flex-wrap justify-center gap-2 mt-2">
         {availableSizes.map((size, idx) => (
           <button
             key={idx}
-            className="px-3 py-1 rounded border border-gray-300 bg-white hover:bg-black hover:text-white text-black cursor-pointer transition-colors"
-            onClick={() => handleAddToCart(size)}
+            className={`px-3 py-1 rounded border ${
+              selectedSize === size
+                ? "bg-black text-white border-black"
+                : "bg-white text-black border-gray-300"
+            } hover:bg-black hover:text-white cursor-pointer transition-colors`}
+            onClick={() => handleSizeSelect(size)}
           >
             {size}
           </button>
         ))}
       </div>
+      <button
+        className="mt-4 px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors"
+        onClick={handleAddToCart}
+        disabled={!selectedSize} // Vô hiệu hóa nếu chưa chọn size
+      >
+        Thêm vào giỏ hàng
+      </button>
     </div>
   );
 };

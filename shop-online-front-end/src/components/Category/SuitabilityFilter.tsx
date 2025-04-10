@@ -1,20 +1,22 @@
-import { suitabilities } from "@/app/categories/types";
-
-interface SuitabilityFilterProps {
-  isOpen: boolean;
-  activeFilters: string[]; // Mảng các giá trị đã chọn
-  onToggle: () => void;
-  onFilterChange: (value: string) => void;
-  availableSuitability?: string[];
-}
-
 export default function SuitabilityFilter({
   isOpen,
   activeFilters,
   onToggle,
   onFilterChange,
   availableSuitability = [],
-}: SuitabilityFilterProps) {
+}: {
+  isOpen: boolean;
+  activeFilters: string[];
+  onToggle: () => void;
+  onFilterChange: (value: string) => void;
+  availableSuitability?: string[];
+}) {
+  // Format data for display - chuyển đổi từ dữ liệu được truyền vào
+  const suitabilities = availableSuitability.map((item) => ({
+    label: item.charAt(0).toUpperCase() + item.slice(1),
+    value: item,
+  }));
+
   return (
     <div className="mb-6">
       <div
@@ -22,7 +24,6 @@ export default function SuitabilityFilter({
         onClick={onToggle}
       >
         <h5 className="text-lg font-medium mb-3">Phù hợp với</h5>
-        {/* Icon toggle */}
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="21"
@@ -41,28 +42,31 @@ export default function SuitabilityFilter({
           />
         </svg>
       </div>
-
       {isOpen && (
         <div className="mt-3 space-y-2">
-          {suitabilities
-            .filter(({ value }) => availableSuitability.includes(value))
-            .map(({ label, value }) => (
+          {suitabilities.length === 0 ? (
+            <div className="py-2 text-center text-sm text-gray-500">
+              Không có dữ liệu
+            </div>
+          ) : (
+            suitabilities.map(({ label, value }) => (
               <div key={value} className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   id={`suitability-${value}`}
                   checked={activeFilters.includes(value)}
                   onChange={() => onFilterChange(value)}
-                  className="w-4 h-4"
+                  className="h-4 w-4 rounded border-gray-300 text-black focus:ring-black"
                 />
                 <label
                   htmlFor={`suitability-${value}`}
-                  className="cursor-pointer"
+                  className="text-sm font-medium text-gray-900 cursor-pointer"
                 >
                   {label}
                 </label>
               </div>
-            ))}
+            ))
+          )}
         </div>
       )}
     </div>

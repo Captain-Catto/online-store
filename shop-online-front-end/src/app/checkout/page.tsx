@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import locationsData from "../../data/location.json";
 import Image from "next/image";
+import Header from "@/components/Header/Header";
+import Footer from "@/components/Footer/Footer";
 import imgMomo from "../../assets/imgs/payment/momo.png";
 import imgCreditCard from "../../assets/imgs/payment/credit-card-debit-card-svgrepo-com.svg";
 import imgBanking from "../../assets/imgs/payment/internetbanking.png";
 import imgCod from "../../assets/imgs/payment/cod.png";
+import { AuthService } from "@/services/AuthService";
 
 // Định nghĩa kiểu dữ liệu
 type LocationsType = {
@@ -42,7 +45,7 @@ export default function CheckoutPage() {
     email: "",
     paymentMethod: "",
   });
-  //   thêm state lưu thông tin đơn hàng truyền từ trang cart
+  // thêm state lưu thông tin đơn hàng truyền từ trang cart
   const [orderSummary, setOrderSummary] = useState({
     subtotal: 0,
     discount: 0,
@@ -50,6 +53,29 @@ export default function CheckoutPage() {
     total: 0,
   });
   const [paymentMethod, setPaymentMethod] = useState("cod");
+  // thêm state để check login
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // kiểm tra xem người dùng đã đăng nhập hay chưa
+  useEffect(() => {
+    const checkAuth = async () => {
+      const loggedIn = AuthService.isLoggedIn();
+      setIsLoggedIn(loggedIn);
+      setLoading(false);
+
+      if (!loggedIn) {
+        // Save current checkout parameters to redirect back after login
+        const params = new URLSearchParams(searchParams.toString());
+        const returnUrl = `/checkout?${params.toString()}`;
+
+        // Redirect to login with return URL
+        router.push(`/login?returnUrl=${encodeURIComponent(returnUrl)}`);
+      }
+    };
+
+    checkAuth();
+  }, [router, searchParams]);
 
   useEffect(() => {
     // Lấy query params từ URL
@@ -66,6 +92,22 @@ export default function CheckoutPage() {
       });
     }
   }, [searchParams]);
+
+  if (loading) {
+    return (
+      <>
+        <Header />
+        <main className="container mx-auto px-4 py-12 min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
+  if (!isLoggedIn) {
+    return null;
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

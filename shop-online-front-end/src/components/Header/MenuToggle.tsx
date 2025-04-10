@@ -10,9 +10,9 @@ export const navItems = [
     label: "Sản phẩm",
     href: "/categories",
     dropdown: [
-      { label: "Đồ mặc hằng ngày", href: "/products/daily" },
-      { label: "Đồ mặc ở nhà", href: "/products/home" },
-      { label: "Đồ thể thao", href: "/products/sports" },
+      { label: "Áo", href: "/category/1" },
+      { label: "Quần", href: "/category/2" },
+      { label: "Phụ Kiện", href: "/category/3" },
     ],
   },
   { label: "Giới thiệu", href: "/about" },

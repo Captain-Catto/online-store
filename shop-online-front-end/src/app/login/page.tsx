@@ -1,20 +1,27 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import Header from "@/components/Header/Header";
 import Footer from "@/components/Footer/Footer";
+import { AuthService } from "@/services/AuthService";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnUrl = searchParams.get("returnUrl") || "/account";
 
   // State cho form đăng nhập
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [errors, setErrors] = useState({ email: "", password: "" });
+  const [errors, setErrors] = useState({
+    email: "",
+    password: "",
+    general: "",
+  });
   const [loading, setLoading] = useState(false);
 
   // Xử lý đăng nhập
@@ -22,7 +29,7 @@ export default function LoginPage() {
     e.preventDefault();
 
     // Reset errors
-    setErrors({ email: "", password: "" });
+    setErrors({ email: "", password: "", general: "" });
 
     // Validate
     let isValid = true;
@@ -48,19 +55,29 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Giả lập API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Gọi API login qua AuthService
+      const result = await AuthService.login(email, password, rememberMe);
 
-      // Giả lập lưu thông tin đăng nhập vào localStorage
-      localStorage.setItem(
-        "user",
-        JSON.stringify({ email, name: "Người dùng" })
-      );
-
-      // Redirect sau khi đăng nhập thành công
-      router.push("/account");
-    } catch (error) {
-      console.error("Login error:", error);
+      // Nếu login thành công, lưu trạng thái và redirect
+      if (result.accessToken) {
+        console.log("Đăng nhập thành công, chuyển hướng đến:", returnUrl);
+        router.replace(returnUrl);
+      } else {
+        throw new Error("Không nhận được token, đăng nhập thất bại");
+      }
+    } catch (error: unknown) {
+      // Xử lý lỗi
+      if (error instanceof Error) {
+        setErrors((prev) => ({
+          ...prev,
+          general: error.message || "Đăng nhập thất bại.",
+        }));
+      } else {
+        setErrors((prev) => ({
+          ...prev,
+          general: "Đã xảy ra lỗi không xác định.",
+        }));
+      }
     } finally {
       setLoading(false);
     }
@@ -72,6 +89,12 @@ export default function LoginPage() {
       <main className="container mx-auto px-4 py-12">
         <div className="max-w-md mx-auto bg-white p-8 rounded-xl shadow-lg">
           <h1 className="text-3xl font-bold mb-6 text-center">Đăng nhập</h1>
+
+          {errors.general && (
+            <div className="p-4 mb-6 text-sm text-red-700 bg-red-100 rounded-lg">
+              {errors.general}
+            </div>
+          )}
 
           <form onSubmit={handleLogin} className="space-y-6">
             {/* Email field */}
@@ -88,6 +111,7 @@ export default function LoginPage() {
                 placeholder="example@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
               />
               {errors.email && (
                 <p className="mt-1 text-red-500 text-sm">{errors.email}</p>
@@ -117,49 +141,14 @@ export default function LoginPage() {
                   placeholder="Nhập mật khẩu"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
                 />
                 <button
                   type="button"
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7A9.97 9.97 0 014.02 8.971m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-                      />
-                    </svg>
-                  ) : (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                      />
-                    </svg>
-                  )}
+                  {showPassword ? "Ẩn" : "Hiện"}
                 </button>
               </div>
               {errors.password && (
@@ -167,68 +156,45 @@ export default function LoginPage() {
               )}
             </div>
 
-            {/* Remember me */}
+            {/* Remember me checkbox */}
             <div className="flex items-center">
               <input
                 type="checkbox"
                 id="remember"
-                className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                className="w-4 h-4 border-gray-300 rounded"
                 checked={rememberMe}
-                onChange={() => setRememberMe(!rememberMe)}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                disabled={loading}
               />
-              <label htmlFor="remember" className="ml-2 text-sm">
-                Nhớ đăng nhập
+              <label htmlFor="remember" className="ml-2 text-sm text-gray-700">
+                Ghi nhớ đăng nhập
               </label>
             </div>
 
             {/* Login button */}
             <button
               type="submit"
-              className={`w-full py-3 ${
-                loading
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-black hover:bg-gray-800"
-              } text-white rounded-lg transition duration-200`}
+              className={`w-full py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition ${
+                loading ? "opacity-70 cursor-not-allowed" : ""
+              }`}
               disabled={loading}
             >
-              {loading ? (
-                <span className="flex justify-center items-center">
-                  <svg
-                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  Đang xử lý...
-                </span>
-              ) : (
-                "Đăng nhập"
-              )}
+              {loading ? "Đang xử lý..." : "Đăng nhập"}
             </button>
-          </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-gray-600">
-              Chưa có tài khoản?{" "}
-              <Link href="/register" className="text-blue-600 hover:underline">
-                Đăng ký ngay
-              </Link>
-            </p>
-          </div>
+            {/* Register link */}
+            <div className="text-center">
+              <span className="text-sm text-gray-600">
+                Bạn chưa có tài khoản?{" "}
+                <Link
+                  href="/register"
+                  className="text-blue-600 hover:underline"
+                >
+                  Đăng ký
+                </Link>
+              </span>
+            </div>
+          </form>
         </div>
       </main>
       <Footer />

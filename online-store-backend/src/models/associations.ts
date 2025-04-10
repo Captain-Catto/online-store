@@ -7,6 +7,7 @@ import ProductCategory from "./ProductCategory";
 import Order from "./Order";
 import OrderDetail from "./OrderDetail";
 import Users from "./Users";
+import UserAddress from "./UserAddress";
 import Role from "./Role";
 import Voucher from "./Voucher";
 import PaymentMethod from "./PaymentMethod";
@@ -102,4 +103,8 @@ export default function initAssociations() {
     as: "paymentStatus",
   });
   PaymentStatus.hasMany(Order, { foreignKey: "paymentStatusId", as: "orders" });
+
+  // user - useraddress
+  Users.hasMany(UserAddress, { foreignKey: "userId", as: "addresses" });
+  UserAddress.belongsTo(Users, { foreignKey: "userId", as: "user" });
 }

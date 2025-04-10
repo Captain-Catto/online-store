@@ -123,11 +123,19 @@ export const ProductService = {
     }
   },
 
-  getProductsByCategory: async (categoryId: string | number) => {
+  getProductsByCategory: async (categoryId: string | number, filters = {}) => {
     try {
-      const response = await fetch(
-        `${API_URL}/products/category/${categoryId}`
-      );
+      // Tạo query params từ object filters
+      const queryParams = new URLSearchParams({
+        ...filters,
+      }).toString();
+
+      // Nối query params vào URL nếu có
+      const url = `${API_URL}/products/category/${categoryId}${
+        queryParams ? `?${queryParams}` : ""
+      }`;
+
+      const response = await fetch(url);
       if (!response.ok) throw new Error("Network response was not ok");
       return await response.json();
     } catch (error) {
@@ -135,6 +143,18 @@ export const ProductService = {
         `Error fetching products for category ${categoryId}:`,
         error
       );
+      throw error;
+    }
+  },
+
+  //lấy thông tin suitabilities
+  getSuitabilities: async () => {
+    try {
+      const response = await fetch(`${API_URL}/suitabilities`);
+      if (!response.ok) throw new Error("Network response was not ok");
+      return await response.json();
+    } catch (error) {
+      console.error("Error fetching suitabilities:", error);
       throw error;
     }
   },

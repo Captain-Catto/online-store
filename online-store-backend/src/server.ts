@@ -33,12 +33,14 @@ import voucherRoutes from "./routes/Voucher.route";
 import productCategoryRoutes from "./routes/ProductCategory.route";
 import productImageRoutes from "./routes/ProductImage.route";
 import orderRoutes from "./routes/Order.route";
+import userAddressRoutes from "./routes/UserAddress.route";
 
 dotenv.config();
 
 const CorsOptions = {
-  origin: "*",
+  origin: "http://localhost:3001",
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+  credentials: true,
   preflightContinue: false,
   optionsSuccessStatus: 204,
 };
@@ -59,6 +61,7 @@ app.use("/api/vouchers", voucherRoutes);
 app.use("/api/product-categories", productCategoryRoutes);
 app.use("/api/product-images", productImageRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/user-addresses", userAddressRoutes);
 // Middleware xử lý lỗi
 
 // Kết nối DB

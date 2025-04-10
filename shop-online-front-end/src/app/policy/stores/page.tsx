@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/Header/Header";
 import Footer from "@/components/Footer/Footer";
+import img1 from "@/assets/imgs/store/store1.webp";
 
 // Dữ liệu mẫu các cửa hàng
 const storeLocations = [
@@ -15,7 +16,7 @@ const storeLocations = [
     city: "TP. Hồ Chí Minh",
     phone: "028 1234 5678",
     hours: "09:00 - 22:00",
-    image: "/images/store1.jpg",
+    image: img1,
     mapUrl:
       "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3919.4241668556!2d106.70141067469741!3d10.77684088936141!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31752f4670702e31%3A0xa5777fb3a5bb9972!2zMTIzIMSQxrDhu51uZyBOZ3V54buFbiBI4buHLCBC4bq_biBOZ2jDqSwgUXXhuq1uIDEsIFRow6BuaCBwaOG7kSBI4buTIENow60gTWluaCwgVmnhu4d0IE5hbQ!5e0!3m2!1svi!2s!4v1711717168370!5m2!1svi!2s",
     featured: true,
@@ -89,8 +90,7 @@ const cities = [...new Set(storeLocations.map((store) => store.city))];
 
 export default function StoresPage() {
   const [selectedCity, setSelectedCity] = useState("all");
-  const [selectedStore, setSelectedStore] = useState<number | null>(null);
-
+  const [visibleMaps, setVisibleMaps] = useState<Record<number, boolean>>({});
   // Lọc cửa hàng theo thành phố
   const filteredStores =
     selectedCity === "all"
@@ -99,7 +99,10 @@ export default function StoresPage() {
 
   // Xử lý khi click vào cửa hàng để xem bản đồ
   const handleStoreClick = (storeId: number) => {
-    setSelectedStore(storeId === selectedStore ? null : storeId);
+    setVisibleMaps((prev) => ({
+      ...prev,
+      [storeId]: !prev[storeId],
+    }));
   };
 
   return (
@@ -182,9 +185,7 @@ export default function StoresPage() {
                           onClick={() => handleStoreClick(store.id)}
                           className="text-blue-600 hover:underline"
                         >
-                          {selectedStore === store.id
-                            ? "Ẩn bản đồ"
-                            : "Xem bản đồ"}
+                          {visibleMaps[store.id] ? "Ẩn bản đồ" : "Xem bản đồ"}
                         </button>
                         <Link
                           href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
@@ -198,17 +199,17 @@ export default function StoresPage() {
                         </Link>
                       </div>
                       {/* Map embed */}
-                      {selectedStore === store.id && (
-                        <div className="mt-4 h-64 w-full">
+                      {visibleMaps[store.id] && (
+                        <div className="mt-4 h-64">
                           <iframe
                             src={store.mapUrl}
                             width="100%"
                             height="100%"
                             style={{ border: 0 }}
-                            allowFullScreen={false}
+                            allowFullScreen
                             loading="lazy"
                             referrerPolicy="no-referrer-when-downgrade"
-                            className="rounded-lg"
+                            title={`Bản đồ ${store.name}`}
                           ></iframe>
                         </div>
                       )}
@@ -250,9 +251,7 @@ export default function StoresPage() {
                           onClick={() => handleStoreClick(store.id)}
                           className="text-blue-600 hover:underline"
                         >
-                          {selectedStore === store.id
-                            ? "Ẩn bản đồ"
-                            : "Xem bản đồ"}
+                          {visibleMaps[store.id] ? "Ẩn bản đồ" : "Xem bản đồ"}
                         </button>
                         <Link
                           href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
@@ -266,17 +265,17 @@ export default function StoresPage() {
                         </Link>
                       </div>
                       {/* Map embed */}
-                      {selectedStore === store.id && (
-                        <div className="mt-4 h-48 w-full">
+                      {visibleMaps[store.id] && (
+                        <div className="mt-4 h-64">
                           <iframe
                             src={store.mapUrl}
                             width="100%"
                             height="100%"
                             style={{ border: 0 }}
-                            allowFullScreen={false}
+                            allowFullScreen
                             loading="lazy"
                             referrerPolicy="no-referrer-when-downgrade"
-                            className="rounded-lg"
+                            title={`Bản đồ ${store.name}`}
                           ></iframe>
                         </div>
                       )}

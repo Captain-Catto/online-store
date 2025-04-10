@@ -4,12 +4,14 @@ import Link from "next/link";
 interface UserLeftProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  onLogout?: () => void;
 }
 
 export const UserLeft: React.FC<UserLeftProps> = ({
   activeTab,
   setActiveTab,
 }) => {
+  console.log("activetab", activeTab);
   return (
     <div className="bg-gray-100 p-4 rounded-lg">
       <ul className="space-y-2">
