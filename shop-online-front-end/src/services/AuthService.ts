@@ -1,5 +1,3 @@
-const COOKIE_NAME = "refreshToken";
-
 // Hàm Helper để lấy giá trị từ cookie
 const getCookie = (name: string): string | null => {
   if (typeof window === "undefined") return null;
@@ -29,7 +27,10 @@ export const AuthService = {
     email: string,
     password: string,
     rememberMe: boolean = false
-  ): Promise<any> => {
+  ): Promise<{
+    accessToken: string;
+    user: { id: string; username: string; email: string; roleId: string };
+  }> => {
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
@@ -79,7 +80,7 @@ export const AuthService = {
   logout: async (): Promise<void> => {
     try {
       // Gọi API logout
-      const response = await fetch("/api/auth/logout", {
+      await fetch("/api/auth/logout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });

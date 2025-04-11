@@ -1,5 +1,4 @@
 import React from "react";
-import Link from "next/link";
 
 interface UserLeftProps {
   activeTab: string;
@@ -10,6 +9,7 @@ interface UserLeftProps {
 export const UserLeft: React.FC<UserLeftProps> = ({
   activeTab,
   setActiveTab,
+  onLogout,
 }) => {
   console.log("activetab", activeTab);
   return (
@@ -61,8 +61,11 @@ export const UserLeft: React.FC<UserLeftProps> = ({
         >
           Chính sách & câu hỏi thường gặp
         </li>
-        <li className="p-3 rounded-md cursor-pointer transition-all hover:bg-red-100 hover:text-red-600">
-          <Link href="/api/auth/logout">Đăng xuất</Link>
+        <li
+          className="p-3 rounded-md cursor-pointer transition-all hover:bg-red-100 hover:text-red-600"
+          onClick={onLogout}
+        >
+          Đăng xuất
         </li>
       </ul>
     </div>

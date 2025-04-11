@@ -11,11 +11,17 @@ class Order extends Model {
   public total!: number;
   public subtotal!: number;
   public voucherDiscount!: number;
+  public shippingFee!: number;
+  public shippingBasePrice!: number;
+  public shippingDiscount!: number;
   public status!: string;
   public paymentMethodId!: number;
   public paymentStatusId!: number;
   public shippingAddress!: string;
   public phoneNumber!: string;
+  public cancelNote!: string | null;
+  public refundAmount!: number | null;
+  public refundReason!: string | null;
 }
 
 Order.init(
@@ -83,6 +89,22 @@ Order.init(
     refundReason: {
       type: DataTypes.TEXT,
       allowNull: true,
+    },
+
+    shippingFee: {
+      type: DataTypes.FLOAT,
+      allowNull: false,
+      defaultValue: 0,
+    },
+    shippingBasePrice: {
+      type: DataTypes.FLOAT,
+      allowNull: false,
+      defaultValue: 0,
+    },
+    shippingDiscount: {
+      type: DataTypes.FLOAT,
+      allowNull: false,
+      defaultValue: 0,
     },
   },
   {

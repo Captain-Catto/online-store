@@ -48,7 +48,7 @@ export const refreshToken = async (
 // Đăng ký
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password, username } = req.body;
+    const { email, password } = req.body;
 
     // Kiểm tra email đã tồn tại chưa
     const user = await Users.findOne({ where: { email } });
@@ -63,7 +63,6 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     // Tạo user mới
     await Users.create({
       email,
-      username,
       password: hashedPassword,
     });
 

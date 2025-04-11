@@ -8,6 +8,8 @@ import { UserRight } from "@/components/User/User-right";
 import { useState, useEffect, useCallback } from "react";
 import { UserService } from "@/services/UserService";
 import { jwtDecode } from "jwt-decode";
+import { OrderService } from "@/services/OrderService";
+import { useSearchParams } from "next/navigation";
 
 // Interface địa chỉ dựa trên API response
 interface Address {
@@ -46,7 +48,11 @@ export default function AccountPage() {
     role: number;
   } | null>(null);
   const [addressError, setAddressError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("account");
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => {
+    // Lấy tab từ URL hoặc mặc định là "account"
+    return searchParams.get("tab") || "account";
+  });
 
   // States for user data
   const [accountData, setAccountData] = useState({
@@ -74,11 +80,11 @@ export default function AccountPage() {
 
   const [promotionsData, setPromotionsData] = useState<Promotion[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
 
   // Kiểm tra đăng nhập và lấy thông tin user khi component mount
   useEffect(() => {
     const token = sessionStorage.getItem("authToken");
-    console.log("token", token);
 
     if (!token) {
       // Nếu không có token, chuyển hướng về trang login
@@ -89,7 +95,6 @@ export default function AccountPage() {
     try {
       // Giải mã token để lấy thông tin user
       const tokenData = jwtDecode<JwtPayload>(token);
-      console.log("Token data:", tokenData);
 
       // Tạo đối tượng user từ dữ liệu token
       const userData = {
@@ -122,8 +127,6 @@ export default function AccountPage() {
       setDataLoading(true);
       setAddressError(null);
 
-      console.log("Bắt đầu gọi API getAddresses thông qua UserService...");
-
       const token = sessionStorage.getItem("authToken");
       if (!token) {
         throw new Error("Không tìm thấy token xác thực");
@@ -151,6 +154,42 @@ export default function AccountPage() {
     }
   }, []);
 
+  const fetchOrders = useCallback(async () => {
+    try {
+      setDataLoading(true);
+      setOrderError(null); // Thêm state orderError
+
+      const orders = await OrderService.getMyOrders();
+
+      // Chuyển đổi từ API response sang định dạng đơn hàng hiện tại trong UI
+      const formattedOrders = orders.map((order) => ({
+        id: order.id.toString(),
+        date: new Date(order.createdAt).toLocaleDateString("vi-VN"),
+        status: mapOrderStatus(order.status), // Hàm chuyển đổi trạng thái
+        total: `${order.total.toLocaleString("vi-VN")} VND`,
+      }));
+
+      setOrdersData(formattedOrders);
+    } catch (error) {
+      console.error("Lỗi khi lấy danh sách đơn hàng:", error);
+      setOrderError("Không thể tải danh sách đơn hàng");
+    } finally {
+      setDataLoading(false);
+    }
+  }, []);
+
+  // Hàm chuyển đổi trạng thái từ API sang tiếng Việt
+  const mapOrderStatus = (status: string) => {
+    const statusMap: Record<string, string> = {
+      processing: "Đang xử lý",
+      shipping: "Đang vận chuyển",
+      delivered: "Đã giao",
+      canceled: "Đã hủy",
+      refunded: "Đã hoàn tiền",
+    };
+    return statusMap[status] || status;
+  };
+
   // Fetch user data when component mounts or active tab changes
   useEffect(() => {
     if (isLoggedIn && user) {
@@ -163,8 +202,11 @@ export default function AccountPage() {
 
       // Chỉ tải dữ liệu địa chỉ khi tab là 'addresses' để tối ưu performance
       if (activeTab === "addresses") {
-        console.log("Đang kích hoạt tab addresses...");
         fetchAddresses();
+      }
+
+      if (activeTab === "orders") {
+        fetchOrders();
       }
 
       // Giữ nguyên mock data cho các phần khác
@@ -198,7 +240,7 @@ export default function AccountPage() {
         },
       ]);
     }
-  }, [isLoggedIn, user, activeTab, fetchAddresses]);
+  }, [isLoggedIn, user, activeTab, fetchAddresses, fetchOrders]);
 
   const handleLogout = () => {
     // Xóa token và user data
@@ -260,13 +302,19 @@ export default function AccountPage() {
             <UserRight
               activeTab={activeTab}
               isLoading={dataLoading}
-              hasError={!!addressError}
-              errorMessage={addressError || ""}
+              hasError={!!addressError || !!orderError}
+              errorMessage={addressError || orderError || ""}
               accountData={accountData}
               ordersData={ordersData}
               addressesData={addressesData}
               promotionsData={promotionsData}
-              onRetryFetch={fetchAddresses}
+              onRetryFetch={
+                activeTab === "addresses"
+                  ? fetchAddresses
+                  : activeTab === "orders"
+                  ? fetchOrders
+                  : undefined
+              }
             />
           </div>
         </div>

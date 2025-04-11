@@ -3,6 +3,7 @@ import {
   createOrder,
   getUserOrders,
   getOrderById,
+  calculateShippingFeeForCart,
 } from "../controllers/Order.Controller";
 import {
   updateOrderStatus,
@@ -59,5 +60,8 @@ router.post("/:id/refund", authMiddleware, roleMiddleware([1]), processRefund);
 
 // Hủy đơn hàng (user và admin)
 router.put("/:id/cancel", authMiddleware, cancelOrder);
+
+// Tính phí vận chuyển cho giỏ hàng
+router.post("/shipping-fee", calculateShippingFeeForCart);
 
 export default router;

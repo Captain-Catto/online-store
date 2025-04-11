@@ -7,55 +7,38 @@ import CartItems from "../../components/Cart/CartItems";
 import OrderSummary from "../../components/Cart/OrderSummary";
 import {
   getCartFromCookie,
-  //   saveCartToCookie,
   updateCartItemQuantity,
   removeFromCart,
   CartItem,
+  getCartItemCount,
 } from "../../util/cartUtils";
 import Header from "../../components/Header/Header";
 import Footer from "../../components/Footer/Footer";
+import { AuthService } from "@/services/AuthService";
 
 export default function CartPage() {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [promoDiscount, setPromoDiscount] = useState(0);
-  const [orderSummary, setOrderSummary] = useState({
-    subtotal: 0,
-    discount: 0,
-    deliveryFee: 15000,
-    total: 0,
-  });
+  const [subtotal, setSubtotal] = useState(0);
 
   // Load cart items and check login status
   useEffect(() => {
-    const isLoggedIn = true; // Replace with AuthService.isLoggedIn() if available
+    const isLoggedIn = AuthService.isLoggedIn();
     setIsLoggedIn(isLoggedIn);
 
     const cookieCart = getCartFromCookie();
     setCartItems(cookieCart);
   }, []);
 
-  // Update order summary when cart items or promoDiscount change
+  // Calculate subtotal when cart items change
   useEffect(() => {
-    const subtotal = cartItems.reduce(
+    const calculatedSubtotal = cartItems.reduce(
       (sum, item) => sum + (item.price || 0) * item.quantity,
       0
     );
-
-    // Nếu mã giảm giá đã được áp dụng, tính lại promoDiscount
-    const discount = promoDiscount > 0 ? Math.round(subtotal * 0.25) : 0;
-    const deliveryFee = 15000;
-    const total = subtotal - discount + deliveryFee;
-
-    setPromoDiscount(discount); // Cập nhật promoDiscount
-    setOrderSummary({
-      subtotal,
-      discount,
-      deliveryFee,
-      total,
-    });
-  }, [cartItems, promoDiscount]);
+    setSubtotal(calculatedSubtotal);
+  }, [cartItems]);
 
   const handleQuantityChange = (
     itemId: string,
@@ -63,50 +46,69 @@ export default function CartPage() {
     color: string,
     size: string
   ) => {
+    if (newQuantity <= 0) {
+      setCartItems(removeFromCart(itemId, color, size));
+
+      // Phát sự kiện cart-updated khi xóa sản phẩm
+      const event = new CustomEvent("cart-updated", {
+        detail: { count: getCartItemCount() },
+      });
+      window.dispatchEvent(event);
+      return;
+    }
+
     const updatedCart = updateCartItemQuantity(
       itemId,
       color,
       size,
       newQuantity
     );
-    // nếu số lượng sản phẩm = 0, xóa sản phẩm khỏi giỏ hàng
-    if (newQuantity <= 0) {
-      setCartItems(removeFromCart(itemId, color, size));
-      return;
-    }
     setCartItems(updatedCart);
+
+    // Phát sự kiện cart-updated khi thay đổi số lượng
+    const event = new CustomEvent("cart-updated", {
+      detail: { count: getCartItemCount() },
+    });
+    window.dispatchEvent(event);
   };
 
   const handleRemoveItem = (itemId: string, color: string, size: string) => {
     const updatedCart = removeFromCart(itemId, color, size);
     setCartItems(updatedCart);
+
+    // Phát sự kiện cart-updated khi xóa sản phẩm
+    const event = new CustomEvent("cart-updated", {
+      detail: { count: getCartItemCount() },
+    });
+    window.dispatchEvent(event);
   };
 
-  const handleApplyPromo = (promoCode: string) => {
-    if (promoCode.trim().toLowerCase() === "discount25") {
-      setPromoDiscount(1); // Đặt trạng thái để kích hoạt tính toán trong useEffect
-      console.log("Promo code applied successfully!");
-    } else {
-      setPromoDiscount(0); // Xóa giảm giá nếu mã không hợp lệ
-      console.log("Invalid or expired promo code!");
-    }
-  };
-
+  // Trong trang Cart (khi người dùng nhấn Checkout)
   const handleCheckout = () => {
     if (cartItems.length === 0) {
-      console.log("Your cart is empty!");
+      console.log("Giỏ hàng của bạn đang trống!");
       return;
     }
 
     if (!isLoggedIn) {
-      alert("Please log in to proceed to checkout!");
+      alert("Vui lòng đăng nhập để tiếp tục thanh toán!");
       router.push("/login");
       return;
     }
 
-    router.push(
-      `/checkout?subtotal=${orderSummary.subtotal}&discount=${orderSummary.discount}&total=${orderSummary.total}`
-    );
+    // Lưu thông tin đơn hàng vào sessionStorage (chỉ lưu các sản phẩm và tạm tính)
+    const orderData = {
+      items: cartItems,
+      summary: {
+        subtotal: subtotal,
+      },
+      timestamp: new Date().getTime(),
+    };
+
+    sessionStorage.setItem("pendingOrder", JSON.stringify(orderData));
+
+    // Chuyển hướng đến trang checkout
+    router.push("/checkout");
   };
 
   return (
@@ -135,25 +137,38 @@ export default function CartPage() {
         </div>
         <h1 className="text-3xl font-bold mb-8">Giỏ hàng của bạn</h1>
 
-        <div className="flex flex-col lg:flex-row gap-6">
-          <CartItems
-            items={cartItems}
-            // trong cartItems có quantity mà typescript đang hiểu là có thể undefined
-            // hiện em chưa biết cách khắc phục, gpt cho code xịn quá em không hiểu
-            onQuantityChange={handleQuantityChange}
-            onRemove={handleRemoveItem}
-          />
+        {cartItems.length === 0 ? (
+          <div className="text-center py-12">
+            <h2 className="text-2xl font-medium mb-4">Giỏ hàng trống</h2>
+            <p className="text-gray-600 mb-6">
+              Bạn chưa có sản phẩm nào trong giỏ hàng.
+            </p>
+            <Link
+              href="/categories"
+              className="inline-block bg-black text-white px-6 py-3 rounded hover:bg-gray-800 transition"
+            >
+              Tiếp tục mua sắm
+            </Link>
+          </div>
+        ) : (
+          <div className="flex flex-col lg:flex-row gap-6">
+            <CartItems
+              items={cartItems.map((item) => ({
+                ...item,
+                price: item.price ?? 0,
+                image: item.image ?? "",
+              }))}
+              onQuantityChange={handleQuantityChange}
+              onRemove={handleRemoveItem}
+            />
 
-          <OrderSummary
-            subtotal={orderSummary.subtotal}
-            discount={orderSummary.discount}
-            promoDiscount={promoDiscount}
-            deliveryFee={orderSummary.deliveryFee}
-            total={orderSummary.total}
-            onApplyPromo={handleApplyPromo}
-            onCheckout={handleCheckout}
-          />
-        </div>
+            <OrderSummary
+              subtotal={subtotal}
+              onCheckout={handleCheckout}
+              isEmpty={cartItems.length === 0}
+            />
+          </div>
+        )}
       </main>
       <Footer />
     </>

@@ -39,7 +39,7 @@ OrderDetail.init(
     },
     productDetailId: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true, // Sửa thành true để tương thích với ON DELETE SET NULL
       references: { model: ProductDetail, key: "id" },
     },
     quantity: {

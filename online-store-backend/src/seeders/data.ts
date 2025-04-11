@@ -250,7 +250,7 @@ const productDetails = [
   },
 ];
 
-// 6. ProductInventory - Kích thước và tồn kho cho từng biến thể màu sắc (giữ nguyên)
+// 6. ProductInventory - Cập nhật và bổ sung dữ liệu kho hàng cho tất cả sản phẩm
 const productInventories = [
   // Áo thun nam cotton - Đen (productDetailId: 1)
   { productDetailId: 1, size: "S", stock: 100 },
@@ -266,9 +266,69 @@ const productInventories = [
   { productDetailId: 3, size: "S", stock: 70 },
   { productDetailId: 3, size: "M", stock: 90 },
   { productDetailId: 3, size: "L", stock: 85 },
+
+  // Áo thể thao jacquard seamless - Đen (productDetailId: 4)
+  { productDetailId: 4, size: "S", stock: 60 },
+  { productDetailId: 4, size: "M", stock: 80 },
+  { productDetailId: 4, size: "L", stock: 70 },
+
+  // Áo thể thao jacquard seamless - Xám (productDetailId: 5)
+  { productDetailId: 5, size: "S", stock: 65 },
+  { productDetailId: 5, size: "M", stock: 75 },
+  { productDetailId: 5, size: "L", stock: 60 },
+
+  // Áo thể thao jacquard seamless - Xanh (productDetailId: 6)
+  { productDetailId: 6, size: "S", stock: 55 },
+  { productDetailId: 6, size: "M", stock: 70 },
+  { productDetailId: 6, size: "L", stock: 65 },
+
+  // Áo thun thỏ 7 màu - Đen (productDetailId: 7)
+  { productDetailId: 7, size: "S", stock: 50 },
+  { productDetailId: 7, size: "M", stock: 65 },
+  { productDetailId: 7, size: "L", stock: 45 },
+
+  // Áo thun relaxed fit - Run now, Rest later - Đen (productDetailId: 8)
+  { productDetailId: 8, size: "S", stock: 55 },
+  { productDetailId: 8, size: "M", stock: 75 },
+  { productDetailId: 8, size: "L", stock: 50 },
+
+  // Áo thun relaxed fit - Run now, Rest later - Trắng (productDetailId: 9)
+  { productDetailId: 9, size: "S", stock: 60 },
+  { productDetailId: 9, size: "M", stock: 80 },
+  { productDetailId: 9, size: "L", stock: 60 },
+
+  // Áo thun relaxed fit Pluto - Trắng (productDetailId: 10)
+  { productDetailId: 10, size: "S", stock: 70 },
+  { productDetailId: 10, size: "M", stock: 90 },
+  { productDetailId: 10, size: "L", stock: 65 },
+
+  // Áo thun relaxed fit Donald picnic - Trắng (productDetailId: 11)
+  { productDetailId: 11, size: "S", stock: 65 },
+  { productDetailId: 11, size: "M", stock: 85 },
+  { productDetailId: 11, size: "L", stock: 60 },
+
+  // Áo thun jersey Mickey - Xanh (productDetailId: 12)
+  { productDetailId: 12, size: "S", stock: 55 },
+  { productDetailId: 12, size: "M", stock: 70 },
+  { productDetailId: 12, size: "L", stock: 50 },
+
+  // Áo thun dài tay Cotton Compact - Trắng (productDetailId: 13)
+  { productDetailId: 13, size: "S", stock: 45 },
+  { productDetailId: 13, size: "M", stock: 65 },
+  { productDetailId: 13, size: "L", stock: 40 },
+
+  // Áo thun dài tay Cotton Compact - Xám (productDetailId: 14)
+  { productDetailId: 14, size: "S", stock: 50 },
+  { productDetailId: 14, size: "M", stock: 70 },
+  { productDetailId: 14, size: "L", stock: 45 },
+
+  // Áo thun dài tay Cotton Compact - Xám đậm (productDetailId: 15)
+  { productDetailId: 15, size: "S", stock: 40 },
+  { productDetailId: 15, size: "M", stock: 60 },
+  { productDetailId: 15, size: "L", stock: 35 },
 ];
 
-// 7. ProductImage - MỚI: thêm dữ liệu cho bảng ProductImage
+// 7. ProductImage - Bổ sung ảnh cho tất cả sản phẩm
 const productImages = [
   // Áo thun nam cotton - Đen (productDetailId: 1)
   {
@@ -330,7 +390,6 @@ const productImages = [
     displayOrder: 2,
   },
 
-  // Thêm dữ liệu cho các productDetail khác (tương tự như cách lưu ở imagePath trước đây)
   // Áo thể thao jacquard seamless - Đen (productDetailId: 4)
   {
     productDetailId: 4,
@@ -358,17 +417,120 @@ const productImages = [
     isMain: true,
     displayOrder: 0,
   },
-  // ... tiếp tục cho các sản phẩm khác
+  {
+    productDetailId: 5,
+    url: `${S3_BASE_URL}/ao-thun-the-thao-jacquard-seamless/xam2.webp`,
+    isMain: false,
+    displayOrder: 1,
+  },
+
+  // Áo thể thao jacquard seamless - Xanh (productDetailId: 6)
+  {
+    productDetailId: 6,
+    url: `${S3_BASE_URL}/ao-thun-the-thao-jacquard-seamless/xanh1.webp`,
+    isMain: true,
+    displayOrder: 0,
+  },
+
+  // Ảnh cho các sản phẩm còn lại (productDetailId 7-15)
+  // Đây là ảnh mẫu, bạn nên thay thế bằng URL thật của các sản phẩm
+  {
+    productDetailId: 7,
+    url: `${S3_BASE_URL}/default-product-image.jpg`,
+    isMain: true,
+    displayOrder: 0,
+  },
+
+  {
+    productDetailId: 8,
+    url: `${S3_BASE_URL}/default-product-image.jpg`,
+    isMain: true,
+    displayOrder: 0,
+  },
+
+  {
+    productDetailId: 9,
+    url: `${S3_BASE_URL}/default-product-image.jpg`,
+    isMain: true,
+    displayOrder: 0,
+  },
+
+  {
+    productDetailId: 10,
+    url: `${S3_BASE_URL}/default-product-image.jpg`,
+    isMain: true,
+    displayOrder: 0,
+  },
+
+  {
+    productDetailId: 11,
+    url: `${S3_BASE_URL}/default-product-image.jpg`,
+    isMain: true,
+    displayOrder: 0,
+  },
+
+  {
+    productDetailId: 12,
+    url: `${S3_BASE_URL}/default-product-image.jpg`,
+    isMain: true,
+    displayOrder: 0,
+  },
+
+  {
+    productDetailId: 13,
+    url: `${S3_BASE_URL}/default-product-image.jpg`,
+    isMain: true,
+    displayOrder: 0,
+  },
+
+  {
+    productDetailId: 14,
+    url: `${S3_BASE_URL}/default-product-image.jpg`,
+    isMain: true,
+    displayOrder: 0,
+  },
+
+  {
+    productDetailId: 15,
+    url: `${S3_BASE_URL}/default-product-image.jpg`,
+    isMain: true,
+    displayOrder: 0,
+  },
 ];
 
-// 8. ProductCategory (Many-to-Many relationship) - Giữ nguyên
+// 8. ProductCategory - Bổ sung đầy đủ các mối quan hệ sản phẩm-danh mục
 const productCategories = [
+  // Sản phẩm 1: Áo thun nam cotton
   { productId: 1, categoryId: 1 }, // Áo thun nam cotton -> Áo
   { productId: 1, categoryId: 6 }, // Áo thun nam cotton -> Hàng mới
-  // ... Các mục khác giữ nguyên
+
+  // Sản phẩm 2: Áo thể thao Jacquard Seamless
+  { productId: 2, categoryId: 1 }, // Áo thể thao -> Áo
+
+  // Sản phẩm 3: Áo thun thỏ 7 màu - Năm Hên
+  { productId: 3, categoryId: 1 }, // Áo thun thỏ -> Áo
+  { productId: 3, categoryId: 6 }, // Áo thun thỏ -> Hàng mới
+
+  // Sản phẩm 4: Áo thun relaxed fit - Run now, Rest later
+  { productId: 4, categoryId: 1 }, // Áo thun relaxed fit -> Áo
+
+  // Sản phẩm 5: Áo thun relaxed fit Pluto
+  { productId: 5, categoryId: 1 }, // Áo thun relaxed fit Pluto -> Áo
+  { productId: 5, categoryId: 5 }, // Áo thun relaxed fit Pluto -> Sale
+
+  // Sản phẩm 6: Áo thun relaxed fit Donald picnic
+  { productId: 6, categoryId: 1 }, // Áo thun relaxed fit Donald -> Áo
+  { productId: 6, categoryId: 5 }, // Áo thun relaxed fit Donald -> Sale
+
+  // Sản phẩm 7: Áo thun jersey Mickey
+  { productId: 7, categoryId: 1 }, // Áo thun jersey -> Áo
+
+  // Sản phẩm 8: Áo thun dài tay Cotton Compact
+  { productId: 8, categoryId: 1 }, // Áo thun dài tay -> Áo
+  { productId: 8, categoryId: 6 }, // Áo thun dài tay -> Hàng mới
 ];
 
-// 9-10. PaymentMethods, PaymentStatus, Vouchers - Giữ nguyên
+// 9. PaymentMethods - Phương thức thanh toán
 const paymentMethods = [
   { name: "COD" },
   { name: "Credit Card" },
@@ -376,6 +538,7 @@ const paymentMethods = [
   { name: "Bank Transfer" },
 ];
 
+// 10. PaymentStatus - Trạng thái thanh toán
 const paymentStatuses = [
   { name: "Pending", description: "Pending" },
   { name: "Paid", description: "Paid" },
@@ -383,6 +546,7 @@ const paymentStatuses = [
   { name: "Refunded", description: "Refunded" },
 ];
 
+// 11. Vouchers - Mã giảm giá
 const vouchers = [
   {
     code: "WELCOME10",
@@ -404,6 +568,40 @@ const vouchers = [
   },
 ];
 
+// 12. UserAddress - Địa chỉ người dùng (dữ liệu mới)
+const userAddresses = [
+  {
+    userId: 2, // user1
+    fullName: "Nguyễn Văn A",
+    phoneNumber: "0901234567",
+    streetAddress: "123 Đường Nguyễn Huệ",
+    ward: "Phường Bến Nghé",
+    district: "Quận 1",
+    city: "TP. Hồ Chí Minh",
+    isDefault: true,
+  },
+  {
+    userId: 2, // user1
+    fullName: "Nguyễn Văn A - Công ty",
+    phoneNumber: "0901234567",
+    streetAddress: "456 Đường Lê Lợi",
+    ward: "Phường Bến Thành",
+    district: "Quận 1",
+    city: "TP. Hồ Chí Minh",
+    isDefault: false,
+  },
+  {
+    userId: 3, // user2
+    fullName: "Trần Thị B",
+    phoneNumber: "0987654321",
+    streetAddress: "45 Phố Hàng Bài",
+    ward: "Phường Hàng Bài",
+    district: "Quận Hoàn Kiếm",
+    city: "Hà Nội",
+    isDefault: true,
+  },
+];
+
 export {
   roles,
   users,
@@ -411,9 +609,10 @@ export {
   products,
   productDetails,
   productInventories,
-  productImages, // Export thêm productImages
+  productImages,
   productCategories,
   paymentMethods,
   paymentStatuses,
   vouchers,
+  userAddresses, // Thêm export userAddresses
 };

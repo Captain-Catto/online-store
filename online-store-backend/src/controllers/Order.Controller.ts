@@ -21,8 +21,12 @@ export const createOrder = async (
     const { items, paymentMethodId, voucherId, shippingAddress, phoneNumber } =
       req.body;
 
+    if (!req.user) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
     // Lấy user ID từ token
-    const userId = req.body.user.id;
+    const userId = req.user.id;
 
     if (!items || !items.length) {
       await t.rollback();
@@ -153,6 +157,10 @@ export const createOrder = async (
       appliedVoucher = voucher;
     }
 
+    // Tính phí vận chuyển
+    const shippingCalculation = calculateShippingFee(total, shippingAddress);
+    const shippingFee = shippingCalculation.finalFee;
+
     // Tính tổng tiền sau khi áp dụng voucher
     const finalTotal = total - voucherDiscount;
 
@@ -160,7 +168,7 @@ export const createOrder = async (
     const newOrder = await Order.create(
       {
         userId,
-        total: finalTotal,
+        total: finalTotal + shippingFee,
         status: "pending",
         paymentMethodId,
         paymentStatusId: 1, // pending
@@ -168,6 +176,9 @@ export const createOrder = async (
         phoneNumber,
         voucherDiscount: voucherDiscount,
         subtotal: total,
+        shippingFee: shippingFee,
+        shippingBasePrice: shippingCalculation.baseFee, // Lưu phí gốc
+        shippingDiscount: shippingCalculation.discount, // Lưu khoản giảm giá
       },
       { transaction: t }
     );
@@ -210,9 +221,6 @@ export const createOrder = async (
     res.status(201).json({
       message: "Đặt hàng thành công",
       orderId: newOrder.id,
-      total: finalTotal,
-      voucherDiscount,
-      subtotal: total,
     });
   } catch (error: any) {
     await t.rollback();
@@ -232,7 +240,11 @@ export const getUserOrders = async (
   res: Response
 ): Promise<void> => {
   try {
-    const userId = req.body.user.id;
+    if (!req.user) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+    const userId = req.user.id;
 
     const orders = await Order.findAll({
       where: { userId },
@@ -267,7 +279,11 @@ export const getOrderById = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const userId = req.body.user.id;
+    if (!req.user) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+    const userId = req.user.id;
 
     const order = await Order.findOne({
       where: { id },
@@ -438,6 +454,82 @@ export const cancelOrder = async (
     res.status(200).json({ message: "Hủy đơn hàng thành công" });
   } catch (error: any) {
     await t.rollback();
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * Calculate shipping fee based on order total and shipping address
+ */
+const calculateShippingFee = (
+  subtotal: number,
+  shippingAddress: string
+): { baseFee: number; discount: number; finalFee: number } => {
+  // Tính phí giao hàng cơ bản dựa trên địa điểm
+  let baseFee = 30000;
+
+  // Phí cao hơn cho các tỉnh xa
+  if (
+    shippingAddress.toLowerCase().includes("hồ chí minh") ||
+    shippingAddress.toLowerCase().includes("ho chi minh") ||
+    shippingAddress.toLowerCase().includes("hcm")
+  ) {
+    baseFee = 50000; // Phí trong TP.HCM
+  } else if (
+    shippingAddress.toLowerCase().includes("hà nội") ||
+    shippingAddress.toLowerCase().includes("ha noi")
+  ) {
+    baseFee = 100000; // Phí giao đến Hà Nội
+  } else {
+    baseFee = 120000; // Phí giao đến tỉnh thành khác
+  }
+
+  // Miễn phí vận chuyển cho đơn hàng từ 1,000,000đ (tối đa 100,000đ)
+  let discount = 0;
+  if (subtotal >= 1000000) {
+    discount = Math.min(baseFee, 100000);
+  }
+
+  // Tính phí vận chuyển cuối cùng
+  const finalFee = baseFee - discount;
+
+  return {
+    baseFee,
+    discount,
+    finalFee,
+  };
+};
+
+/**
+ * Calculate shipping fee for current cart
+ */
+export const calculateShippingFeeForCart = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { subtotal, shippingAddress } = req.body;
+
+    // Validate input
+    if (!subtotal || !shippingAddress) {
+      res.status(400).json({
+        message: "Vui lòng cung cấp giá trị đơn hàng và địa chỉ giao hàng",
+      });
+      return;
+    }
+
+    // Tính phí vận chuyển
+    const shippingCalculation = calculateShippingFee(subtotal, shippingAddress);
+
+    // Chỉ trả về dữ liệu, không trả về message
+    res.status(200).json({
+      shipping: {
+        baseFee: shippingCalculation.baseFee,
+        discount: shippingCalculation.discount,
+        finalFee: shippingCalculation.finalFee,
+      },
+    });
+  } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
 };

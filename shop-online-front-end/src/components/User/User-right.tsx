@@ -1,6 +1,7 @@
 import React from "react";
 import { useState, useRef, useEffect } from "react";
 import { UserService } from "../../services/UserService";
+import Link from "next/link";
 
 // Types
 interface User {
@@ -201,9 +202,12 @@ const MyOrders: React.FC<{ data?: Order[] | null }> = ({ data }) => {
                   {order.total}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  <button className="text-blue-600 hover:text-blue-900">
+                  <Link
+                    href={`/account/orders/${order.id}`}
+                    className="text-blue-600 hover:text-blue-900"
+                  >
                     Chi tiết
-                  </button>
+                  </Link>
                 </td>
               </tr>
             ))}
@@ -221,7 +225,6 @@ const Addresses: React.FC<{
   error?: string | null;
   onRetry?: () => void;
 }> = ({ data, isLoading, error, onRetry }) => {
-  const [editingAddress, setEditingAddress] = useState<Address | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [formData, setFormData] = useState<Partial<Address>>({});
   // Thêm state để quản lý dialog xác nhận xóa
@@ -244,9 +247,20 @@ const Addresses: React.FC<{
     isDefault: false,
   });
   // state cho địa điểm
-  const [locations, setLocations] = useState<any>({});
+  const [locations, setLocations] = useState<
+    Record<string, Record<string, string[]>>
+  >({});
   const [selectedCity, setSelectedCity] = useState("");
   const [selectedDistrict, setSelectedDistrict] = useState("");
+  // Thêm state để quản lý lỗi form
+  const [formErrors, setFormErrors] = useState<{
+    [key: string]: string;
+  }>({});
+
+  // Thêm state để quản lý lỗi form thêm mới
+  const [newAddressErrors, setNewAddressErrors] = useState<{
+    [key: string]: string;
+  }>({});
 
   // Sử dụng useRef để lưu trữ notification hiện tại
   const notificationRef = useRef<{
@@ -275,9 +289,9 @@ const Addresses: React.FC<{
 
   // Xử lý khi click vào nút chỉnh sửa
   const handleEditClick = (address: Address) => {
-    setEditingAddress(address);
     setFormData(address);
     setShowEditModal(true);
+    setFormErrors({});
   };
 
   // Xử lý thay đổi các giá trị trong form
@@ -360,9 +374,26 @@ const Addresses: React.FC<{
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Kiểm tra form trước khi gửi
+    const errors = validateAddressForm(formData);
+    setFormErrors(errors);
+
+    // Nếu có lỗi, dừng lại và không gửi form
+    if (Object.keys(errors).length > 0) {
+      // Hiển thị thông báo lỗi
+      setNotification({
+        message: "Vui lòng kiểm tra lại thông tin địa chỉ",
+        type: "error",
+      });
+      return;
+    }
+
     try {
       // Gọi API cập nhật địa chỉ
-      await UserService.updateAddress(formData.id as number, formData);
+      await UserService.updateAddress(Number(formData.id), {
+        ...formData,
+        id: formData.id ? Number(formData.id) : undefined,
+      });
 
       // Đóng modal
       setShowEditModal(false);
@@ -376,7 +407,7 @@ const Addresses: React.FC<{
       // Trì hoãn refetch data để notification có thời gian hiển thị
       setTimeout(() => {
         if (onRetry) onRetry();
-      }, 2000); // Đợi 2 giây rồi mới fetch data
+      }, 1000); // Giảm time xuống 1 giây
     } catch (error) {
       console.error("Lỗi khi cập nhật địa chỉ:", error);
       setNotification({
@@ -402,6 +433,7 @@ const Addresses: React.FC<{
       isDefault: false,
     });
     setShowAddModal(true);
+    setNewAddressErrors({});
   };
 
   // Handle input changes for new address form
@@ -451,6 +483,20 @@ const Addresses: React.FC<{
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Kiểm tra form trước khi gửi
+    const errors = validateAddressForm(newAddressData);
+    setNewAddressErrors(errors);
+
+    // Nếu có lỗi, dừng lại và không gửi form
+    if (Object.keys(errors).length > 0) {
+      // Hiển thị thông báo lỗi
+      setNotification({
+        message: "Vui lòng kiểm tra lại thông tin địa chỉ",
+        type: "error",
+      });
+      return;
+    }
+
     try {
       // Call API to add new address
       await UserService.addAddress(
@@ -472,7 +518,7 @@ const Addresses: React.FC<{
       // Delay refetch data to allow notification to display
       setTimeout(() => {
         if (onRetry) onRetry();
-      }, 2000);
+      }, 1000); // Giảm time xuống 1 giây
     } catch (error) {
       console.error("Lỗi khi thêm địa chỉ:", error);
       setNotification({
@@ -480,6 +526,56 @@ const Addresses: React.FC<{
         type: "error",
       });
     }
+  };
+
+  // Hàm kiểm tra form
+  const validateAddressForm = (data: Partial<Address>) => {
+    const errors: { [key: string]: string } = {};
+
+    // Kiểm tra họ tên
+    if (!data.fullName || data.fullName.trim() === "") {
+      errors.fullName = "Họ tên không được để trống";
+    } else if (data.fullName.trim().length < 2) {
+      errors.fullName = "Họ tên phải có ít nhất 2 ký tự";
+    }
+
+    // Kiểm tra số điện thoại (định dạng số điện thoại Việt Nam)
+    if (!data.phoneNumber || data.phoneNumber.trim() === "") {
+      errors.phoneNumber = "Số điện thoại không được để trống";
+    } else {
+      // Định dạng số điện thoại Việt Nam (loại bỏ khoảng trắng, dấu gạch ngang)
+      const phoneRegex = /^(0|\+84)(\d{9,10})$/;
+      const phoneNumberCleaned = data.phoneNumber.replace(/[\s.-]/g, "");
+
+      if (!phoneRegex.test(phoneNumberCleaned)) {
+        errors.phoneNumber =
+          "Số điện thoại không hợp lệ (phải có 10-11 số và bắt đầu bằng 0 hoặc +84)";
+      }
+    }
+
+    // Kiểm tra địa chỉ
+    if (!data.streetAddress || data.streetAddress.trim() === "") {
+      errors.streetAddress = "Địa chỉ không được để trống";
+    } else if (data.streetAddress.trim().length < 5) {
+      errors.streetAddress = "Địa chỉ phải có ít nhất 5 ký tự";
+    }
+
+    // Kiểm tra phường/xã
+    if (!data.ward || data.ward.trim() === "") {
+      errors.ward = "Vui lòng chọn phường/xã";
+    }
+
+    // Kiểm tra quận/huyện
+    if (!data.district || data.district.trim() === "") {
+      errors.district = "Vui lòng chọn quận/huyện";
+    }
+
+    // Kiểm tra tỉnh/thành phố
+    if (!data.city || data.city.trim() === "") {
+      errors.city = "Vui lòng chọn tỉnh/thành phố";
+    }
+
+    return errors;
   };
 
   // Thêm useEffect để xử lý cleanup notification timeouts
@@ -593,7 +689,28 @@ const Addresses: React.FC<{
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-bold mb-4">Chỉnh sửa địa chỉ</h3>
+            <h3 className="text-xl font-bold mb-4 flex justify-between items-center">
+              <span>Chỉnh sửa địa chỉ</span>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </h3>
 
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
@@ -607,9 +724,16 @@ const Addresses: React.FC<{
                     name="fullName"
                     value={formData.fullName || ""}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border ${
+                      formErrors.fullName ? "border-red-500" : "border-gray-300"
+                    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     required
                   />
+                  {formErrors.fullName && (
+                    <p className="mt-1 text-sm text-red-500">
+                      {formErrors.fullName}
+                    </p>
+                  )}
                 </div>
 
                 {/* Số điện thoại */}
@@ -622,9 +746,18 @@ const Addresses: React.FC<{
                     name="phoneNumber"
                     value={formData.phoneNumber || ""}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border ${
+                      formErrors.phoneNumber
+                        ? "border-red-500"
+                        : "border-gray-300"
+                    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     required
                   />
+                  {formErrors.phoneNumber && (
+                    <p className="mt-1 text-sm text-red-500">
+                      {formErrors.phoneNumber}
+                    </p>
+                  )}
                 </div>
 
                 {/* Địa chỉ */}
@@ -637,39 +770,18 @@ const Addresses: React.FC<{
                     name="streetAddress"
                     value={formData.streetAddress || ""}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border ${
+                      formErrors.streetAddress
+                        ? "border-red-500"
+                        : "border-gray-300"
+                    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     required
                   />
-                </div>
-
-                {/* Phường/Xã */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phường/Xã
-                  </label>
-                  <input
-                    type="text"
-                    name="ward"
-                    value={formData.ward || ""}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-
-                {/* Quận/Huyện */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Quận/Huyện
-                  </label>
-                  <input
-                    type="text"
-                    name="district"
-                    value={formData.district || ""}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
+                  {formErrors.streetAddress && (
+                    <p className="mt-1 text-sm text-red-500">
+                      {formErrors.streetAddress}
+                    </p>
+                  )}
                 </div>
 
                 {/* Tỉnh/Thành phố */}
@@ -677,14 +789,112 @@ const Addresses: React.FC<{
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Tỉnh/Thành phố
                   </label>
-                  <input
-                    type="text"
+                  <select
                     name="city"
                     value={formData.city || ""}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) => {
+                      const city = e.target.value;
+                      setFormData({
+                        ...formData,
+                        city: city,
+                        district: "",
+                        ward: "",
+                      });
+                    }}
+                    className={`w-full px-3 py-2 border ${
+                      formErrors.city ? "border-red-500" : "border-gray-300"
+                    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     required
-                  />
+                  >
+                    <option value="">Chọn Tỉnh/Thành phố</option>
+                    {Object.keys(locations).map((city) => (
+                      <option key={city} value={city}>
+                        {city}
+                      </option>
+                    ))}
+                  </select>
+                  {formErrors.city && (
+                    <p className="mt-1 text-sm text-red-500">
+                      {formErrors.city}
+                    </p>
+                  )}
+                </div>
+
+                {/* Quận/Huyện */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Quận/Huyện
+                  </label>
+                  <select
+                    name="district"
+                    value={formData.district || ""}
+                    onChange={(e) => {
+                      const district = e.target.value;
+                      setFormData({
+                        ...formData,
+                        district: district,
+                        ward: "",
+                      });
+                    }}
+                    className={`w-full px-3 py-2 border ${
+                      formErrors.district ? "border-red-500" : "border-gray-300"
+                    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    required
+                    disabled={!formData.city}
+                  >
+                    <option value="">Chọn Quận/Huyện</option>
+                    {formData.city &&
+                      locations[formData.city] &&
+                      Object.keys(locations[formData.city]).map((district) => (
+                        <option key={district} value={district}>
+                          {district}
+                        </option>
+                      ))}
+                  </select>
+                  {formErrors.district && (
+                    <p className="mt-1 text-sm text-red-500">
+                      {formErrors.district}
+                    </p>
+                  )}
+                </div>
+
+                {/* Phường/Xã */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phường/Xã
+                  </label>
+                  <select
+                    name="ward"
+                    value={formData.ward || ""}
+                    onChange={(e) => {
+                      setFormData({
+                        ...formData,
+                        ward: e.target.value,
+                      });
+                    }}
+                    className={`w-full px-3 py-2 border ${
+                      formErrors.ward ? "border-red-500" : "border-gray-300"
+                    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    required
+                    disabled={!formData.district}
+                  >
+                    <option value="">Chọn Phường/Xã</option>
+                    {formData.city &&
+                      formData.district &&
+                      locations[formData.city][formData.district] &&
+                      locations[formData.city][formData.district].map(
+                        (ward: string) => (
+                          <option key={ward} value={ward}>
+                            {ward}
+                          </option>
+                        )
+                      )}
+                  </select>
+                  {formErrors.ward && (
+                    <p className="mt-1 text-sm text-red-500">
+                      {formErrors.ward}
+                    </p>
+                  )}
                 </div>
 
                 {/* Checkbox đặt làm mặc định */}
@@ -774,26 +984,57 @@ const Addresses: React.FC<{
       )}
 
       {/* Modal Thêm địa chỉ mới */}
+      {/* Modal Thêm địa chỉ mới */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-bold mb-4">Thêm địa chỉ mới</h3>
+            <h3 className="text-xl font-bold mb-4 flex justify-between items-center">
+              <span>Thêm địa chỉ mới</span>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </h3>
 
             <form onSubmit={handleAddSubmit}>
               <div className="space-y-4">
-                {/* Tên ghi nhớ */}
+                {/* Họ tên */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tên ghi nhớ
+                    Họ tên
                   </label>
                   <input
                     type="text"
                     name="fullName"
                     value={newAddressData.fullName || ""}
                     onChange={handleNewAddressInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border ${
+                      newAddressErrors.fullName
+                        ? "border-red-500"
+                        : "border-gray-300"
+                    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     required
                   />
+                  {newAddressErrors.fullName && (
+                    <p className="mt-1 text-sm text-red-500">
+                      {newAddressErrors.fullName}
+                    </p>
+                  )}
                 </div>
 
                 {/* Số điện thoại */}
@@ -806,9 +1047,18 @@ const Addresses: React.FC<{
                     name="phoneNumber"
                     value={newAddressData.phoneNumber || ""}
                     onChange={handleNewAddressInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border ${
+                      newAddressErrors.phoneNumber
+                        ? "border-red-500"
+                        : "border-gray-300"
+                    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     required
                   />
+                  {newAddressErrors.phoneNumber && (
+                    <p className="mt-1 text-sm text-red-500">
+                      {newAddressErrors.phoneNumber}
+                    </p>
+                  )}
                 </div>
 
                 {/* Địa chỉ */}
@@ -821,9 +1071,18 @@ const Addresses: React.FC<{
                     name="streetAddress"
                     value={newAddressData.streetAddress || ""}
                     onChange={handleNewAddressInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border ${
+                      newAddressErrors.streetAddress
+                        ? "border-red-500"
+                        : "border-gray-300"
+                    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     required
                   />
+                  {newAddressErrors.streetAddress && (
+                    <p className="mt-1 text-sm text-red-500">
+                      {newAddressErrors.streetAddress}
+                    </p>
+                  )}
                 </div>
 
                 {/* Tỉnh/Thành phố */}
@@ -835,7 +1094,11 @@ const Addresses: React.FC<{
                     name="city"
                     value={newAddressData.city || ""}
                     onChange={handleCityChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border ${
+                      newAddressErrors.city
+                        ? "border-red-500"
+                        : "border-gray-300"
+                    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     required
                   >
                     <option value="">Chọn Tỉnh/Thành phố</option>
@@ -845,6 +1108,11 @@ const Addresses: React.FC<{
                       </option>
                     ))}
                   </select>
+                  {newAddressErrors.city && (
+                    <p className="mt-1 text-sm text-red-500">
+                      {newAddressErrors.city}
+                    </p>
+                  )}
                 </div>
 
                 {/* Quận/Huyện */}
@@ -856,7 +1124,11 @@ const Addresses: React.FC<{
                     name="district"
                     value={newAddressData.district || ""}
                     onChange={handleDistrictChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border ${
+                      newAddressErrors.district
+                        ? "border-red-500"
+                        : "border-gray-300"
+                    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     required
                     disabled={!selectedCity}
                   >
@@ -869,6 +1141,11 @@ const Addresses: React.FC<{
                         </option>
                       ))}
                   </select>
+                  {newAddressErrors.district && (
+                    <p className="mt-1 text-sm text-red-500">
+                      {newAddressErrors.district}
+                    </p>
+                  )}
                 </div>
 
                 {/* Phường/Xã */}
@@ -880,7 +1157,11 @@ const Addresses: React.FC<{
                     name="ward"
                     value={newAddressData.ward || ""}
                     onChange={handleWardChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border ${
+                      newAddressErrors.ward
+                        ? "border-red-500"
+                        : "border-gray-300"
+                    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     required
                     disabled={!selectedDistrict}
                   >
@@ -895,6 +1176,11 @@ const Addresses: React.FC<{
                         )
                       )}
                   </select>
+                  {newAddressErrors.ward && (
+                    <p className="mt-1 text-sm text-red-500">
+                      {newAddressErrors.ward}
+                    </p>
+                  )}
                 </div>
 
                 {/* Checkbox đặt làm mặc định */}
