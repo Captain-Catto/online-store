@@ -23,7 +23,7 @@ PaymentMethod.init(
       primaryKey: true,
     },
     name: {
-      type: DataTypes.ENUM("COD", "Credit Card", "Paypal", "Bank Transfer"),
+      type: DataTypes.ENUM("COD", "Credit Card", "Internet Banking", "Momo"),
       allowNull: false,
       unique: true,
     },

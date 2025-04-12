@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Product } from "./ProductInterface";
-import { addToCart } from "@/util/cartUtils";
+import { addToCart } from "@/utils/cartUtils";
 
 interface SizeSelectorProps {
   product: Product;
@@ -81,9 +81,9 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
         ))}
       </div>
       <button
-        className="mt-4 px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors"
+        className="mt-4 px-4 py-2 bg-black text-white rounded cursor-pointer hover:bg-gray-800 transition-colors"
         onClick={handleAddToCart}
-        disabled={!selectedSize} // Vô hiệu hóa nếu chưa chọn size
+        disabled={!selectedSize}
       >
         Thêm vào giỏ hàng
       </button>

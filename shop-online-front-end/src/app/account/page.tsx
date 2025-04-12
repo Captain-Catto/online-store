@@ -1,15 +1,14 @@
 "use client";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
 import Header from "@/components/Header/Header";
 import Footer from "@/components/Footer/Footer";
 import { UserLeft } from "@/components/User/User-left";
 import { UserRight } from "@/components/User/User-right";
 import { useState, useEffect, useCallback } from "react";
 import { UserService } from "@/services/UserService";
-import { jwtDecode } from "jwt-decode";
 import { OrderService } from "@/services/OrderService";
 import { useSearchParams } from "next/navigation";
+import { useAuth } from "@/utils/useAuth";
+import Link from "next/link";
 
 // Interface địa chỉ dựa trên API response
 interface Address {
@@ -26,205 +25,120 @@ interface Address {
   updatedAt: string;
 }
 
-// Thêm interface cho JWT payload
-interface JwtPayload {
-  id: number;
-  role: number;
-  username: string;
-  iat: number;
-  exp: number;
+// Thêm vào phần interface ở đầu file
+interface AccountData {
+  name: string;
+  email: string;
+  phone: string;
+  birthdate: string;
 }
 
-export default function AccountPage() {
-  const router = useRouter();
+// Thay đổi khai báo state
 
-  // Thay thế useAuth bằng các state và kiểm tra localStorage/sessionStorage
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<{
-    id: number;
-    name: string;
-    role: number;
-  } | null>(null);
-  const [addressError, setAddressError] = useState<string | null>(null);
+export default function AccountPage() {
   const searchParams = useSearchParams();
+  const { isLoggedIn, loading, logout, isAdmin } = useAuth("/login");
+
   const [activeTab, setActiveTab] = useState(() => {
-    // Lấy tab từ URL hoặc mặc định là "account"
     return searchParams.get("tab") || "account";
   });
 
   // States for user data
-  const [accountData, setAccountData] = useState({
+  const [accountData, setAccountData] = useState<AccountData>({
     name: "",
     email: "",
     phone: "",
     birthdate: "",
+    gender: "",
+    address: "",
   });
-
-  interface Order {
-    id: string;
-    date: string;
-    status: string;
-    total: string;
-  }
 
   const [ordersData, setOrdersData] = useState<Order[]>([]);
   const [addressesData, setAddressesData] = useState<Address[]>([]);
-  interface Promotion {
-    id: string;
-    title: string;
-    expiry: string;
-    code: string;
-  }
-
   const [promotionsData, setPromotionsData] = useState<Promotion[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
+  const [addressError, setAddressError] = useState<string | null>(null);
   const [orderError, setOrderError] = useState<string | null>(null);
 
-  // Kiểm tra đăng nhập và lấy thông tin user khi component mount
-  useEffect(() => {
-    const token = sessionStorage.getItem("authToken");
-
-    if (!token) {
-      // Nếu không có token, chuyển hướng về trang login
-      router.push("/login?returnUrl=/account");
-      return;
-    }
+  // Hàm fetch user account data
+  const fetchAccountInfo = useCallback(async () => {
+    if (!isLoggedIn) return;
 
     try {
-      // Giải mã token để lấy thông tin user
-      const tokenData = jwtDecode<JwtPayload>(token);
+      setDataLoading(true);
+      const userProfile = await UserService.getCurrentUser();
 
-      // Tạo đối tượng user từ dữ liệu token
-      const userData = {
-        id: tokenData.id,
-        name: tokenData.username, // Username từ token
-        role: tokenData.role, // Role từ token
-      };
+      console.log("userProfile", userProfile);
 
-      // Lưu user vào state và localStorage
-      setUser(userData);
-      setIsAdmin(userData.role === 1);
-      setIsLoggedIn(true);
-
-      // Lưu vào localStorage để sử dụng cho các lần sau
-      localStorage.setItem("user", JSON.stringify(userData));
+      setAccountData({
+        name: userProfile.fullName || userProfile.username || "",
+        email: userProfile.email || "",
+        phone: userProfile.phoneNumber || "",
+        birthdate: userProfile.dateOfBirth
+          ? new Date(userProfile.dateOfBirth).toLocaleDateString("vi-VN")
+          : "",
+        gender: userProfile.gender || "",
+        address: "",
+      });
     } catch (error) {
-      console.error("Error decoding token:", error);
-      // Token không hợp lệ hoặc sai định dạng
-      sessionStorage.removeItem("authToken");
-      router.push("/login?returnUrl=/account");
-      return;
+      console.error("Error fetching account info:", error);
+    } finally {
+      setDataLoading(false);
     }
-
-    setLoading(false);
-  }, [router]);
+  }, [isLoggedIn]);
 
   // Hàm gọi API để lấy danh sách địa chỉ
   const fetchAddresses = useCallback(async () => {
+    if (!isLoggedIn) return;
+
     try {
       setDataLoading(true);
       setAddressError(null);
 
-      const token = sessionStorage.getItem("authToken");
-      if (!token) {
-        throw new Error("Không tìm thấy token xác thực");
-      }
-
-      // Chỉ fetch dữ liệu địa chỉ mà không reload toàn bộ trang
       const data = await UserService.getAddresses();
-
-      if (Array.isArray(data)) {
-        setAddressesData(data);
-      } else {
-        console.error("Dữ liệu không phải mảng:", data);
-        setAddressError("Dữ liệu địa chỉ không đúng định dạng");
-      }
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error("Chi tiết lỗi khi lấy địa chỉ:", error);
-        setAddressError(error.message || "Không thể tải địa chỉ");
-      } else {
-        console.error("Chi tiết lỗi không xác định:", error);
-        setAddressError("Không thể tải địa chỉ");
-      }
+      setAddressesData(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Error fetching addresses:", error);
+      setAddressError(
+        error instanceof Error ? error.message : "Không thể tải địa chỉ"
+      );
     } finally {
       setDataLoading(false);
     }
-  }, []);
+  }, [isLoggedIn]);
 
+  // Hàm gọi API để lấy danh sách đơn hàng
   const fetchOrders = useCallback(async () => {
+    if (!isLoggedIn) return;
+
     try {
       setDataLoading(true);
-      setOrderError(null); // Thêm state orderError
+      setOrderError(null);
 
       const orders = await OrderService.getMyOrders();
-
-      // Chuyển đổi từ API response sang định dạng đơn hàng hiện tại trong UI
-      const formattedOrders = orders.map((order) => ({
-        id: order.id.toString(),
-        date: new Date(order.createdAt).toLocaleDateString("vi-VN"),
-        status: mapOrderStatus(order.status), // Hàm chuyển đổi trạng thái
-        total: `${order.total.toLocaleString("vi-VN")} VND`,
-      }));
-
-      setOrdersData(formattedOrders);
+      setOrdersData(orders);
     } catch (error) {
-      console.error("Lỗi khi lấy danh sách đơn hàng:", error);
-      setOrderError("Không thể tải danh sách đơn hàng");
+      console.error("Error fetching orders:", error);
+      setOrderError(
+        error instanceof Error ? error.message : "Không thể tải đơn hàng"
+      );
     } finally {
       setDataLoading(false);
     }
-  }, []);
+  }, [isLoggedIn]);
 
-  // Hàm chuyển đổi trạng thái từ API sang tiếng Việt
-  const mapOrderStatus = (status: string) => {
-    const statusMap: Record<string, string> = {
-      processing: "Đang xử lý",
-      shipping: "Đang vận chuyển",
-      delivered: "Đã giao",
-      canceled: "Đã hủy",
-      refunded: "Đã hoàn tiền",
-    };
-    return statusMap[status] || status;
-  };
-
-  // Fetch user data when component mounts or active tab changes
+  // Load data based on active tab
   useEffect(() => {
-    if (isLoggedIn && user) {
-      setAccountData({
-        name: user.name || "",
-        email: user.email || "",
-        phone: user.phone || "",
-        birthdate: user.birthdate || "",
-      });
-
-      // Chỉ tải dữ liệu địa chỉ khi tab là 'addresses' để tối ưu performance
+    if (isLoggedIn && !loading) {
       if (activeTab === "addresses") {
         fetchAddresses();
-      }
-
-      if (activeTab === "orders") {
+      } else if (activeTab === "orders") {
         fetchOrders();
+      } else if (activeTab === "account") {
+        fetchAccountInfo();
       }
 
-      // Giữ nguyên mock data cho các phần khác
-      setOrdersData([
-        {
-          id: "ORD48759",
-          date: "15/04/2025",
-          status: "Đã giao",
-          total: "1,250,000 VND",
-        },
-        {
-          id: "ORD37461",
-          date: "02/04/2025",
-          status: "Đang vận chuyển",
-          total: "890,000 VND",
-        },
-      ]);
-
+      // Sample promotions data
       setPromotionsData([
         {
           id: "PROMO1",
@@ -240,18 +154,14 @@ export default function AccountPage() {
         },
       ]);
     }
-  }, [isLoggedIn, user, activeTab, fetchAddresses, fetchOrders]);
-
-  const handleLogout = () => {
-    // Xóa token và user data
-    localStorage.removeItem("authToken");
-    sessionStorage.removeItem("authToken");
-    localStorage.removeItem("user");
-    localStorage.removeItem("isLoggedIn");
-
-    // Chuyển hướng về trang login
-    router.push("/login");
-  };
+  }, [
+    isLoggedIn,
+    loading,
+    activeTab,
+    fetchAddresses,
+    fetchOrders,
+    fetchAccountInfo,
+  ]);
 
   // Nếu đang loading, hiển thị spinner
   if (loading) {
@@ -268,33 +178,42 @@ export default function AccountPage() {
     );
   }
 
-  // Nếu không có token, không hiển thị nội dung (đã chuyển hướng ở useEffect)
+  // Nếu không đăng nhập, không hiển thị nội dung
   if (!isLoggedIn) return null;
 
   return (
     <>
       <Header />
       <main className="container mx-auto px-4 py-12">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold">Tài khoản của tôi</h1>
-
+        <div className="flex gap-4 items-center mb-8">
+          <h1 className="text-3xl font-bold">Tài khoản của tôi</h1>
           {isAdmin && (
             <Link
               href="/admin"
-              className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+              className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 transition flex items-center gap-2"
             >
-              Trang quản trị
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 005 10a6 6 0 0012 0c0-.34-.035-.671-.1-.996A5.001 5.001 0 0010 11z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Quản trị viên
             </Link>
           )}
         </div>
-
         <div className="flex flex-col md:flex-row gap-8">
           <div className="md:w-1/4">
             <UserLeft
               activeTab={activeTab}
               setActiveTab={setActiveTab}
-              // Truyền props cho việc logout
-              onLogout={handleLogout}
+              onLogout={logout} // Use the logout function from useAuth
             />
           </div>
 
@@ -313,6 +232,8 @@ export default function AccountPage() {
                   ? fetchAddresses
                   : activeTab === "orders"
                   ? fetchOrders
+                  : activeTab === "account"
+                  ? fetchAccountInfo
                   : undefined
               }
             />

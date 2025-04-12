@@ -11,7 +11,7 @@ import {
   removeFromCart,
   CartItem,
   getCartItemCount,
-} from "../../util/cartUtils";
+} from "@/utils/cartUtils";
 import Header from "../../components/Header/Header";
 import Footer from "../../components/Footer/Footer";
 import { AuthService } from "@/services/AuthService";

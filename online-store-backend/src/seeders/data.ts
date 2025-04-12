@@ -10,25 +10,39 @@ const roles = [
   { id: 2, name: "User" },
 ];
 
-// 2. Users
+// 2. Users (cập nhật)
 const users = [
   {
     username: "admin",
     email: "admin@example.com",
     password: "$2b$10$qnKBm0aVuY7GgRuWVYmzXO6HLYkYzrxHKTe1i3JS5hWCZIwTUCFnO", // password: admin123
     roleId: 1,
+    phoneNumber: "0987654321",
+    dateOfBirth: new Date("1990-01-01"),
   },
   {
     username: "user1",
     email: "user1@example.com",
     password: "$2b$10$qnKBm0aVuY7GgRuWVYmzXO6HLYkYzrxHKTe1i3JS5hWCZIwTUCFnO", // password: admin123
     roleId: 2,
+    phoneNumber: "0901234567",
+    dateOfBirth: new Date("1995-03-15"),
   },
   {
     username: "user2",
     email: "user2@example.com",
     password: "$2b$10$qnKBm0aVuY7GgRuWVYmzXO6HLYkYzrxHKTe1i3JS5hWCZIwTUCFnO", // password: admin123
     roleId: 2,
+    phoneNumber: "0987654321",
+    dateOfBirth: new Date("1992-07-22"),
+  },
+  {
+    username: "customer1",
+    email: "customer1@example.com",
+    password: "$2b$10$qnKBm0aVuY7GgRuWVYmzXO6HLYkYzrxHKTe1i3JS5hWCZIwTUCFnO", // password: admin123
+    roleId: 2,
+    phoneNumber: "0909123456",
+    dateOfBirth: new Date("1998-12-24"),
   },
 ];
 
@@ -534,8 +548,8 @@ const productCategories = [
 const paymentMethods = [
   { name: "COD" },
   { name: "Credit Card" },
-  { name: "Paypal" },
-  { name: "Bank Transfer" },
+  { name: "Internet Banking" },
+  { name: "Momo" },
 ];
 
 // 10. PaymentStatus - Trạng thái thanh toán

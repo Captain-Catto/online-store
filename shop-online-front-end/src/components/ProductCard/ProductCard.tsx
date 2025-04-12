@@ -4,12 +4,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { Product } from "./ProductInterface";
 import SizeSelector from "./SizeSelector";
-import { useToast } from "@/util/useToast";
+import { useToast } from "@/utils/useToast";
+import { SimpleProduct } from "@/types";
 
 interface ProductCardProps {
-  product: Product;
+  product: SimpleProduct;
   selectedColor: string;
   productImage: string;
+  secondaryImage?: string;
   onColorSelect: (productId: number, color: string) => void;
 }
 
@@ -17,6 +19,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   product,
   selectedColor,
   productImage,
+  secondaryImage,
   onColorSelect,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -71,14 +74,39 @@ const ProductCard: React.FC<ProductCardProps> = ({
       <div className="relative product-image">
         <Link href={`/products/${product.id}`}>
           {productImage ? (
-            <Image
-              src={productImage}
-              alt={product.name}
-              className="w-full h-80 object-cover md:object-top rounded-md mb-4 cursor-pointer transition-transform hover:scale-105"
-              width={400}
-              height={320}
-              priority
-            />
+            <div className="relative w-full h-80">
+              <Image
+                src={productImage}
+                alt={product.name}
+                className={`w-full h-80 object-cover md:object-top rounded-md mb-4 cursor-pointer transition-opacity duration-300 ${
+                  isHovered && secondaryImage ? "opacity-0" : "opacity-100"
+                }`}
+                width={400}
+                height={320}
+                priority
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                }}
+              />
+              {secondaryImage && (
+                <Image
+                  src={secondaryImage}
+                  alt={`${product.name} - second view`}
+                  className={`w-full h-80 object-cover md:object-top rounded-md mb-4 cursor-pointer transition-opacity duration-300 ${
+                    isHovered ? "opacity-100" : "opacity-0"
+                  }`}
+                  width={400}
+                  height={320}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                  }}
+                />
+              )}
+            </div>
           ) : (
             <div className="w-full h-80 bg-gray-200 rounded-md mb-4 flex items-center justify-center">
               <span className="text-gray-400">Không có hình ảnh</span>

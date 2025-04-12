@@ -3,44 +3,10 @@
 import React, { useEffect, useState, useRef } from "react";
 import Slider from "react-slick";
 import Link from "next/link";
-import { PrevArrow, NextArrow } from "@/util/CustomArrowSlick";
+import { PrevArrow, NextArrow } from "@/utils/CustomArrowSlick";
 import ProductCard from "@/components/ProductCard/ProductCard";
 import { ProductService } from "@/services/ProductService";
-
-// Định nghĩa interface Product để khớp với API response
-interface ProductImage {
-  id: number;
-  url: string;
-  isMain: boolean;
-}
-
-interface VariantDetail {
-  detailId: number;
-  price: number;
-  originalPrice: number;
-  images: ProductImage[];
-  availableSizes: string[];
-  inventory: Record<string, number>;
-  variants: any[];
-}
-
-interface Product {
-  id: number;
-  name: string;
-  sku: string;
-  description: string;
-  categories: Array<{ id: number; name: string }>;
-  brand: string;
-  colors: string[];
-  sizes: string[];
-  featured: boolean;
-  status: string;
-  statusLabel: string;
-  statusClass: string;
-  variants: Record<string, VariantDetail>;
-  createdAt: string;
-  updatedAt: string;
-}
+import { Product, SimpleProduct } from "@/types";
 
 const LatestProducts: React.FC = () => {
   const sliderRef = useRef<Slider>(null);
@@ -51,6 +17,9 @@ const LatestProducts: React.FC = () => {
     [productId: number]: string;
   }>({});
   const [productImages, setProductImages] = useState<{
+    [productId: number]: string;
+  }>({});
+  const [secondaryImages, setSecondaryImages] = useState<{
     [productId: number]: string;
   }>({});
 
@@ -65,6 +34,7 @@ const LatestProducts: React.FC = () => {
 
         const initialColors: { [key: number]: string } = {};
         const initialImages: { [key: number]: string } = {};
+        const initialSecondaryImages: { [key: number]: string } = {};
 
         // Xử lý dữ liệu từ API
         response.products.forEach((product) => {
@@ -87,12 +57,23 @@ const LatestProducts: React.FC = () => {
             if (mainImage) {
               initialImages[product.id] = mainImage.url;
             }
+
+            // lâys hình thứ 2 để xử lý hover
+            if (variantDetail.images.length > 1) {
+              const secondaryImage = variantDetail.images.find(
+                (img) => img !== mainImage
+              );
+              if (secondaryImage) {
+                initialSecondaryImages[product.id] = secondaryImage.url;
+              }
+            }
           }
         });
 
         setProducts(response.products);
         setSelectedColors(initialColors);
         setProductImages(initialImages);
+        setSecondaryImages(initialSecondaryImages);
       } catch (error) {
         console.error("Failed to fetch products:", error);
         setError("Không thể tải sản phẩm. Vui lòng thử lại sau.");
@@ -194,19 +175,23 @@ const LatestProducts: React.FC = () => {
         <Slider ref={sliderRef} {...settings}>
           {displayProducts.map((product) => {
             const color = selectedColors[product.id] || product.colors[0];
-            const variant = product.variants[color];
+            // const variant = product.variants[color]; // Removed unused variable
+
+            // Sử dụng SimpleProduct cho ProductCard
+            const simpleProduct: SimpleProduct = {
+              id: product.id,
+              name: product.name,
+              colors: product.colors,
+              variants: product.variants,
+            };
 
             return (
               <div key={product.id} className="p-2">
                 <ProductCard
-                  product={{
-                    id: product.id,
-                    name: product.name,
-                    colors: product.colors,
-                    variants: product.variants,
-                  }}
+                  product={simpleProduct}
                   selectedColor={color}
                   productImage={productImages[product.id] || ""}
+                  secondaryImage={secondaryImages[product.id] || ""}
                   onColorSelect={handleColorSelect}
                 />
               </div>

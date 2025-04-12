@@ -9,7 +9,13 @@ interface ProductCardProps {
     id: number;
     name: string;
     colors: string[];
-    variants: Record<string, any>;
+    // do variants có nhiều thuộc tính, nên lúc đầu dùng any nhưng eslint báo lỗi
+    // nên dùng Record<string, { availableSizes: string[]; price: number; originalPrice: number }>
+    // để tránh lỗi eslint
+    variants: Record<
+      string,
+      { availableSizes: string[]; price: number; originalPrice: number }
+    >;
   };
   selectedColor: string;
   productImage: string;

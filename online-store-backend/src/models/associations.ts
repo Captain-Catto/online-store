@@ -104,7 +104,7 @@ export default function initAssociations() {
   });
   PaymentStatus.hasMany(Order, { foreignKey: "paymentStatusId", as: "orders" });
 
-  // user - useraddress
+  // User - UserAddress relationship
   Users.hasMany(UserAddress, { foreignKey: "userId", as: "addresses" });
   UserAddress.belongsTo(Users, { foreignKey: "userId", as: "user" });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Header from "@/components/Header/Header";
@@ -23,6 +23,25 @@ export default function LoginPage() {
     general: "",
   });
   const [loading, setLoading] = useState(false);
+  // State để kiểm tra trạng thái đăng nhập
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // Kiểm tra nếu người dùng đã đăng nhập, chuyển hướng họ đi
+  useEffect(() => {
+    const checkLoginState = () => {
+      const isLoggedIn = AuthService.isLoggedIn();
+
+      if (isLoggedIn) {
+        // Người dùng đã đăng nhập, chuyển hướng về trang chủ
+        router.replace("/");
+      } else {
+        // Cập nhật state để hiển thị form
+        setCheckingAuth(false);
+      }
+    };
+
+    checkLoginState();
+  }, [router]);
 
   // Xử lý đăng nhập
   const handleLogin = async (e: React.FormEvent) => {
@@ -54,13 +73,14 @@ export default function LoginPage() {
 
     setLoading(true);
 
+    console.log("remember me", rememberMe);
+
     try {
       // Gọi API login qua AuthService
       const result = await AuthService.login(email, password, rememberMe);
 
       // Nếu login thành công, lưu trạng thái và redirect
       if (result.accessToken) {
-        console.log("Đăng nhập thành công, chuyển hướng đến:", returnUrl);
         router.replace(returnUrl);
       } else {
         throw new Error("Không nhận được token, đăng nhập thất bại");
@@ -82,6 +102,19 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  // khi check auth thì sẽ hiển thị loading
+  if (checkingAuth) {
+    return (
+      <>
+        <Header />
+        <div className="container mx-auto px-4 py-12 flex items-center justify-center min-h-[50vh]">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
+        </div>
+        <Footer />
+      </>
+    );
+  }
 
   return (
     <>

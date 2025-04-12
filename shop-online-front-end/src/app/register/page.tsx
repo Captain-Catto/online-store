@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header/Header";
 import Footer from "@/components/Footer/Footer";
+import { createUser } from "@/services/AuthService";
+import { AuthService } from "@/services/AuthService";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -20,8 +22,29 @@ export default function RegisterPage() {
     email: "",
     password: "",
     confirmPassword: "",
+    general: "", // Thêm error chung cho form
   });
   const [loading, setLoading] = useState(false);
+
+  // State để kiểm tra trạng thái đăng nhập
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // Kiểm tra nếu người dùng đã đăng nhập, chuyển hướng họ đi
+  useEffect(() => {
+    const checkLoginState = () => {
+      const isLoggedIn = AuthService.isLoggedIn();
+
+      if (isLoggedIn) {
+        // Người dùng đã đăng nhập, chuyển hướng về trang chủ
+        router.replace("/");
+      } else {
+        // Cập nhật state để hiển thị form
+        setCheckingAuth(false);
+      }
+    };
+
+    checkLoginState();
+  }, [router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -33,6 +56,7 @@ export default function RegisterPage() {
     setErrors((prev) => ({
       ...prev,
       [name]: "",
+      general: "", // Xóa lỗi chung khi người dùng nhập liệu
     }));
   };
 
@@ -42,6 +66,7 @@ export default function RegisterPage() {
       email: "",
       password: "",
       confirmPassword: "",
+      general: "",
     };
 
     // Validate email
@@ -91,27 +116,39 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      // Giả lập API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Gọi API đăng ký thông qua AuthService
+      await createUser({
+        email: formData.email,
+        password: formData.password,
+        username: formData.email.split("@")[0], // Tạo username mặc định từ email
+      });
 
-      // Giả lập lưu thông tin đăng ký
-      localStorage.setItem(
-        "registrationData",
-        JSON.stringify({
-          ...formData,
-          registeredAt: new Date().toISOString(),
-        })
-      );
-
-      // Chuyển hướng đến trang đăng nhập
+      // Chuyển hướng đến trang đăng nhập với thông báo đăng ký thành công
       router.push("/login?registered=true");
     } catch (error) {
       console.error("Registration error:", error);
-      // Hiển thị thông báo lỗi nếu cần
+
+      // Hiển thị thông báo lỗi
+      setErrors((prev) => ({
+        ...prev,
+        general: error.message || "Đăng ký thất bại. Vui lòng thử lại.",
+      }));
     } finally {
       setLoading(false);
     }
   };
+
+  if (checkingAuth) {
+    return (
+      <>
+        <Header />
+        <div className="container mx-auto px-4 py-12 flex items-center justify-center min-h-[50vh]">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
+        </div>
+        <Footer />
+      </>
+    );
+  }
 
   return (
     <>
@@ -119,6 +156,13 @@ export default function RegisterPage() {
       <main className="container mx-auto px-4 py-12">
         <div className="max-w-md mx-auto bg-white p-8 rounded-xl shadow-lg">
           <h1 className="text-3xl font-bold mb-6 text-center">Đăng ký</h1>
+
+          {/* Hiển thị lỗi chung nếu có */}
+          {errors.general && (
+            <div className="p-4 mb-6 text-sm text-red-700 bg-red-100 rounded-lg">
+              {errors.general}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Email field */}

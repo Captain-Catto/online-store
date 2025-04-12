@@ -72,7 +72,7 @@ export const cancelOrder = async (
 
   try {
     const { id } = req.params;
-    const { note } = req.body;
+    const { cancelNote } = req.body;
 
     const order = await Order.findByPk(id, {
       transaction: t,
@@ -110,7 +110,7 @@ export const cancelOrder = async (
     await order.update(
       {
         status: "cancelled",
-        cancelNote: note || "Hủy bởi Admin",
+        cancelNote: cancelNote || "Hủy bởi Admin",
       },
       { transaction: t }
     );

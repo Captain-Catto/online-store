@@ -6,6 +6,7 @@ import {
   useEffect,
   ReactNode,
 } from "react";
+import { AuthClient } from "@/services/AuthClient";
 
 interface DeviceContextType {
   isMobile: boolean;
@@ -48,6 +49,23 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
 
     // Cleanup
     return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        console.log("Khởi tạo xác thực...");
+
+        // Thử làm mới token nếu có refresh token trong cookie
+        await AuthClient.refreshToken();
+
+        console.log("Khởi tạo xác thực thành công");
+      } catch (error) {
+        console.error("Lỗi khởi tạo xác thực:", error);
+      }
+    };
+
+    initAuth();
   }, []);
 
   return (

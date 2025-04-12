@@ -5,7 +5,7 @@ import React, { useState, useEffect } from "react";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import Link from "next/link";
-import { getCartItemCount } from "@/util/cartUtils";
+import { getCartItemCount } from "@/utils/cartUtils";
 
 const IconNavBar: React.FC = () => {
   // State để lưu số lượng sản phẩm

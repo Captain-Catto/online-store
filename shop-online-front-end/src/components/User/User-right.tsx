@@ -1,40 +1,9 @@
 import React from "react";
 import { useState, useRef, useEffect } from "react";
-import { UserService } from "../../services/UserService";
+import { UserService } from "@/services/UserService";
 import Link from "next/link";
-
-// Types
-interface User {
-  name: string;
-  email: string;
-  phone: string;
-  birthdate: string;
-}
-
-interface Order {
-  id: string;
-  date: string;
-  status: "Đã giao" | "Đang vận chuyển" | "Đã hủy" | "Chờ xác nhận";
-  total: string;
-}
-
-interface Address {
-  id: string;
-  fullName: string;
-  streetAddress: string;
-  district: string;
-  ward: string;
-  city: string;
-  phoneNumber: string;
-  isDefault: boolean;
-}
-
-interface Promotion {
-  id: string;
-  title: string;
-  expiry: string;
-  code: string;
-}
+import { formatDateForInput, formatDateDisplay } from "@/utils/dateUtils";
+import { User, Order, Address, Promotion } from "@/types";
 
 // Loading component
 const LoadingSpinner: React.FC = () => (
@@ -68,74 +37,225 @@ const EmptyState: React.FC<{ message: string }> = ({ message }) => (
 );
 
 // Component thông tin tài khoản
-const AccountInfo: React.FC<{ data?: User | null }> = ({ data }) => {
-  // Sử dụng dữ liệu từ API hoặc giá trị rỗng nếu chưa có
-  const user = data || {
+const AccountInfo: React.FC<{ data?: User | null; onRetry?: () => void }> = ({
+  data,
+  onRetry,
+}) => {
+  const [formData, setFormData] = useState<User>({
     name: "",
     email: "",
     phone: "",
     birthdate: "",
+    address: "",
+  });
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [notification, setNotification] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
+
+  // Populate form data with user data when it becomes available
+  useEffect(() => {
+    if (data) {
+      setFormData({
+        name: data.name || "",
+        email: data.email || "",
+        phone: data.phone || "",
+        birthdate: data.birthdate ? formatDateForInput(data.birthdate) : "",
+        address: data.address || "",
+      });
+    }
+  }, [data]);
+
+  // Handle input changes
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  // Handle form submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      // Call UserService to update profile
+      await UserService.updateProfile({
+        username: formData.name,
+        phoneNumber: formData.phone,
+        dateOfBirth: formData.birthdate
+          ? new Date(formData.birthdate).toISOString()
+          : undefined,
+      });
+
+      // Show success notification
+      setNotification({
+        message: "Cập nhật thông tin thành công!",
+        type: "success",
+      });
+
+      // Refresh user data after a short delay
+      setTimeout(() => {
+        if (onRetry) onRetry();
+      }, 1000);
+    } catch (error) {
+      console.error("Lỗi khi cập nhật thông tin:", error);
+
+      // Show error notification
+      setNotification({
+        message:
+          error instanceof Error
+            ? error.message
+            : "Có lỗi xảy ra khi cập nhật thông tin!",
+        type: "error",
+      });
+    } finally {
+      setIsSubmitting(false);
+
+      // Auto-hide notification after a delay
+      setTimeout(() => {
+        setNotification(null);
+      }, 3000);
+    }
   };
 
   return (
     <div>
       <h2 className="text-2xl font-bold mb-4">Thông tin tài khoản</h2>
-      <div className="bg-white p-6 rounded-lg shadow-sm">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white p-6 rounded-lg shadow-sm"
+      >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label
+                className="block text-sm font-medium text-gray-700"
+                htmlFor="name"
+              >
                 Họ tên
               </label>
               <input
+                id="name"
                 type="text"
+                name="name"
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 placeholder="Nguyễn Văn A"
-                defaultValue={user.name}
+                value={formData.name}
+                onChange={handleChange}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label
+                className="block text-sm font-medium text-gray-700"
+                htmlFor="email"
+              >
                 Email
               </label>
               <input
+                id="email"
                 type="email"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                name="email"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
                 placeholder="example@gmail.com"
-                defaultValue={user.email}
+                value={formData.email}
+                onChange={handleChange}
+                readOnly
               />
+              <p className="text-sm text-gray-500 mt-1">
+                Email không thể thay đổi
+              </p>
             </div>
           </div>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label
+                className="block text-sm font-medium text-gray-700"
+                htmlFor="phone"
+              >
                 Số điện thoại
               </label>
               <input
+                id="phone"
                 type="tel"
+                name="phone"
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 placeholder="0123456789"
-                defaultValue={user.phone}
+                value={formData.phone}
+                onChange={handleChange}
               />
             </div>
-            {/* <div>
-              <label className="block text-sm font-medium text-gray-700">
+            <div>
+              <label
+                className="block text-sm font-medium text-gray-700"
+                htmlFor="birthdate"
+              >
                 Ngày sinh
               </label>
               <input
+                id="birthdate"
                 type="date"
+                name="birthdate"
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                defaultValue={user.birthdate}
+                value={formData.birthdate}
+                onChange={handleChange}
               />
-            </div> */}
+            </div>
           </div>
         </div>
         <div className="mt-6">
-          <button className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 transition-colors">
-            Cập nhật thông tin
+          <button
+            type="submit"
+            className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 transition-colors disabled:bg-gray-400"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <span className="flex items-center">
+                <svg
+                  className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                Đang cập nhật...
+              </span>
+            ) : (
+              "Cập nhật thông tin"
+            )}
           </button>
         </div>
-      </div>
+      </form>
+
+      {/* Notification */}
+      {notification && (
+        <div
+          className={`fixed bottom-4 right-4 p-4 rounded-lg shadow-lg z-[60] ${
+            notification.type === "success"
+              ? "bg-green-100 text-green-800"
+              : "bg-red-100 text-red-800"
+          }`}
+        >
+          {notification.message}
+        </div>
+      )}
     </div>
   );
 };
@@ -144,11 +264,10 @@ const AccountInfo: React.FC<{ data?: User | null }> = ({ data }) => {
 const MyOrders: React.FC<{ data?: Order[] | null }> = ({ data }) => {
   // Sử dụng dữ liệu từ API hoặc mẫu nếu không có
   const orders = data || [];
-
+  console.log(orders);
   if (orders.length === 0) {
     return <EmptyState message="Bạn chưa có đơn hàng nào." />;
   }
-
   return (
     <div>
       <h2 className="text-2xl font-bold mb-4">Đơn hàng của tôi</h2>
@@ -180,7 +299,7 @@ const MyOrders: React.FC<{ data?: Order[] | null }> = ({ data }) => {
                   {order.id}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {order.date}
+                  {formatDateDisplay(order.createdAt)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                   <span
@@ -608,9 +727,246 @@ const Addresses: React.FC<{
   }
 
   const addresses = data || [];
+  // Thay thế đoạn này trong component Addresses
   if (addresses.length === 0) {
     return (
-      <EmptyState message="Bạn chưa có địa chỉ nào. Vui lòng thêm địa chỉ." />
+      <div className="bg-white p-6 rounded-lg shadow-sm">
+        <div className="text-center mb-6">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-16 w-16 mx-auto text-gray-400 mb-2"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1}
+              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+            />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1}
+              d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+            />
+          </svg>
+          <h3 className="text-lg font-semibold mb-1">
+            Bạn chưa có địa chỉ nào
+          </h3>
+          <p className="text-gray-600 mb-4">
+            Vui lòng thêm địa chỉ giao hàng đầu tiên của bạn
+          </p>
+        </div>
+
+        <form onSubmit={handleAddSubmit} className="max-w-lg mx-auto">
+          <div className="space-y-4">
+            {/* Họ tên */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Họ tên (hoặc tên gợi nhớ){" "}
+                <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="fullName"
+                value={newAddressData.fullName || ""}
+                onChange={handleNewAddressInputChange}
+                className={`w-full px-3 py-2 border ${
+                  newAddressErrors.fullName
+                    ? "border-red-500"
+                    : "border-gray-300"
+                } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                placeholder="Nhập họ tên người nhận hàng hoặc tên gợi nhớ"
+                required
+              />
+              {newAddressErrors.fullName && (
+                <p className="mt-1 text-sm text-red-500">
+                  {newAddressErrors.fullName}
+                </p>
+              )}
+            </div>
+
+            {/* Số điện thoại */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Số điện thoại <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="phoneNumber"
+                value={newAddressData.phoneNumber || ""}
+                onChange={handleNewAddressInputChange}
+                className={`w-full px-3 py-2 border ${
+                  newAddressErrors.phoneNumber
+                    ? "border-red-500"
+                    : "border-gray-300"
+                } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                placeholder="Nhập số điện thoại liên hệ"
+                required
+              />
+              {newAddressErrors.phoneNumber && (
+                <p className="mt-1 text-sm text-red-500">
+                  {newAddressErrors.phoneNumber}
+                </p>
+              )}
+            </div>
+
+            {/* Địa chỉ */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Địa chỉ <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="streetAddress"
+                value={newAddressData.streetAddress || ""}
+                onChange={handleNewAddressInputChange}
+                className={`w-full px-3 py-2 border ${
+                  newAddressErrors.streetAddress
+                    ? "border-red-500"
+                    : "border-gray-300"
+                } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                placeholder="Số nhà, tên đường, tòa nhà..."
+                required
+              />
+              {newAddressErrors.streetAddress && (
+                <p className="mt-1 text-sm text-red-500">
+                  {newAddressErrors.streetAddress}
+                </p>
+              )}
+            </div>
+
+            {/* Tỉnh/Thành phố */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tỉnh/Thành phố <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="city"
+                value={newAddressData.city || ""}
+                onChange={handleCityChange}
+                className={`w-full px-3 py-2 border ${
+                  newAddressErrors.city ? "border-red-500" : "border-gray-300"
+                } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                required
+              >
+                <option value="">Chọn Tỉnh/Thành phố</option>
+                {Object.keys(locations).map((city) => (
+                  <option key={city} value={city}>
+                    {city}
+                  </option>
+                ))}
+              </select>
+              {newAddressErrors.city && (
+                <p className="mt-1 text-sm text-red-500">
+                  {newAddressErrors.city}
+                </p>
+              )}
+            </div>
+
+            {/* Quận/Huyện */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Quận/Huyện <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="district"
+                value={newAddressData.district || ""}
+                onChange={handleDistrictChange}
+                className={`w-full px-3 py-2 border ${
+                  newAddressErrors.district
+                    ? "border-red-500"
+                    : "border-gray-300"
+                } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                required
+                disabled={!selectedCity}
+              >
+                <option value="">Chọn Quận/Huyện</option>
+                {selectedCity &&
+                  locations[selectedCity] &&
+                  Object.keys(locations[selectedCity]).map((district) => (
+                    <option key={district} value={district}>
+                      {district}
+                    </option>
+                  ))}
+              </select>
+              {newAddressErrors.district && (
+                <p className="mt-1 text-sm text-red-500">
+                  {newAddressErrors.district}
+                </p>
+              )}
+            </div>
+
+            {/* Phường/Xã */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Phường/Xã <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="ward"
+                value={newAddressData.ward || ""}
+                onChange={handleWardChange}
+                className={`w-full px-3 py-2 border ${
+                  newAddressErrors.ward ? "border-red-500" : "border-gray-300"
+                } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                required
+                disabled={!selectedDistrict}
+              >
+                <option value="">Chọn Phường/Xã</option>
+                {selectedCity &&
+                  selectedDistrict &&
+                  locations[selectedCity][selectedDistrict]?.map(
+                    (ward: string) => (
+                      <option key={ward} value={ward}>
+                        {ward}
+                      </option>
+                    )
+                  )}
+              </select>
+              {newAddressErrors.ward && (
+                <p className="mt-1 text-sm text-red-500">
+                  {newAddressErrors.ward}
+                </p>
+              )}
+            </div>
+
+            {/* Checkbox đặt làm mặc định */}
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="newAddressIsDefault"
+                name="isDefault"
+                checked={newAddressData.isDefault || false}
+                onChange={(e) =>
+                  setNewAddressData({
+                    ...newAddressData,
+                    isDefault: e.target.checked,
+                  })
+                }
+                className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <label
+                htmlFor="newAddressIsDefault"
+                className="ml-2 text-sm text-gray-700"
+              >
+                Đặt làm địa chỉ mặc định
+              </label>
+            </div>
+          </div>
+
+          {/* Nút hành động */}
+          <div className="mt-6">
+            <button
+              type="submit"
+              className="w-full px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 transition-colors"
+            >
+              Lưu địa chỉ
+            </button>
+          </div>
+        </form>
+      </div>
     );
   }
 

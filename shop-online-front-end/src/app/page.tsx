@@ -12,6 +12,7 @@ import RunningProducts from "@/components/Homepage/RunningProducts/RunningProduc
 import Categories from "@/components/Homepage/Categories/Categories";
 import MessengerButton from "@/components/Homepage/MessengerButton/MessengerButton";
 // import User from "@/components/User/User";
+import BackToTop from "@/components/BackToTop/BackToTop";
 
 export default function Home() {
   return (
@@ -28,6 +29,7 @@ export default function Home() {
       <RunningProducts />
       <Membership />
       <Footer />
+      <BackToTop />
     </div>
   );
 }

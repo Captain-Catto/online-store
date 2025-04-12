@@ -1,6 +1,9 @@
+"use client";
 import React from "react";
+import { useRouter } from "next/navigation";
 
 const Membership: React.FC = () => {
+  const router = useRouter();
   return (
     <div className=" my-8 px-10">
       <div className="container mx-auto rounded-4xl bg-gray-100 px-10 py-8">
@@ -79,7 +82,7 @@ const Membership: React.FC = () => {
               <button
                 rel-script="awareness-join-button"
                 className="inline-block rounded-full bg-black px-6 py-3 text-white transition-transform cursor-pointer hover:opacity-80"
-                // onClick={() => navigate("/signup")}
+                onClick={() => router.push("/register")}
               >
                 GIA NHẬP NGAY
               </button>

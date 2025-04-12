@@ -5,11 +5,14 @@ import Category from "../models/Category";
 import Product from "../models/Product";
 import ProductDetail from "../models/ProductDetail";
 import ProductInventory from "../models/ProductInventory";
-import ProductImage from "../models/ProductImage"; // Thêm import này
+import ProductImage from "../models/ProductImage";
 import ProductCategory from "../models/ProductCategory";
 import PaymentMethod from "../models/PaymentMethod";
 import PaymentStatus from "../models/PaymentStatus";
 import Voucher from "../models/Voucher";
+import UserAddress from "../models/UserAddress"; // Thêm import này
+import Order from "../models/Order"; // Import Order model
+import OrderDetail from "../models/OrderDetail"; // Import OrderDetail model
 
 // Import dữ liệu mẫu
 import {
@@ -19,11 +22,12 @@ import {
   products,
   productDetails,
   productInventories,
-  productImages, // Thêm import này
+  productImages,
   productCategories,
   paymentMethods,
   paymentStatuses,
   vouchers,
+  userAddresses, // Thêm import dữ liệu địa chỉ người dùng
 } from "./data";
 
 // Đảm bảo associations được thiết lập đúng
@@ -32,12 +36,40 @@ initAssociations();
 
 const seedDatabase = async () => {
   try {
-    // Đồng bộ hóa cơ sở dữ liệu
-    await sequelize.sync({ force: true }); // CHÚ Ý: sẽ xóa tất cả dữ liệu hiện có!
+    // Tắt kiểm tra khóa ngoại trong quá trình tạo bảng
+    await sequelize.query("SET FOREIGN_KEY_CHECKS = 0");
+
+    console.log("Bắt đầu đồng bộ hóa cơ sở dữ liệu...");
+
+    // Tạo bảng theo thứ tự để tránh lỗi khóa ngoại
+    // 1. Đầu tiên là các bảng cơ bản không có khóa ngoại
+    await Role.sync({ force: true });
+    await PaymentMethod.sync({ force: true });
+    await PaymentStatus.sync({ force: true });
+    await Category.sync({ force: true });
+    await Voucher.sync({ force: true });
+
+    // 2. Sau đó là các bảng có khóa ngoại đơn giản
+    await Users.sync({ force: true });
+    await Product.sync({ force: true });
+
+    // 3. Các bảng có khóa ngoại phụ thuộc vào bảng trên
+    await ProductDetail.sync({ force: true });
+    await ProductInventory.sync({ force: true });
+    await ProductImage.sync({ force: true });
+    await ProductCategory.sync({ force: true });
+    await UserAddress.sync({ force: true });
+
+    // 4. Cuối cùng là các bảng liên quan đến đơn hàng
+    await Order.sync({ force: true });
+    await OrderDetail.sync({ force: true });
+
+    // Bật lại kiểm tra khóa ngoại
+    await sequelize.query("SET FOREIGN_KEY_CHECKS = 1");
 
     console.log("Bắt đầu tạo dữ liệu mẫu...");
 
-    // Tạo dữ liệu mẫu
+    // Tạo dữ liệu mẫu theo thứ tự
     await Role.bulkCreate(roles);
     console.log("✓ Đã tạo roles");
 
@@ -56,7 +88,6 @@ const seedDatabase = async () => {
     await ProductInventory.bulkCreate(productInventories);
     console.log("✓ Đã tạo product inventories (kho hàng)");
 
-    // Thêm dòng này để tạo dữ liệu ProductImage
     await ProductImage.bulkCreate(productImages);
     console.log("✓ Đã tạo product images");
 
@@ -71,6 +102,10 @@ const seedDatabase = async () => {
 
     await Voucher.bulkCreate(vouchers);
     console.log("✓ Đã tạo vouchers");
+
+    // Thêm phần tạo dữ liệu địa chỉ người dùng
+    await UserAddress.bulkCreate(userAddresses);
+    console.log("✓ Đã tạo user addresses");
 
     console.log("Đã thêm dữ liệu mẫu vào cơ sở dữ liệu thành công!");
     process.exit(0);

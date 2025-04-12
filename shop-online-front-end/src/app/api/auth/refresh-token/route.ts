@@ -1,4 +1,3 @@
-// src/app/api/auth/refresh-token/route.ts
 import { NextResponse } from "next/server";
 
 export async function POST() {
@@ -18,7 +17,18 @@ export async function POST() {
     );
 
     if (!response.ok) {
-      console.error("Backend refresh token failed:", response.status);
+      // Log rõ lỗi từ backend để debug
+      try {
+        const errorData = await response.json();
+        console.error("Backend refresh token error:", errorData);
+      } catch {
+        console.error(
+          "Backend refresh token failed:",
+          response.status,
+          response.statusText
+        );
+      }
+
       return NextResponse.json(
         { error: "Failed to refresh token" },
         { status: response.status }

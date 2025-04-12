@@ -35,7 +35,7 @@ export default function AddProductPage() {
     description: "",
     category: "shirts", // Danh mục mặc định
     categoryName: "Áo",
-    brand: "Brand Name",
+    brand: "Shop Online",
     material: "",
     price: 0,
     originalPrice: 0,

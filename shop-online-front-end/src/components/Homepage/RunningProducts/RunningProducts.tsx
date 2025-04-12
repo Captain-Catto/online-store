@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import Slider from "react-slick";
-import { PrevArrow, NextArrow } from "../../../util/CustomArrowSlick";
+import { PrevArrow, NextArrow } from "@/utils/CustomArrowSlick";
 import Link from "next/link";
 import ProductCard from "../../ProductCard/ProductCard";
 import { Product, PaginatedResponse } from "../../ProductCard/ProductInterface";

@@ -14,7 +14,7 @@ import imgCod from "../../assets/imgs/payment/cod.png";
 import { AuthService } from "@/services/AuthService";
 import { UserService } from "@/services/UserService";
 import { OrderService } from "@/services/OrderService";
-import { clearCart } from "@/util/cartUtils";
+import { clearCart } from "@/utils/cartUtils";
 
 // Định nghĩa kiểu dữ liệu
 type LocationsType = {
@@ -83,7 +83,7 @@ export default function CheckoutPage() {
   const [orderSummary, setOrderSummary] = useState({
     subtotal: 0,
     discount: 0,
-    deliveryFee: 15000,
+    deliveryFee: 0,
     total: 0,
   });
   const [paymentMethod, setPaymentMethod] = useState("cod");
@@ -110,6 +110,9 @@ export default function CheckoutPage() {
 
   // State cho tính phí vận chuyển
   const [calculatingShippingFee, setCalculatingShippingFee] = useState(false);
+
+  // state báo lỗi đơn hàng
+  const [orderError, setOrderError] = useState<string | null>(null);
 
   // Điền thông tin từ địa chỉ đã chọn
   const populateShippingInfo = useCallback((address: Address) => {
@@ -203,10 +206,10 @@ export default function CheckoutPage() {
       setOrderSummary({
         subtotal: orderData.summary.subtotal,
         discount: orderData.summary.discount || 0,
-        deliveryFee: orderData.summary.deliveryFee || 15000,
+        deliveryFee: orderData.summary.deliveryFee || 0,
         total:
           orderData.summary.subtotal +
-          (orderData.summary.deliveryFee || 15000) -
+          (orderData.summary.deliveryFee || 0) -
           (orderData.summary.discount || 0),
       });
     } catch (error) {
@@ -215,10 +218,10 @@ export default function CheckoutPage() {
     }
   }, [router]);
 
-  // Function để tính phí vận chuyển
+  // Function để tính phí vận chuyển (chỉ cần city)
   const calculateShippingFee = useCallback(async () => {
-    if (!shippingInfo.city || !shippingInfo.district || !shippingInfo.ward) {
-      // Cần đủ thông tin địa chỉ để tính phí vận chuyển
+    if (!shippingInfo.city) {
+      // Cần thông tin thành phố để tính phí vận chuyển
       return;
     }
 
@@ -230,11 +233,10 @@ export default function CheckoutPage() {
 
       const orderData = JSON.parse(orderDataString);
 
-      // Chuẩn bị dữ liệu địa chỉ giao hàng
-      const shippingAddress = {
-        city: shippingInfo.city,
-        district: shippingInfo.district,
-        ward: shippingInfo.ward,
+      // Chuẩn bị dữ liệu theo định dạng mới
+      const requestData = {
+        subtotal: orderData.summary.subtotal,
+        shippingAddress: shippingInfo.city,
       };
 
       // Gọi API để tính phí vận chuyển
@@ -245,10 +247,7 @@ export default function CheckoutPage() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            items: orderData.items,
-            shippingAddress,
-          }),
+          body: JSON.stringify(requestData),
         }
       );
 
@@ -257,7 +256,9 @@ export default function CheckoutPage() {
       }
 
       const data = await response.json();
-      const shippingFee = data.shippingFee;
+
+      // Lấy finalFee từ đối tượng shipping trong response
+      const shippingFee = data.shipping.finalFee;
 
       // Cập nhật order summary với phí vận chuyển mới
       setOrderSummary((prev) => ({
@@ -285,27 +286,14 @@ export default function CheckoutPage() {
     } finally {
       setCalculatingShippingFee(false);
     }
-  }, [shippingInfo.city, shippingInfo.district, shippingInfo.ward]);
+  }, [shippingInfo.city]);
 
   // Tự động tính phí vận chuyển khi thông tin địa chỉ thay đổi
   useEffect(() => {
-    if (
-      isLoggedIn &&
-      !loading &&
-      shippingInfo.city &&
-      shippingInfo.district &&
-      shippingInfo.ward
-    ) {
+    if (isLoggedIn && !loading && shippingInfo.city) {
       calculateShippingFee();
     }
-  }, [
-    shippingInfo.city,
-    shippingInfo.district,
-    shippingInfo.ward,
-    isLoggedIn,
-    loading,
-    calculateShippingFee,
-  ]);
+  }, [shippingInfo.city, isLoggedIn, loading, calculateShippingFee]);
 
   // Hàm áp dụng voucher
   const handleApplyVoucher = async () => {
@@ -328,8 +316,15 @@ export default function CheckoutPage() {
       }
 
       const voucherData = await response.json();
+      console.log("Voucher data:", voucherData);
 
-      // Kiểm tra điều kiện áp dụng voucher (ví dụ: giá trị đơn hàng tối thiểu)
+      // Kiểm tra ngày hết hạn
+      const expirationDate = new Date(voucherData.expirationDate);
+      if (expirationDate < new Date()) {
+        throw new Error("Mã giảm giá đã hết hạn");
+      }
+
+      // Kiểm tra điều kiện áp dụng voucher (minOrderValue có thể không có trong response)
       if (
         voucherData.minOrderValue &&
         orderSummary.subtotal < voucherData.minOrderValue
@@ -342,13 +337,14 @@ export default function CheckoutPage() {
       }
 
       // Tính số tiền được giảm giá
+      // Sử dụng type và value thay vì discountType và discount
       let discountAmount = 0;
-      if (voucherData.discountType === "percentage") {
+      if (voucherData.type === "percentage") {
         discountAmount = Math.floor(
-          (orderSummary.subtotal * voucherData.discount) / 100
+          (orderSummary.subtotal * voucherData.value) / 100
         );
       } else {
-        discountAmount = voucherData.discount;
+        discountAmount = voucherData.value;
       }
 
       // Cập nhật order summary với số tiền giảm giá
@@ -358,13 +354,13 @@ export default function CheckoutPage() {
         total: prev.subtotal + prev.deliveryFee - discountAmount,
       }));
 
-      // Lưu voucher đã áp dụng
+      // Lưu voucher đã áp dụng (map lại theo interface Voucher)
       setAppliedVoucher({
         id: voucherData.id,
         code: voucherData.code,
-        discount: voucherData.discount,
-        discountType: voucherData.discountType,
-        minOrderValue: voucherData.minOrderValue,
+        discount: voucherData.value, // Sử dụng value thay cho discount
+        discountType: voucherData.type, // Sử dụng type thay cho discountType
+        minOrderValue: voucherData.minOrderValue || 0, // Đặt giá trị mặc định nếu không có
       });
 
       // Cập nhật session storage với số tiền mới
@@ -395,6 +391,9 @@ export default function CheckoutPage() {
     if (!validateForm()) {
       return; // If there are errors, don't process
     }
+
+    // Reset any previous errors
+    setOrderError(null);
 
     try {
       // Show loading state
@@ -448,15 +447,10 @@ export default function CheckoutPage() {
       clearCart();
       sessionStorage.removeItem("pendingOrder");
 
-      // Chuyển hướng đến trang confirmation (không cần truyền ID qua URL)
+      // Chuyển hướng đến trang confirmation
       router.push(`/order-confirmation`);
     } catch (error) {
       console.error("Error placing order:", error);
-      if (error instanceof Error) {
-        alert(`Đặt hàng thất bại: ${error.message}`);
-      } else {
-        alert("Đặt hàng thất bại. Vui lòng thử lại sau.");
-      }
     } finally {
       setSubmitting(false);
     }
@@ -1114,6 +1108,29 @@ export default function CheckoutPage() {
                   </span>
                 </div>
               </div>
+              {/* Order Summary - thêm phần này trước nút đặt hàng */}
+              {orderError && (
+                <div
+                  className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative mb-4"
+                  role="alert"
+                >
+                  <div className="flex">
+                    <div className="py-1">
+                      <svg
+                        className="fill-current h-5 w-5 text-red-500 mr-2"
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="font-medium">Không thể đặt hàng</p>
+                      <p className="text-sm">{orderError}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <button
                 type="submit"

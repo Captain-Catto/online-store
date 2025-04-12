@@ -11,7 +11,6 @@ export const UserLeft: React.FC<UserLeftProps> = ({
   setActiveTab,
   onLogout,
 }) => {
-  console.log("activetab", activeTab);
   return (
     <div className="bg-gray-100 p-4 rounded-lg">
       <ul className="space-y-2">

@@ -378,7 +378,14 @@ export const cancelOrder = async (
 
   try {
     const { id } = req.params;
-    const userId = req.body.user.id;
+    const { cancelNote } = req.body; // Thêm lý do hủy đơn
+
+    if (!req.user) {
+      await t.rollback();
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+    const userId = req.user.id;
 
     const order = await Order.findByPk(id, {
       transaction: t,
@@ -397,7 +404,7 @@ export const cancelOrder = async (
     }
 
     // Kiểm tra quyền (chỉ admin hoặc chủ đơn hàng mới được hủy)
-    if (order.getDataValue("userId") !== userId && req.body.user.role !== 1) {
+    if (order.getDataValue("userId") !== userId && req.user.role !== 1) {
       await t.rollback();
       res.status(403).json({ message: "Không có quyền hủy đơn hàng này" });
       return;
@@ -414,7 +421,13 @@ export const cancelOrder = async (
     }
 
     // Cập nhật trạng thái đơn hàng thành "cancelled"
-    await order.update({ status: "cancelled" }, { transaction: t });
+    await order.update(
+      {
+        status: "cancelled",
+        cancelNote: cancelNote || "Người dùng hủy đơn hàng",
+      },
+      { transaction: t }
+    );
 
     // Hoàn trả số lượng vào kho hàng
     const orderDetails = (order as any).orderDetails || [];
