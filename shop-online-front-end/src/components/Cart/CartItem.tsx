@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { getColorName } from "@/utils/colorUtils";
 
 interface CartItemProps {
   item: {
@@ -38,8 +39,10 @@ export default function CartItem({
       <div className="flex-1">
         <h3 className="font-bold">{item.name}</h3>
         <p>Size: {item.size}</p>
-        <p>Color: {item.color}</p>
-        <p className="font-bold">${item.price || 0}</p>
+        <p>Color: {getColorName(item.color)}</p>
+        <p className="font-bold">
+          {(item.price || 0).toLocaleString("vi-VN")} VND
+        </p>
       </div>
       <div className="flex flex-col items-end">
         <div className="flex items-center gap-2">

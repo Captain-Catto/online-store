@@ -30,6 +30,7 @@ export interface Product {
   variants: Record<string, VariantDetail>;
   createdAt: string;
   updatedAt: string;
+  suitability: string[];
 }
 
 // Interface đơn giản hóa cho ProductCard

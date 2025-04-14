@@ -2,38 +2,25 @@
 
 import React from "react";
 import Link from "next/link";
-import Image, { StaticImageData } from "next/image";
+import Image from "next/image";
 import aoThun from "../../../assets/imgs/categories/ao-thun-cate_86.webp";
 import aoSoMi from "../../../assets/imgs/categories/so-mi-cate_10.webp";
 import aoKhoac from "../../../assets/imgs/categories/ao-khoac-cate_16.webp";
 import quanDai from "../../../assets/imgs/categories/quan-dai-cate_24.webp";
 import quanShort from "../../../assets/imgs/categories/quan-short-cate_36.webp";
-
-// Định nghĩa kiểu dữ liệu
-interface CategoryItem {
-  id: string;
-  label: string;
-  href: string;
-  image: StaticImageData; // StaticImageData type cho local images
-}
-
-interface CategoryGroup {
-  id: string;
-  tabLabel: string;
-  categories: CategoryItem[];
-}
+import { CategoryGroup } from "@/types/category";
+import { API_BASE_URL } from "@/config/apiConfig";
 
 const Categories: React.FC = () => {
   // Dữ liệu danh mục
   const categoryGroups: CategoryGroup[] = [
     {
       id: "nam",
-      tabLabel: "ĐỒ NAM",
       categories: [
         {
           id: "ao-thun-nam",
           label: "ÁO THUN",
-          href: "/products/ao-thun-nam",
+          href: API_BASE_URL + "/products/category/1?subtype=t-shirt",
           image: aoThun,
         },
         {

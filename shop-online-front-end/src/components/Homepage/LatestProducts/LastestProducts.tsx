@@ -6,7 +6,8 @@ import Link from "next/link";
 import { PrevArrow, NextArrow } from "@/utils/CustomArrowSlick";
 import ProductCard from "@/components/ProductCard/ProductCard";
 import { ProductService } from "@/services/ProductService";
-import { Product, SimpleProduct } from "@/types";
+import { Product, SimpleProduct } from "@/types/product";
+import { useCallback } from "react";
 
 const LatestProducts: React.FC = () => {
   const sliderRef = useRef<Slider>(null);
@@ -23,6 +24,33 @@ const LatestProducts: React.FC = () => {
     [productId: number]: string;
   }>({});
 
+  // hàm lấy hình ảnh
+  const extractImages = useCallback(
+    (variant: { images: { isMain: boolean; url: string }[] }) => {
+      if (!variant?.images || variant.images.length === 0) {
+        return { mainImage: null, secondaryImage: null };
+      }
+
+      const mainImage =
+        variant.images.find(
+          (img: { isMain: boolean; url: string }) => img.isMain
+        ) || variant.images[0];
+      let secondaryImage = null;
+
+      if (variant.images.length > 1) {
+        secondaryImage = variant.images.find(
+          (img: { isMain: boolean; url: string }) => img !== mainImage
+        );
+      }
+
+      return {
+        mainImage: mainImage ? mainImage.url : null,
+        secondaryImage: secondaryImage ? secondaryImage.url : null,
+      };
+    },
+    []
+  );
+
   useEffect(() => {
     const fetchProducts = async () => {
       try {
@@ -36,36 +64,30 @@ const LatestProducts: React.FC = () => {
         const initialImages: { [key: number]: string } = {};
         const initialSecondaryImages: { [key: number]: string } = {};
 
-        // Xử lý dữ liệu từ API
-        response.products.forEach((product) => {
-          // Chọn màu mặc định là màu đầu tiên
-          const defaultColor = product.colors[0];
+        // Xử lý dữ liệu từ API (chỉ một vòng lặp)
+        response.products.forEach((product: Product) => {
+          const defaultColor: string = product.colors[0];
 
-          // Nếu có thông tin variant của màu này
           if (defaultColor && product.variants[defaultColor]) {
             initialColors[product.id] = defaultColor;
 
-            // Lấy chi tiết variant của màu mặc định
-            const variantDetail = product.variants[defaultColor];
+            const variantDetail: {
+              images: { isMain: boolean; url: string }[];
+            } = product.variants[defaultColor];
+            const {
+              mainImage,
+              secondaryImage,
+            }: {
+              mainImage: string | null;
+              secondaryImage: string | null;
+            } = extractImages(variantDetail);
 
-            // Tìm hình ảnh chính của màu này, nếu không có thì lấy hình đầu tiên
-            const mainImage =
-              variantDetail.images.find((img) => img.isMain) ||
-              variantDetail.images[0];
-
-            // Nếu có hình ảnh, lưu URL vào state
             if (mainImage) {
-              initialImages[product.id] = mainImage.url;
+              initialImages[product.id] = mainImage;
             }
 
-            // lâys hình thứ 2 để xử lý hover
-            if (variantDetail.images.length > 1) {
-              const secondaryImage = variantDetail.images.find(
-                (img) => img !== mainImage
-              );
-              if (secondaryImage) {
-                initialSecondaryImages[product.id] = secondaryImage.url;
-              }
+            if (secondaryImage) {
+              initialSecondaryImages[product.id] = secondaryImage;
             }
           }
         });
@@ -83,33 +105,42 @@ const LatestProducts: React.FC = () => {
     };
 
     fetchProducts();
-  }, []);
+  }, [extractImages]);
 
   // Handler khi người dùng chọn màu khác
-  const handleColorSelect = (productId: number, color: string) => {
-    setSelectedColors((prev) => ({ ...prev, [productId]: color }));
+  const handleColorSelect = useCallback(
+    (productId: number, color: string) => {
+      setSelectedColors((prev) => ({ ...prev, [productId]: color }));
 
-    // Tìm sản phẩm tương ứng
-    const product = products.find((p) => p.id === productId);
+      const product = products.find((p) => p.id === productId);
 
-    // Nếu tìm thấy sản phẩm và có thông tin variant của màu đã chọn
-    if (product && product.variants[color]) {
-      const variantDetail = product.variants[color];
+      if (product?.variants[color]) {
+        const variantDetail = product.variants[color];
+        const { mainImage, secondaryImage } = extractImages(variantDetail);
 
-      // Tìm hình ảnh chính hoặc hình đầu tiên
-      const mainImage =
-        variantDetail.images.find((img) => img.isMain) ||
-        variantDetail.images[0];
+        if (mainImage) {
+          setProductImages((prev) => ({
+            ...prev,
+            [productId]: mainImage,
+          }));
+        }
 
-      // Cập nhật hình ảnh cho sản phẩm
-      if (mainImage) {
-        setProductImages((prev) => ({
-          ...prev,
-          [productId]: mainImage.url,
-        }));
+        if (secondaryImage) {
+          setSecondaryImages((prev) => ({
+            ...prev,
+            [productId]: secondaryImage,
+          }));
+        } else {
+          setSecondaryImages((prev) => {
+            const newState = { ...prev };
+            delete newState[productId];
+            return newState;
+          });
+        }
       }
-    }
-  };
+    },
+    [products, extractImages]
+  );
 
   // Cấu hình slider
   const settings = {

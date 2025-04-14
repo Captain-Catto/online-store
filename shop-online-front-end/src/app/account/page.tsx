@@ -9,6 +9,8 @@ import { OrderService } from "@/services/OrderService";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/utils/useAuth";
 import Link from "next/link";
+import { Promotion } from "@/types/promotion";
+import { Order } from "@/types/order";
 
 // Interface địa chỉ dựa trên API response
 interface Address {
@@ -49,8 +51,6 @@ export default function AccountPage() {
     email: "",
     phone: "",
     birthdate: "",
-    gender: "",
-    address: "",
   });
 
   const [ordersData, setOrdersData] = useState<Order[]>([]);
@@ -77,8 +77,6 @@ export default function AccountPage() {
         birthdate: userProfile.dateOfBirth
           ? new Date(userProfile.dateOfBirth).toLocaleDateString("vi-VN")
           : "",
-        gender: userProfile.gender || "",
-        address: "",
       });
     } catch (error) {
       console.error("Error fetching account info:", error);

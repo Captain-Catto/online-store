@@ -76,6 +76,17 @@ Product.init(
         this.setDataValue("suitability", JSON.stringify(value));
       },
     },
+    subtype: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: null,
+      // Giá trị có thể: 't-shirt', 'polo', 'shirt', 'jacket', etc.
+      set(value: string) {
+        if (value) {
+          this.setDataValue("subtype", value.toLowerCase());
+        }
+      },
+    },
   },
   {
     sequelize,

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { createPortal } from "react-dom";
+import { colorToVietnamese } from "@/utils/colorUtils";
 
 type ToastType = "success" | "error" | "warning" | "info" | "cart";
 
@@ -130,7 +131,8 @@ export const useToast = () => {
               {productInfo.name}
             </span>
             <span className="notify-product__option text-gray-500 text-xs mt-1">
-              Màu: {productInfo.color} | Size: {productInfo.size}
+              Màu: {colorToVietnamese[productInfo.color || ""]} | Size:{" "}
+              {productInfo.size}
             </span>
             <div className="notify-product__prices text-sm mt-1 flex items-center gap-2">
               <span className="text-red-600 font-semibold">

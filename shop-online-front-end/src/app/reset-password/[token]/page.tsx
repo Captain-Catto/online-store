@@ -1,149 +1,90 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Header from "@/components/Header/Header";
 import Footer from "@/components/Footer/Footer";
-import { createUser } from "@/services/AuthService";
-import { AuthService } from "@/services/AuthService";
+import { API_BASE_URL } from "@/config/apiConfig";
 
-export default function RegisterPage() {
-  const router = useRouter();
+export default function ResetPasswordPage() {
+  const params = useParams();
+  const token = params.token as string;
+
   const [formData, setFormData] = useState({
-    email: "",
     password: "",
     confirmPassword: "",
   });
-
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [errors, setErrors] = useState({
-    email: "",
-    password: "",
-    confirmPassword: "",
-    general: "",
-  });
   const [loading, setLoading] = useState(false);
-  const [registerSuccess, setRegisterSuccess] = useState(false);
-  const [redirectCountdown, setRedirectCountdown] = useState(3);
-  const [checkingAuth, setCheckingAuth] = useState(true);
-
-  // Kiểm tra trạng thái đăng nhập
-  useEffect(() => {
-    const checkAuth = async () => {
-      const isLoggedIn = AuthService.isLoggedIn();
-      if (isLoggedIn) {
-        router.replace("/");
-      } else {
-        setCheckingAuth(false);
-      }
-    };
-
-    checkAuth();
-  }, [router]);
-
-  // Hiệu ứng đếm ngược
-  useEffect(() => {
-    if (registerSuccess) {
-      const timer = setTimeout(() => {
-        if (redirectCountdown > 1) {
-          setRedirectCountdown(redirectCountdown - 1);
-        } else {
-          router.push("/login");
-        }
-      }, 1000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [registerSuccess, redirectCountdown, router]);
-
-  // Validate form
-  const validateForm = () => {
-    let isValid = true;
-    const newErrors = {
-      email: "",
-      password: "",
-      confirmPassword: "",
-      general: "",
-    };
-
-    if (!formData.email) {
-      newErrors.email = "Vui lòng nhập email";
-      isValid = false;
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "Email không hợp lệ";
-      isValid = false;
-    }
-
-    if (!formData.password) {
-      newErrors.password = "Vui lòng nhập mật khẩu";
-      isValid = false;
-    } else if (formData.password.length < 6) {
-      newErrors.password = "Mật khẩu phải có ít nhất 6 ký tự";
-      isValid = false;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = "Mật khẩu xác nhận không khớp";
-      isValid = false;
-    }
-
-    setErrors(newErrors);
-    return isValid;
-  };
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
+    setError("");
 
-    if (!validateForm()) {
+    // Kiểm tra mật khẩu
+    if (formData.password.length < 6) {
+      setError("Mật khẩu phải có ít nhất 6 ký tự");
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
+    if (formData.password !== formData.confirmPassword) {
+      setError("Mật khẩu xác nhận không khớp");
+      setLoading(false);
+      return;
+    }
 
     try {
-      await createUser({
-        email: formData.email,
-        password: formData.password,
-      });
+      const response = await fetch(
+        API_BASE_URL + "/auth/reset-password/" + token,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            password: formData.password,
+          }),
+        }
+      );
 
-      setRegisterSuccess(true);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Có lỗi xảy ra");
+      }
+
+      setSuccess(true);
     } catch (error) {
-      console.error("Registration error:", error);
-      setErrors((prev) => ({
-        ...prev,
-        general:
-          error instanceof Error
-            ? error.message
-            : "Đăng ký thất bại. Vui lòng thử lại.",
-      }));
+      console.error("Lỗi đặt lại mật khẩu:", error);
+      setError(
+        error instanceof Error ? error.message : "Không thể đặt lại mật khẩu"
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  if (checkingAuth) {
-    return (
-      <>
-        <Header />
-        <div className="container mx-auto px-4 py-12 flex items-center justify-center min-h-[50vh]">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
-        </div>
-        <Footer />
-      </>
-    );
-  }
-
+  // Thêm phần giao diện giống như bạn đã làm với ForgotPasswordPage
   return (
     <>
       <Header />
       <main className="container mx-auto px-4 py-12">
         <div className="max-w-md mx-auto bg-white p-8 rounded-xl shadow-lg">
-          <h1 className="text-3xl font-bold mb-6 text-center">Đăng ký</h1>
+          <h1 className="text-3xl font-bold mb-6 text-center">
+            Đặt lại mật khẩu
+          </h1>
 
-          {/* Thông báo đăng ký thành công */}
-          {registerSuccess ? (
+          {!token ? (
+            <div className="p-4 mb-6 text-sm text-red-700 bg-red-100 rounded-lg">
+              Link đặt lại mật khẩu không hợp lệ.
+            </div>
+          ) : success ? (
             <div className="p-4 mb-6 text-sm text-green-700 bg-green-100 rounded-lg flex flex-col items-center">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -159,72 +100,47 @@ export default function RegisterPage() {
                   d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              <p className="text-lg font-medium mb-2">Đăng ký thành công!</p>
-              <p>Tài khoản của bạn đã được tạo thành công.</p>
-              <p className="mt-3">
-                Chuyển đến trang đăng nhập trong{" "}
-                <span className="font-bold">{redirectCountdown}</span> giây...
+              <p className="text-lg font-medium mb-2">
+                Đặt lại mật khẩu thành công!
               </p>
-              <button
-                onClick={() => router.push("/login?registered=true")}
-                className="mt-4 bg-black hover:bg-gray-800 text-white py-2 px-4 rounded"
+              <p className="text-center">
+                Mật khẩu của bạn đã được cập nhật thành công.
+              </p>
+              <Link
+                href="/login"
+                className="mt-4 px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
               >
                 Đăng nhập ngay
-              </button>
+              </Link>
             </div>
           ) : (
             <>
-              {/* Hiển thị lỗi chung */}
-              {errors.general && (
+              {error && (
                 <div className="p-4 mb-6 text-sm text-red-700 bg-red-100 rounded-lg">
-                  {errors.general}
+                  {error}
                 </div>
               )}
 
-              {/* Form đăng ký với style giống login */}
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Email field */}
-                <div>
-                  <label htmlFor="email" className="block mb-2 font-medium">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    className={`w-full px-4 py-3 border rounded-lg ${
-                      errors.email ? "border-red-500" : "border-gray-300"
-                    }`}
-                    placeholder="example@email.com"
-                    value={formData.email}
-                    onChange={(e) =>
-                      setFormData({ ...formData, email: e.target.value })
-                    }
-                    disabled={loading}
-                  />
-                  {errors.email && (
-                    <p className="mt-1 text-red-500 text-sm">{errors.email}</p>
-                  )}
-                </div>
-
-                {/* Password field */}
+                {/* Mật khẩu */}
                 <div>
                   <label htmlFor="password" className="block mb-2 font-medium">
-                    Mật khẩu
+                    Mật khẩu mới
                   </label>
                   <div className="relative">
                     <input
                       type={showPassword ? "text" : "password"}
                       id="password"
-                      className={`w-full px-4 py-3 border rounded-lg ${
-                        errors.password ? "border-red-500" : "border-gray-300"
-                      }`}
-                      placeholder="Nhập mật khẩu"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+                      placeholder="Nhập mật khẩu mới"
                       value={formData.password}
                       onChange={(e) =>
                         setFormData({ ...formData, password: e.target.value })
                       }
+                      required
                       disabled={loading}
                     />
+                    {/* Nút hiện/ẩn mật khẩu */}
                     <button
                       type="button"
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
@@ -258,14 +174,9 @@ export default function RegisterPage() {
                       )}
                     </button>
                   </div>
-                  {errors.password && (
-                    <p className="mt-1 text-red-500 text-sm">
-                      {errors.password}
-                    </p>
-                  )}
                 </div>
 
-                {/* Confirm Password field */}
+                {/* Xác nhận mật khẩu */}
                 <div>
                   <label
                     htmlFor="confirmPassword"
@@ -277,12 +188,8 @@ export default function RegisterPage() {
                     <input
                       type={showConfirmPassword ? "text" : "password"}
                       id="confirmPassword"
-                      className={`w-full px-4 py-3 border rounded-lg ${
-                        errors.confirmPassword
-                          ? "border-red-500"
-                          : "border-gray-300"
-                      }`}
-                      placeholder="Nhập lại mật khẩu"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+                      placeholder="Nhập lại mật khẩu mới"
                       value={formData.confirmPassword}
                       onChange={(e) =>
                         setFormData({
@@ -290,8 +197,10 @@ export default function RegisterPage() {
                           confirmPassword: e.target.value,
                         })
                       }
+                      required
                       disabled={loading}
                     />
+                    {/* Nút hiện/ẩn mật khẩu */}
                     <button
                       type="button"
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
@@ -327,35 +236,17 @@ export default function RegisterPage() {
                       )}
                     </button>
                   </div>
-                  {errors.confirmPassword && (
-                    <p className="mt-1 text-red-500 text-sm">
-                      {errors.confirmPassword}
-                    </p>
-                  )}
                 </div>
 
-                {/* Register button */}
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+                  className="w-full py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition"
                 >
-                  {loading ? "Đang xử lý..." : "Đăng ký"}
+                  {loading ? "Đang xử lý..." : "Đặt lại mật khẩu"}
                 </button>
               </form>
             </>
-          )}
-
-          {/* Phần link đăng nhập - chỉ hiển thị khi chưa đăng ký thành công */}
-          {!registerSuccess && (
-            <div className="mt-6 text-center">
-              <p className="text-gray-600">
-                Đã có tài khoản?{" "}
-                <Link href="/login" className="text-blue-600 hover:underline">
-                  Đăng nhập ngay
-                </Link>
-              </p>
-            </div>
           )}
         </div>
       </main>

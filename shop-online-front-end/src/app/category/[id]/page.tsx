@@ -13,6 +13,7 @@ import FilterSidebar from "@/components/Category/FilterSidebar";
 import ProductGrid from "@/components/Category/ProductGrid";
 import Pagination from "@/components/Category/Pagination";
 import { ProductService } from "@/services/ProductService";
+import { Product } from "@/types/product";
 
 export default function CategoryDetailPage() {
   const params = useParams();
@@ -22,7 +23,7 @@ export default function CategoryDetailPage() {
   const categoryId = params.id as string;
 
   // States
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedColors, setSelectedColors] = useState<{

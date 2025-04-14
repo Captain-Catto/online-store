@@ -7,8 +7,8 @@ import Membership from "@/components/Homepage/Membership/Membership";
 import LatestProducts from "@/components/Homepage/LatestProducts/LastestProducts";
 import CasualProductsBanner from "@/components/Homepage/CasualProducts/CasualProducts-Banner";
 import CasualProducts from "@/components/Homepage/CasualProducts/CasualProducts";
-import RunningProductsBanner from "@/components/Homepage/RunningProducts/RunningProducts-Banner";
-import RunningProducts from "@/components/Homepage/RunningProducts/RunningProducts";
+// import RunningProductsBanner from "@/components/Homepage/RunningProducts/RunningProducts-Banner";
+// import RunningProducts from "@/components/Homepage/RunningProducts/RunningProducts";
 import Categories from "@/components/Homepage/Categories/Categories";
 import MessengerButton from "@/components/Homepage/MessengerButton/MessengerButton";
 // import User from "@/components/User/User";
@@ -25,8 +25,8 @@ export default function Home() {
       <LatestProducts />
       <CasualProductsBanner />
       <CasualProducts />
-      <RunningProductsBanner />
-      <RunningProducts />
+      {/* <RunningProductsBanner />
+      <RunningProducts /> */}
       <Membership />
       <Footer />
       <BackToTop />

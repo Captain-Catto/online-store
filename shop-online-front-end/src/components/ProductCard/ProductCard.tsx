@@ -2,10 +2,9 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Product } from "./ProductInterface";
 import SizeSelector from "./SizeSelector";
 import { useToast } from "@/utils/useToast";
-import { SimpleProduct } from "@/types";
+import { SimpleProduct, Product } from "@/types/product";
 
 interface ProductCardProps {
   product: SimpleProduct;
@@ -66,12 +65,12 @@ const ProductCard: React.FC<ProductCardProps> = ({
   };
 
   return (
-    <div
-      className="product-container w-full rounded-lg flex-shrink-0 m-2 h-[500px] mx-auto flex flex-col relative"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <div className="relative product-image">
+    <div className="product-container w-full rounded-lg flex-shrink-0 m-2 h-[500px] mx-auto flex flex-col relative">
+      <div
+        className="relative product-image"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
         <Link href={`/products/${product.id}`}>
           {productImage ? (
             <div className="relative w-full h-80">
@@ -118,7 +117,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
         {isHovered && currentVariant && (
           <div className="absolute inset-0 flex flex-col justify-center items-center p-4 transition-opacity duration-200">
             <SizeSelector
-              product={product}
+              product={product as Product}
               selectedColor={selectedColor}
               productImage={productImage}
               onProductAdded={handleProductAdded}

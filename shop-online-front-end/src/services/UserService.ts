@@ -1,12 +1,7 @@
 import { API_BASE_URL } from "@/config/apiConfig";
 import { AuthClient } from "./AuthClient";
-import {
-  UserProfile,
-  UserProfileUpdate,
-  Address,
-  AddressCreate,
-  AddressUpdate,
-} from "@/types";
+import { UserProfile, UserProfileUpdate } from "@/types/user";
+import { Address, AddressCreate, AddressUpdate } from "@/types/address";
 
 class UserService {
   /**

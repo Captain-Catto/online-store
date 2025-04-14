@@ -1,6 +1,5 @@
-import { getCookie } from "@/services/AuthService";
 import { jwtDecode } from "jwt-decode";
-
+import { AuthService } from "./AuthService";
 import { API_BASE_URL } from "@/config/apiConfig";
 
 // Interface for JWT payload
@@ -28,102 +27,8 @@ function addSubscriber(callback: (token: string) => void) {
 }
 
 export class AuthClient {
-  static async fetchWithAuth(url: string, options: RequestInit = {}) {
-    try {
-      // Get token from sessionStorage
-      let token = sessionStorage.getItem("authToken");
-
-      // Check if token is valid or needs refresh
-      if (token) {
-        try {
-          const decodedToken = jwtDecode<JwtPayload>(token);
-          const currentTime = Date.now() / 1000;
-
-          // If token is expired or about to expire, refresh it
-          if (decodedToken.exp < currentTime + 60) {
-            // 60s buffer
-            console.log("Token expired or expiring soon, refreshing...");
-            const newToken = await this.refreshToken();
-            if (newToken) {
-              token = newToken;
-            } else {
-              throw new Error("TOKEN_REFRESH_FAILED");
-            }
-          }
-        } catch (tokenError) {
-          console.error("Error validating token:", tokenError);
-          // If token can't be decoded, try refresh
-          const newToken = await this.refreshToken();
-          if (newToken) {
-            token = newToken;
-          } else {
-            throw new Error("TOKEN_REFRESH_FAILED");
-          }
-        }
-      } else if (
-        localStorage.getItem("isLoggedIn") === "true" ||
-        getCookie("auth_status")
-      ) {
-        // No token but user appears logged in - try refresh
-        const newToken = await this.refreshToken();
-        if (newToken) {
-          token = newToken;
-        } else {
-          throw new Error("NO_AUTH_TOKEN");
-        }
-      } else {
-        // No token and no login state
-        throw new Error("NO_AUTH_TOKEN");
-      }
-
-      // Create headers with validated token
-      const headers = {
-        ...options.headers,
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      };
-
-      // Make request with validated token
-      const response = await fetch(url, {
-        ...options,
-        headers,
-        credentials: "include",
-      });
-
-      // If still getting 401, last attempt at refresh
-      if (response.status === 401) {
-        console.log("Got 401 despite valid token, final refresh attempt");
-        const newToken = await this.refreshToken();
-        if (newToken) {
-          const newHeaders = {
-            ...options.headers,
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${newToken}`,
-          };
-          return fetch(url, {
-            ...options,
-            headers: newHeaders,
-            credentials: "include",
-          });
-        }
-        throw new Error("TOKEN_REFRESH_FAILED");
-      }
-
-      return response;
-    } catch (error) {
-      console.error("Auth API call error:", error);
-      if (
-        error instanceof Error &&
-        (error.message === "NO_AUTH_TOKEN" ||
-          error.message === "TOKEN_REFRESH_FAILED")
-      ) {
-        throw error;
-      }
-      throw error;
-    }
-  }
-
   static async refreshToken(): Promise<string | null> {
+    // Nếu đang refresh, chờ kết quả
     if (isRefreshing) {
       return new Promise<string>((resolve) => {
         addSubscriber((token) => resolve(token));
@@ -131,33 +36,51 @@ export class AuthClient {
     }
 
     isRefreshing = true;
+    console.log("Đang thử làm mới token...");
 
     try {
-      console.log("Actually performing token refresh...");
+      // Kiểm tra token hiện tại
+      const token = sessionStorage.getItem("authToken");
 
+      if (token) {
+        try {
+          // Kiểm tra xem token có hợp lệ không
+          const decodedToken = jwtDecode<JwtPayload>(token);
+          const currentTime = Date.now() / 1000;
+
+          // Nếu token còn hạn và không gần hết hạn (còn hơn 5 phút)
+          if (decodedToken.exp > currentTime + 300) {
+            console.log("Token vẫn còn hạn, không cần refresh");
+            isRefreshing = false;
+            return token;
+          }
+          console.log("Token gần hết hạn, tiến hành refresh");
+        } catch {
+          // Token không hợp lệ, tiếp tục để refresh
+          console.log(
+            "Token không hợp lệ hoặc không thể giải mã, tiến hành refresh"
+          );
+        }
+      } else {
+        console.log("Không tìm thấy token trong session, tiến hành refresh");
+      }
+
+      // Gọi API refresh token
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       const response = await fetch(API_BASE_URL + "/auth/refresh-token", {
         method: "POST",
-        credentials: "include",
-        signal: controller.signal,
+        credentials: "include", // Quan trọng: gửi cookies
+        signal: controller.signal, // Để hủy yêu cầu nếu quá thời gian
       });
 
       clearTimeout(timeoutId);
 
       if (!response.ok) {
         console.error("Refresh token API error:", response.status);
-        try {
-          const errorText = await response.text();
-          console.error("Error response:", errorText);
-        } catch {
-          console.error("Could not parse error response");
-        }
-
+        // Xóa thông tin đăng nhập nếu refresh thất bại
         sessionStorage.removeItem("authToken");
-        localStorage.removeItem("isLoggedIn");
-        localStorage.removeItem("user");
         isRefreshing = false;
         return null;
       }
@@ -166,25 +89,87 @@ export class AuthClient {
       const newToken = data.accessToken;
 
       if (!newToken) {
-        console.error("No accessToken in refresh response");
+        console.error("Không có accessToken trong response");
         isRefreshing = false;
         return null;
       }
 
-      console.log("Got new token, storing it");
+      // Lưu token mới
       sessionStorage.setItem("authToken", newToken);
+      console.log("Refresh token thành công, đã lưu token mới");
 
+      // Thông báo cho các subscribers
       onRefreshed(newToken);
       isRefreshing = false;
 
       return newToken;
     } catch (error) {
-      console.error("Error refreshing token:", error);
-      sessionStorage.removeItem("authToken");
-      localStorage.removeItem("isLoggedIn");
-      localStorage.removeItem("user");
+      console.error("Lỗi refresh token:", error);
       isRefreshing = false;
       return null;
+    }
+  }
+
+  static async fetchWithAuth(url: string, options: RequestInit = {}) {
+    try {
+      // Lấy token từ sessionStorage
+      let token = sessionStorage.getItem("authToken");
+
+      // Nếu có token, kiểm tra hợp lệ
+      if (token) {
+        try {
+          const decoded = jwtDecode<JwtPayload>(token);
+          const currentTime = Date.now() / 1000;
+
+          // Nếu token gần hết hạn hoặc đã hết hạn, thử refresh
+          if (decoded.exp <= currentTime + 300) {
+            // 5 phút
+            console.log("Token gần hết hạn, thử refresh");
+            const newToken = await this.refreshToken();
+            if (newToken) {
+              token = newToken;
+            }
+            // Nếu không refresh được, tiếp tục dùng token cũ
+          }
+        } catch {
+          // Token không hợp lệ, thử refresh
+          console.log("Token không hợp lệ, thử refresh");
+          const newToken = await this.refreshToken();
+          if (newToken) {
+            token = newToken;
+          } else {
+            throw new Error("TOKEN_INVALID");
+          }
+        }
+      } else if (AuthService.isLoggedIn()) {
+        // Không có token nhưng có dấu hiệu đăng nhập
+        console.log("Không có token nhưng có dấu hiệu đăng nhập, thử refresh");
+        const newToken = await this.refreshToken();
+        if (newToken) {
+          token = newToken;
+        } else {
+          throw new Error("TOKEN_MISSING");
+        }
+      } else {
+        throw new Error("NOT_AUTHENTICATED");
+      }
+
+      // Thêm token vào headers
+      const headers = {
+        ...options.headers,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      };
+
+      // Gọi API với token đã kiểm tra
+      return fetch(url, {
+        ...options,
+        headers,
+        credentials: "include",
+      });
+    } catch (error) {
+      console.error("AuthClient.fetchWithAuth error:", error);
+      throw error;
     }
   }
 }

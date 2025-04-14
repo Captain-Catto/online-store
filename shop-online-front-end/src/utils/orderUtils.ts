@@ -32,3 +32,16 @@ export const formatFullAddress = (
 ): string => {
   return `${address}, ${ward}, ${district}, ${city}`;
 };
+
+// hàm để map thông tin đơn hàng sang tiếng việt
+export const mapOrderStatus = (status: string) => {
+  const statusMap: Record<string, string> = {
+    pending: "Chờ xác nhận",
+    processing: "Đang xử lý",
+    shipping: "Đang vận chuyển",
+    delivered: "Đã giao hàng",
+    canceled: "Đã hủy",
+    refunded: "Đã hoàn tiền",
+  };
+  return statusMap[status] || status;
+};

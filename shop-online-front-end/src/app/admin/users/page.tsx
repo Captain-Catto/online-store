@@ -1,111 +1,108 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
+import { AuthClient } from "@/services/AuthClient";
+import { API_BASE_URL } from "@/config/apiConfig";
+import { formatDateDisplay } from "@/utils/dateUtils";
 
 export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const usersPerPage = 10;
+  const [usersPerPage, setUsersPerPage] = useState(10);
 
-  // Mock user data - replace with API call in production
-  const users = [
-    {
-      id: "USR-001",
-      name: "Nguyễn Văn A",
-      email: "nguyenvana@example.com",
-      phone: "0912345678",
-      status: "active",
-      statusLabel: "Đang hoạt động",
-      statusClass: "bg-success",
-      totalOrders: 5,
-      totalSpent: "4.500.000đ",
-      lastPurchase: "01/04/2025",
-      createdAt: "15/01/2025",
-    },
-    {
-      id: "USR-002",
-      name: "Trần Thị B",
-      email: "tranthib@example.com",
-      phone: "0923456789",
-      status: "active",
-      statusLabel: "Đang hoạt động",
-      statusClass: "bg-success",
-      totalOrders: 3,
-      totalSpent: "2.300.000đ",
-      lastPurchase: "28/03/2025",
-      createdAt: "20/01/2025",
-    },
-    {
-      id: "USR-003",
-      name: "Lê Văn C",
-      email: "levanc@example.com",
-      phone: "0934567890",
-      status: "inactive",
-      statusLabel: "Đã vô hiệu hóa",
-      statusClass: "bg-danger",
-      totalOrders: 1,
-      totalSpent: "890.000đ",
-      lastPurchase: "15/02/2025",
-      createdAt: "25/01/2025",
-    },
-    {
-      id: "USR-004",
-      name: "Phạm Thị D",
-      email: "phamthid@example.com",
-      phone: "0945678901",
-      status: "active",
-      statusLabel: "Đang hoạt động",
-      statusClass: "bg-success",
-      totalOrders: 7,
-      totalSpent: "7.850.000đ",
-      lastPurchase: "30/03/2025",
-      createdAt: "10/02/2025",
-    },
-    {
-      id: "USR-005",
-      name: "Hoàng Văn E",
-      email: "hoangvane@example.com",
-      phone: "0956789012",
-      status: "active",
-      statusLabel: "Đang hoạt động",
-      statusClass: "bg-success",
-      totalOrders: 2,
-      totalSpent: "1.750.000đ",
-      lastPurchase: "20/03/2025",
-      createdAt: "15/02/2025",
-    },
-  ];
-
-  // Filter users based on search term and status
-  const filteredUsers = users.filter((user) => {
-    // Search filter
-    const searchMatch =
-      searchTerm === "" ||
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.phone.includes(searchTerm);
-
-    // Status filter
-    const statusMatch = statusFilter === "all" || user.status === statusFilter;
-
-    return searchMatch && statusMatch;
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    pages: 1,
+    currentPage: 1,
+    perPage: 10,
   });
 
-  // Pagination logic
-  const indexOfLastUser = currentPage * usersPerPage;
-  const indexOfFirstUser = indexOfLastUser - usersPerPage;
-  const currentUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
-  const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+  // Fetch users from API
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoading(true);
+
+        // Build query params
+        const params = new URLSearchParams();
+        params.append("page", currentPage.toString());
+        params.append("limit", usersPerPage.toString());
+
+        if (searchTerm) {
+          params.append("search", searchTerm);
+        }
+
+        if (statusFilter !== "all") {
+          params.append("status", statusFilter);
+        }
+
+        // Fetch data from API
+        const response = await AuthClient.fetchWithAuth(
+          `${API_BASE_URL}/users?${params.toString()}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`Error fetching users: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("API Response:", data); // Debug log
+
+        // Update state with API data
+        setUsers(data.users);
+        setPagination(data.pagination);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+        setError(error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, [currentPage, usersPerPage, searchTerm, statusFilter]); // Re-fetch when these change
+
+  // Format user data for display
+  const formattedUsers = users.map((user) => {
+    return {
+      id: user.id,
+      name: user.username || "Chưa cập nhật",
+      email: user.email,
+      phone: user.phoneNumber || "Chưa cập nhật",
+      status: user.isActive !== false ? "active" : "inactive", // Assuming a field like isActive exists
+      statusLabel:
+        user.isActive !== false ? "Đang hoạt động" : "Đã vô hiệu hóa",
+      statusClass: user.isActive !== false ? "bg-success" : "bg-danger",
+      role: user.role?.name || "User",
+      createdAt: formatDateDisplay(user.createdAt), // Format date properly
+      // Add any additional fields you need
+    };
+  });
 
   // Breadcrumb items
   const breadcrumbItems = [
     { label: "Home", href: "/admin" },
     { label: "Quản lý người dùng", active: true },
   ];
+
+  // Handle search - debounced search would be better
+  const handleSearch = (e) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1); // Reset to first page on new search
+  };
+
+  // Handle status filter change
+  const handleStatusFilter = (e) => {
+    setStatusFilter(e.target.value);
+    setCurrentPage(1); // Reset to first page on filter change
+  };
 
   return (
     <AdminLayout title="Quản lý người dùng">
@@ -151,7 +148,7 @@ export default function UsersPage() {
                         className="form-control"
                         placeholder="Tên, email, số điện thoại..."
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={handleSearch}
                       />
                       <div className="input-group-append">
                         <button type="button" className="btn btn-default">
@@ -167,7 +164,7 @@ export default function UsersPage() {
                     <select
                       className="form-control"
                       value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
+                      onChange={handleStatusFilter}
                     >
                       <option value="all">Tất cả trạng thái</option>
                       <option value="active">Đang hoạt động</option>
@@ -185,138 +182,155 @@ export default function UsersPage() {
               <h3 className="card-title">Danh sách người dùng</h3>
             </div>
             <div className="card-body table-responsive p-0">
-              <table className="table table-hover text-nowrap">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Tên</th>
-                    <th>Email</th>
-                    <th>Số điện thoại</th>
-                    <th>Trạng thái</th>
-                    <th>Số đơn hàng</th>
-                    <th>Tổng chi tiêu</th>
-                    <th>Lần mua gần nhất</th>
-                    <th>Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {currentUsers.length > 0 ? (
-                    currentUsers.map((user) => (
-                      <tr key={user.id}>
-                        <td>{user.id}</td>
-                        <td>{user.name}</td>
-                        <td>{user.email}</td>
-                        <td>{user.phone}</td>
-                        <td>
-                          <span className={`badge ${user.statusClass}`}>
-                            {user.statusLabel}
-                          </span>
-                        </td>
-                        <td>{user.totalOrders} đơn</td>
-                        <td>{user.totalSpent}</td>
-                        <td>{user.lastPurchase}</td>
-                        <td>
-                          <div className="btn-group">
-                            <Link
-                              href={`/admin/users/${user.id}`}
-                              className="btn btn-sm btn-info mr-1"
-                            >
-                              <i className="fas fa-eye"></i>
-                            </Link>
-                            <button
-                              className="btn btn-sm btn-primary mr-1"
-                              title="Chỉnh sửa"
-                              onClick={() => {
-                                console.log(`Edit user ${user.id}`);
-                              }}
-                            >
-                              <i className="fas fa-edit"></i>
-                            </button>
-                            <button
-                              className="btn btn-sm btn-danger"
-                              title="Vô hiệu hóa"
-                              onClick={() => {
-                                console.log(`Disable user ${user.id}`);
-                              }}
-                            >
-                              <i className="fas fa-ban"></i>
-                            </button>
-                          </div>
+              {loading ? (
+                <div className="text-center p-4">
+                  <div className="spinner-border text-primary" role="status">
+                    <span className="sr-only">Đang tải...</span>
+                  </div>
+                </div>
+              ) : error ? (
+                <div className="alert alert-danger m-3">{error}</div>
+              ) : (
+                <table className="table table-hover text-nowrap">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Email</th>
+                      <th>Số điện thoại</th>
+                      <th>Vai trò</th>
+                      <th>Tổng số đơn hàng</th>
+                      <th>Tổng số tiền</th>
+                      <th>Trạng thái</th>
+                      <th>Ngày tạo</th>
+                      <th>Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {formattedUsers.length > 0 ? (
+                      formattedUsers.map((user) => (
+                        <tr key={user.id}>
+                          <td>{user.id}</td>
+                          <td>{user.email}</td>
+                          <td>{user.phone}</td>
+                          <td>{user.role}</td>
+                          <td>{user.totalOrders}</td>
+                          <td>
+                            {(user.totalSpent || 0).toLocaleString("vi-VN")} VNĐ
+                          </td>
+                          <td>
+                            <span className={`badge ${user.statusClass}`}>
+                              {user.statusLabel}
+                            </span>
+                          </td>
+                          <td>{user.createdAt}</td>
+                          <td>
+                            <div className="btn-group">
+                              <Link
+                                href={`/admin/users/${user.id}`}
+                                className="btn btn-sm btn-info mr-1"
+                              >
+                                <i className="fas fa-eye"></i>
+                              </Link>
+                              <button
+                                className="btn btn-sm btn-primary mr-1"
+                                title="Chỉnh sửa"
+                                onClick={() => {
+                                  console.log(`Edit user ${user.id}`);
+                                }}
+                              >
+                                <i className="fas fa-edit"></i>
+                              </button>
+                              <button
+                                className="btn btn-sm btn-danger"
+                                title="Vô hiệu hóa"
+                                onClick={() => {
+                                  console.log(`Disable user ${user.id}`);
+                                }}
+                              >
+                                <i className="fas fa-ban"></i>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={8} className="text-center py-4">
+                          Không tìm thấy người dùng nào
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={9} className="text-center py-4">
-                        Không tìm thấy người dùng nào
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
+              )}
             </div>
             {/* Pagination */}
-            <div className="card-footer clearfix">
-              <div className="float-left">
-                <div className="dataTables_info">
-                  Hiển thị {filteredUsers.length > 0 ? indexOfFirstUser + 1 : 0}{" "}
-                  đến {Math.min(indexOfLastUser, filteredUsers.length)} của{" "}
-                  {filteredUsers.length} người dùng
+            {!loading && (
+              <div className="card-footer clearfix">
+                <div className="float-left">
+                  <div className="dataTables_info">
+                    Hiển thị{" "}
+                    {pagination.total > 0
+                      ? `${
+                          (pagination.currentPage - 1) * pagination.perPage + 1
+                        } đến ${Math.min(
+                          pagination.currentPage * pagination.perPage,
+                          pagination.total
+                        )}`
+                      : "0"}{" "}
+                    của {pagination.total} người dùng
+                  </div>
                 </div>
-              </div>
-              <ul className="pagination pagination-sm m-0 float-right">
-                <li
-                  className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
-                >
-                  <a
-                    className="page-link"
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (currentPage > 1) setCurrentPage(currentPage - 1);
-                    }}
-                  >
-                    «
-                  </a>
-                </li>
-                {Array.from({ length: totalPages }, (_, i) => (
+                <ul className="pagination pagination-sm m-0 float-right">
                   <li
-                    key={i + 1}
                     className={`page-item ${
-                      currentPage === i + 1 ? "active" : ""
+                      pagination.currentPage === 1 ? "disabled" : ""
                     }`}
                   >
-                    <a
+                    <button
                       className="page-link"
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setCurrentPage(i + 1);
-                      }}
+                      onClick={() => setCurrentPage(pagination.currentPage - 1)}
+                      disabled={pagination.currentPage === 1}
                     >
-                      {i + 1}
-                    </a>
+                      «
+                    </button>
                   </li>
-                ))}
-                <li
-                  className={`page-item ${
-                    currentPage === totalPages ? "disabled" : ""
-                  }`}
-                >
-                  <a
-                    className="page-link"
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (currentPage < totalPages)
-                        setCurrentPage(currentPage + 1);
-                    }}
+                  {Array.from({ length: pagination.pages }, (_, i) => (
+                    <li
+                      key={i + 1}
+                      className={`page-item ${
+                        pagination.currentPage === i + 1 ? "active" : ""
+                      }`}
+                    >
+                      <button
+                        className="page-link"
+                        onClick={() => {
+                          console.log(`Setting page to ${i + 1}`); // Debug log
+                          setCurrentPage(i + 1);
+                        }}
+                      >
+                        {i + 1}
+                      </button>
+                    </li>
+                  ))}
+                  <li
+                    className={`page-item ${
+                      pagination.currentPage === pagination.pages
+                        ? "disabled"
+                        : ""
+                    }`}
                   >
-                    »
-                  </a>
-                </li>
-              </ul>
-            </div>
+                    <button
+                      className="page-link"
+                      onClick={() => setCurrentPage(pagination.currentPage + 1)}
+                      disabled={pagination.currentPage === pagination.pages}
+                    >
+                      »
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            )}
           </div>
         </div>
       </section>

@@ -39,7 +39,7 @@ import userRoutes from "./routes/User.route";
 dotenv.config();
 
 const CorsOptions = {
-  origin: "http://localhost:3001",
+  origin: ["http://localhost:3001", "http://localhost:3000"],
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: true,
   preflightContinue: false,

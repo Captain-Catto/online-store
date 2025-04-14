@@ -1,6 +1,20 @@
 import { API_BASE_URL } from "@/config/apiConfig";
 import { jwtDecode } from "jwt-decode";
 
+// Interface for the decoded JWT payload
+export interface JwtPayload {
+  id: string;
+  username: string;
+  email: string;
+  role: string;
+}
+
+//schema cho user
+export interface User {
+  email: string;
+  password: string;
+}
+
 // Hàm Helper để lấy giá trị từ cookie
 export const getCookie = (name: string): string | null => {
   if (typeof window === "undefined") return null;
@@ -41,6 +55,7 @@ export const AuthService = {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include", // Quan trọng: để gửi và nhận cookies
         body: JSON.stringify({ email, password, rememberMe }),
       });
 
@@ -66,7 +81,7 @@ export const AuthService = {
 
       // 4. Chỉ lưu thông tin phi nhạy cảm của user
       // decode jwt-token response data
-      const decodedToken = jwtDecode<JwtPayLoad>(data.accessToken);
+      const decodedToken = jwtDecode<JwtPayload>(data.accessToken);
 
       const safeUserData = {
         id: decodedToken.id.toString(),
@@ -76,6 +91,8 @@ export const AuthService = {
       };
       console.log("safeUserData", safeUserData);
       localStorage.setItem("user", JSON.stringify(safeUserData));
+
+      console.log("Login successful:", data);
 
       return data;
     } catch (error) {
@@ -90,6 +107,7 @@ export const AuthService = {
       await fetch(API_BASE_URL + "/auth/logout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // Quan trọng: để gửi và nhận cookies
       });
 
       // Xóa cookie
@@ -126,13 +144,23 @@ export const AuthService = {
       return false;
     }
   },
+  // Hàm để khởi tạo xác thực khi trang web tải lên
+  initAuth: async (): Promise<boolean> => {
+    // Nếu có dấu hiệu đăng nhập, thử refresh token
+    if (AuthService.isLoggedIn()) {
+      try {
+        // Import AuthClient dynamically để tránh circular dependency
+        const { AuthClient } = await import("./AuthClient");
+        const newToken = await AuthClient.refreshToken();
+        return !!newToken;
+      } catch (error) {
+        console.error("Lỗi khởi tạo xác thực:", error);
+        return false;
+      }
+    }
+    return false;
+  },
 };
-
-//schema cho user
-export interface User {
-  email: string;
-  password: string;
-}
 
 // hàm xử lý để tạo user
 export const createUser = async (user: User) => {

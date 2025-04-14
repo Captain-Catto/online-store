@@ -1,128 +1,177 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import Slider from "react-slick";
-import { PrevArrow, NextArrow } from "@/utils/CustomArrowSlick";
 import Link from "next/link";
-import ProductCard from "../../ProductCard/ProductCard";
-import { Product, PaginatedResponse } from "../../ProductCard/ProductInterface";
+import { PrevArrow, NextArrow } from "@/utils/CustomArrowSlick";
+import ProductCard from "@/components/ProductCard/ProductCard";
 import { ProductService } from "@/services/ProductService";
+import { Product, SimpleProduct } from "@/types/product";
 
 const CasualProducts: React.FC = () => {
   const sliderRef = useRef<Slider>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedColors, setSelectedColors] = useState<{
     [productId: number]: string;
   }>({});
   const [productImages, setProductImages] = useState<{
     [productId: number]: string;
   }>({});
-  const [loading, setLoading] = useState(true);
+  const [secondaryImages, setSecondaryImages] = useState<{
+    [productId: number]: string;
+  }>({});
+
+  // hàm lấy hình ảnh (giống như trong LatestProducts)
+  const extractImages = useCallback(
+    (variant: { images: { isMain: boolean; url: string }[] }) => {
+      if (!variant?.images || variant.images.length === 0) {
+        return { mainImage: null, secondaryImage: null };
+      }
+
+      const mainImage =
+        variant.images.find(
+          (img: { isMain: boolean; url: string }) => img.isMain
+        ) || variant.images[0];
+      let secondaryImage = null;
+
+      if (variant.images.length > 1) {
+        secondaryImage = variant.images.find(
+          (img: { isMain: boolean; url: string }) => img !== mainImage
+        );
+      }
+
+      return {
+        mainImage: mainImage ? mainImage.url : null,
+        secondaryImage: secondaryImage ? secondaryImage.url : null,
+      };
+    },
+    []
+  );
 
   useEffect(() => {
     const fetchCasualProducts = async () => {
       try {
         setLoading(true);
-        // Sử dụng ProductService để lấy sản phẩm theo category
-        // Chỉ cần quan tâm đến products từ response
-        const response = await ProductService.getProductsByCategory(3);
+        // Gọi API lấy sản phẩm casual (category ID 3)
+        const response = await ProductService.getProductsByCategory(1);
 
-        // Chỉ cần lấy phần products từ response
-        const { products: productsData } = response as PaginatedResponse;
-        console.log("Fetched casual products:", productsData);
+        const initialColors: { [key: number]: string } = {};
+        const initialImages: { [key: number]: string } = {};
+        const initialSecondaryImages: { [key: number]: string } = {};
 
-        // Xử lý dữ liệu sản phẩm
-        const initialColors: { [productId: number]: string } = {};
-        const initialImages: { [productId: number]: string } = {};
-
-        productsData.forEach((product: Product) => {
-          // Thiết lập màu mặc định (màu đầu tiên)
-          if (product.colors.length > 0) {
+        // Xử lý dữ liệu từ API
+        response.products.forEach((product: Product) => {
+          if (product.colors && product.colors.length > 0) {
             const defaultColor = product.colors[0];
             initialColors[product.id] = defaultColor;
 
-            // Lấy hình ảnh từ variant
-            const variant = product.variants[defaultColor];
-            if (variant) {
-              let imageUrl = "";
-              if (variant.images && variant.images.length > 0) {
-                const mainImage =
-                  variant.images.find((img) => img.isMain) || variant.images[0];
-                imageUrl = mainImage.url;
+            if (defaultColor && product.variants[defaultColor]) {
+              const variantDetail = product.variants[defaultColor];
+              const { mainImage, secondaryImage } =
+                extractImages(variantDetail);
+
+              if (mainImage) {
+                initialImages[product.id] = mainImage;
               }
-              initialImages[product.id] = imageUrl;
+
+              if (secondaryImage) {
+                initialSecondaryImages[product.id] = secondaryImage;
+              }
             }
           }
         });
 
-        setProducts(productsData);
+        setProducts(response.products);
         setSelectedColors(initialColors);
         setProductImages(initialImages);
+        setSecondaryImages(initialSecondaryImages);
       } catch (error) {
         console.error("Failed to fetch casual products:", error);
+        setError("Không thể tải sản phẩm. Vui lòng thử lại sau.");
       } finally {
         setLoading(false);
       }
     };
 
     fetchCasualProducts();
-  }, []);
+  }, [extractImages]);
 
-  // Phần còn lại của component không thay đổi
-  const handleColorSelect = (productId: number, color: string) => {
-    setSelectedColors((prev) => ({ ...prev, [productId]: color }));
+  // Handler khi người dùng chọn màu khác
+  const handleColorSelect = useCallback(
+    (productId: number, color: string) => {
+      setSelectedColors((prev) => ({ ...prev, [productId]: color }));
 
-    // Cập nhật hình ảnh khi chọn màu mới
-    const product = products.find((p) => p.id === productId);
-    if (product) {
-      const variant = product.variants[color];
-      if (variant) {
-        let imageUrl = "";
-        if (variant.images && variant.images.length > 0) {
-          const mainImage =
-            variant.images.find((img) => img.isMain) || variant.images[0];
-          imageUrl = mainImage.url;
+      const product = products.find((p) => p.id === productId);
+
+      if (product?.variants[color]) {
+        const variantDetail = product.variants[color];
+        const { mainImage, secondaryImage } = extractImages(variantDetail);
+
+        if (mainImage) {
+          setProductImages((prev) => ({
+            ...prev,
+            [productId]: mainImage,
+          }));
         }
-        setProductImages((prev) => ({
-          ...prev,
-          [productId]: imageUrl,
-        }));
-      }
-    }
-  };
 
+        if (secondaryImage) {
+          setSecondaryImages((prev) => ({
+            ...prev,
+            [productId]: secondaryImage,
+          }));
+        } else {
+          setSecondaryImages((prev) => {
+            const newState = { ...prev };
+            delete newState[productId];
+            return newState;
+          });
+        }
+      }
+    },
+    [products, extractImages]
+  );
+
+  // Cấu hình slider
   const settings = {
     dots: false,
-    infinite: products.length > 5,
+    infinite: true,
     speed: 500,
-    slidesToShow: Math.min(5, products.length),
-    slidesToScroll: Math.min(2, products.length),
-    prevArrow: products.length > 1 ? <PrevArrow /> : <></>,
-    nextArrow: products.length > 1 ? <NextArrow /> : <></>,
+    slidesToShow: 5,
+    slidesToScroll: 2,
+    prevArrow: <PrevArrow onClick={() => {}} />,
+    nextArrow: <NextArrow onClick={() => {}} />,
     responsive: [
-      {
-        breakpoint: 1440,
-        settings: {
-          slidesToShow: Math.min(4, products.length),
-          infinite: products.length > 4,
-        },
-      },
-      {
-        breakpoint: 1024,
-        settings: {
-          slidesToShow: Math.min(3, products.length),
-          infinite: products.length > 3,
-        },
-      },
-      {
-        breakpoint: 768,
-        settings: {
-          slidesToShow: Math.min(2, products.length),
-          infinite: products.length > 2,
-        },
-      },
+      { breakpoint: 1440, settings: { slidesToShow: 4 } },
+      { breakpoint: 1024, settings: { slidesToShow: 3 } },
+      { breakpoint: 768, settings: { slidesToShow: 2 } },
     ],
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="w-full py-8 flex justify-center items-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="w-full text-center py-8 text-red-500">
+        <p>{error}</p>
+        <button
+          className="mt-4 px-4 py-2 bg-black text-white rounded"
+          onClick={() => window.location.reload()}
+        >
+          Thử lại
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full xl:px-20 lg:px-10 md:px-4 px-2 mt-4">
@@ -137,46 +186,33 @@ const CasualProducts: React.FC = () => {
           Xem thêm
         </Link>
       </div>
+
       <div className="relative mt-6">
-        {loading ? (
-          <div className="flex justify-center items-center h-80">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-900"></div>
-          </div>
-        ) : products.length === 0 ? (
-          <div className="flex justify-center items-center h-80">
-            <p className="text-gray-500">Không có sản phẩm nào</p>
-          </div>
-        ) : products.length === 1 ? (
-          // Hiển thị trực tiếp nếu chỉ có 1 sản phẩm
-          <div className="grid place-items-center">
-            <div className="max-w-xs">
-              <ProductCard
-                product={products[0]}
-                selectedColor={
-                  selectedColors[products[0].id] || products[0].colors[0]
-                }
-                productImage={productImages[products[0].id] || ""}
-                onColorSelect={handleColorSelect}
-              />
-            </div>
-          </div>
-        ) : (
-          <Slider ref={sliderRef} {...settings}>
-            {products.map((product) => {
-              const color = selectedColors[product.id] || product.colors[0];
-              return (
-                <div key={product.id} className="p-2">
-                  <ProductCard
-                    product={product}
-                    selectedColor={color}
-                    productImage={productImages[product.id] || ""}
-                    onColorSelect={handleColorSelect}
-                  />
-                </div>
-              );
-            })}
-          </Slider>
-        )}
+        <Slider ref={sliderRef} {...settings}>
+          {products.map((product) => {
+            const color = selectedColors[product.id] || product.colors[0];
+
+            // Sử dụng SimpleProduct cho ProductCard
+            const simpleProduct: SimpleProduct = {
+              id: product.id,
+              name: product.name,
+              colors: product.colors,
+              variants: product.variants,
+            };
+
+            return (
+              <div key={product.id} className="p-2">
+                <ProductCard
+                  product={simpleProduct}
+                  selectedColor={color}
+                  productImage={productImages[product.id] || ""}
+                  secondaryImage={secondaryImages[product.id] || ""}
+                  onColorSelect={handleColorSelect}
+                />
+              </div>
+            );
+          })}
+        </Slider>
       </div>
     </div>
   );

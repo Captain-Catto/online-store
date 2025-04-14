@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Product } from "./ProductInterface";
+import { Product } from "@/types/product";
 import { addToCart } from "@/utils/cartUtils";
 
 interface SizeSelectorProps {

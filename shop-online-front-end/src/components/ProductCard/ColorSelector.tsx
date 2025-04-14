@@ -1,22 +1,12 @@
 import React from "react";
-import { Product } from "./ProductInterface";
+import { Product } from "@/types/product";
+import { getColorCode } from "@/utils/colorUtils";
 
 interface ColorSelectorProps {
   product: Product;
   selectedColor: string;
   onColorSelect: (productId: number, color: string) => void;
 }
-
-const colorMap: Record<string, string> = {
-  black: "#000000",
-  white: "#FFFFFF",
-  blue: "#0066CC",
-  gray: "#808080",
-  charcoal: "#36454F",
-  green: "#008000",
-  red: "#FF0000",
-  navy: "#000080",
-};
 
 const ColorSelector: React.FC<ColorSelectorProps> = ({
   product,
@@ -37,7 +27,7 @@ const ColorSelector: React.FC<ColorSelectorProps> = ({
                   : "ring-1 ring-gray-300"
               }`}
               style={{
-                backgroundColor: colorMap[color] || color,
+                backgroundColor: getColorCode(color) || color,
                 border: color === "white" ? "1px solid #e5e5e5" : "none",
               }}
               onClick={() => onColorSelect(product.id, color)}

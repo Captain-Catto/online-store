@@ -13,10 +13,9 @@ import Footer from "@/components/Footer/Footer";
 import FilterSidebar from "@/components/Category/FilterSidebar";
 import ProductGrid from "@/components/Category/ProductGrid";
 import Pagination from "@/components/Category/Pagination";
-import { Product, PaginatedResponse } from "@/app/categories/types";
+import { Product, PaginatedResponse } from "@/types/product";
 
 export default function CategoryPage() {
-  // Các state hiện tại giữ nguyên
   const params = useParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -48,7 +47,33 @@ export default function CategoryPage() {
     suitability: false,
     size: false,
     color: false,
+    category: true,
   });
+
+  // Thêm state để lưu danh sách categories từ API
+  const [categories, setCategories] = useState<{ id: number; name: string }[]>(
+    []
+  );
+
+  // Thêm useEffect để fetch categories
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch("http://localhost:3000/api/categories");
+        if (response.ok) {
+          const data = await response.json();
+          setCategories(data);
+          console.log("Fetched categories:", data);
+        } else {
+          console.error("Failed to fetch categories");
+        }
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   // Khởi tạo filter từ URL params
   const [Filters, setFilters] = useState(() => {
@@ -178,7 +203,7 @@ export default function CategoryPage() {
     fetchSuitabilities();
   }, [fetchProducts, searchParams]);
 
-  // Cập nhật URL khi filters thay đổi - sử dụng shallow routing
+  // Cập nhật URL khi filters thay đổi
   const updateUrlWithFilters = React.useCallback(() => {
     const params = new URLSearchParams();
 
@@ -201,8 +226,7 @@ export default function CategoryPage() {
     const newUrl =
       pathname + (params.toString() ? `?${params.toString()}` : "");
 
-    // Thêm shallow: true để tránh reload trang khi cập nhật URL
-    router.push(newUrl, { scroll: false, shallow: true });
+    router.push(newUrl, { scroll: false });
   }, [currentPage, Filters, pathname, router]);
 
   // Cập nhật URL khi filter hoặc trang thay đổi
@@ -405,6 +429,7 @@ export default function CategoryPage() {
             handleColorFilter={handleColorFilter}
             handleCategoryFilter={handleCategoryFilter}
             availableSuitability={availableSuitability}
+            categories={categories}
           />
 
           <div className="lg:w-3/4">

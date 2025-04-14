@@ -2,6 +2,7 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { getColorCode } from "@/utils/colorUtils";
 
 // Interface định nghĩa props của component
 interface ProductCardProps {
@@ -101,22 +102,5 @@ const ProductCard: React.FC<ProductCardProps> = ({
     </div>
   );
 };
-
-// Hàm helper để chuyển đổi tên màu sang mã màu
-function getColorCode(color: string): string {
-  const colorMap: Record<string, string> = {
-    black: "#000000",
-    white: "#FFFFFF",
-    blue: "#0066CC",
-    red: "#FF0000",
-    green: "#008000",
-    yellow: "#FFFF00",
-    purple: "#800080",
-    gray: "#808080",
-    charcoal: "#36454F",
-  };
-
-  return colorMap[color] || color;
-}
 
 export default ProductCard;

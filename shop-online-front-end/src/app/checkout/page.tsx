@@ -451,6 +451,29 @@ export default function CheckoutPage() {
       router.push(`/order-confirmation`);
     } catch (error) {
       console.error("Error placing order:", error);
+
+      // Hiển thị lỗi cho người dùng
+      if (error instanceof Error) {
+        // Nếu là lỗi từ API với định dạng JSON
+        try {
+          // Kiểm tra nếu message lỗi là chuỗi JSON
+          if (error.message.includes('{"message":')) {
+            const errorJson = JSON.parse(
+              error.message.substring(error.message.indexOf("{"))
+            );
+            setOrderError(errorJson.message);
+          } else {
+            // Nếu không phải JSON, dùng message của lỗi
+            setOrderError(error.message);
+          }
+        } catch {
+          // Nếu không thể parse JSON, hiển thị message gốc
+          setOrderError(error.message);
+        }
+      } else {
+        // Fallback cho các loại lỗi khác
+        setOrderError("Đã xảy ra lỗi khi đặt hàng. Vui lòng thử lại sau.");
+      }
     } finally {
       setSubmitting(false);
     }

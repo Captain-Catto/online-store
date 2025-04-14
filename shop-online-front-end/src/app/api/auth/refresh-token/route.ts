@@ -1,23 +1,20 @@
 import { NextResponse } from "next/server";
-
+import { API_BASE_URL } from "@/config/apiConfig";
 export async function POST() {
   try {
     console.log("Refreshing token...");
 
     // Gọi API backend để làm mới token
-    const response = await fetch(
-      "http://localhost:3000/api/auth/refresh-token",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include", // Để gửi kèm cookies
-      }
-    );
+    const response = await fetch(`${API_BASE_URL}/auth/refresh-token`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
 
     if (!response.ok) {
-      // Log rõ lỗi từ backend để debug
+      // Log lỗi
       try {
         const errorData = await response.json();
         console.error("Backend refresh token error:", errorData);
@@ -35,10 +32,20 @@ export async function POST() {
       );
     }
 
+    // Lấy data sau khi đã kiểm tra response.ok
     const data = await response.json();
     console.log("Token refreshed successfully");
 
-    return NextResponse.json({ accessToken: data.accessToken });
+    // Bây giờ data đã được định nghĩa
+    const nextResponse = NextResponse.json({ accessToken: data.accessToken });
+
+    // Chuyển tiếp cookies từ backend
+    const setCookieHeader = response.headers.get("set-cookie");
+    if (setCookieHeader) {
+      nextResponse.headers.set("set-cookie", setCookieHeader);
+    }
+
+    return nextResponse;
   } catch (error) {
     console.error("Error refreshing token:", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

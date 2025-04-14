@@ -134,6 +134,7 @@ export const getProductsWithVariants = async (
     const category = req.query.category as string;
     const status = req.query.status as string;
     const brand = req.query.brand as string;
+    const subtype = req.query.subtype as string;
     // Thêm lọc theo color và size
     const color = req.query.color as string;
     const sizeParam = req.query.size as string;
@@ -163,6 +164,9 @@ export const getProductsWithVariants = async (
       where[Op.and] = suitabilities.map((suit) => ({
         suitability: { [Op.like]: `%${suit}%` },
       }));
+    }
+    if (subtype) {
+      where.subtype = subtype;
     }
 
     // Category include
@@ -360,6 +364,7 @@ export const getProductsWithVariants = async (
         brand: brand || null,
         color: color || null,
         size: sizeParam || null,
+        subtype: subtype || null,
         suitability: products
           .flatMap((product: any) => {
             try {
@@ -743,6 +748,9 @@ export const getProductsByCategory = async (
     const suitabilityParam = req.query.suitability as string;
     const suitabilities = suitabilityParam ? suitabilityParam.split(",") : [];
 
+    // Thêm filter subtype
+    const subtype = req.query.subtype as string;
+
     // Find category to check if exists
     const category = await Category.findByPk(categoryId);
     if (!category) {
@@ -763,6 +771,11 @@ export const getProductsByCategory = async (
 
     // Where condition for product filtering
     const where: any = {};
+
+    // Thêm filter theo subtype
+    if (subtype) {
+      where.subtype = subtype;
+    }
 
     // Add suitability filter if present
     if (suitabilities.length > 0) {
@@ -953,6 +966,7 @@ export const getProductsByCategory = async (
         color: color || null,
         size: sizeParam || null,
         suitability: suitabilityParam || null,
+        subtype: subtype || null,
       },
       pagination: {
         total: count,
@@ -996,5 +1010,45 @@ export const getSuitabilities = async (
   } catch (error: any) {
     console.error("Error fetching suitabilities:", error);
     res.status(500).json({ message: "Lỗi khi lấy danh sách suitabilities" });
+  }
+};
+
+export const getSubtypes = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    // Kiểm tra đã vào function
+    console.log("Fetching subtypes...");
+
+    // Lấy tất cả sản phẩm
+    const products = await Product.findAll({
+      attributes: ["subtype"],
+      where: {
+        subtype: {
+          [Op.not]: null,
+        },
+      },
+    });
+
+    // Kiểm tra số lượng sản phẩm tìm được
+    console.log("Products found:", products.length);
+    console.log(
+      "Product subtypes:",
+      products.map((p) => p.getDataValue("subtype"))
+    );
+
+    // Tạo danh sách `subtypes` duy nhất
+    const subtypes = [
+      ...new Set(products.map((product) => product.getDataValue("subtype"))),
+    ].filter(Boolean);
+
+    console.log("Unique subtypes:", subtypes);
+
+    // Trả về danh sách `subtypes`
+    res.status(200).json({ subtypes });
+  } catch (error: any) {
+    console.error("Error fetching subtypes:", error);
+    res.status(500).json({ message: "Lỗi khi lấy danh sách subtypes" });
   }
 };

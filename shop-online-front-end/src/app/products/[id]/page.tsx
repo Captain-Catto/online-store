@@ -5,18 +5,19 @@ import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/Header/Header";
 import Footer from "@/components/Footer/Footer";
-import { Product } from "@/app/categories/types";
+import { Product } from "@/types/product";
 import { addToCart, getCartItemCount } from "@/utils/cartUtils";
 import { useToast } from "@/utils/useToast";
 import { ProductService } from "@/services/ProductService";
+import { getColorCode } from "@/utils/colorUtils";
 
 interface ProductParams {
   id: string;
 }
 
 export default function Home({ params }: { params: unknown }) {
-  const useParams = use(params) as ProductParams;
-  const productId = useParams.id;
+  const unwrappedParams = use(params as Promise<ProductParams>);
+  const productId = unwrappedParams.id;
 
   const { showToast, Toast } = useToast();
 
@@ -30,15 +31,6 @@ export default function Home({ params }: { params: unknown }) {
   const [colorImages, setColorImages] = useState<string[]>([]);
   const [availableSizes, setAvailableSizes] = useState<string[]>([]);
   const [stockCount, setStockCount] = useState<number>(0);
-
-  // Map tên màu sang mã màu CSS
-  const colorMap: Record<string, string> = {
-    black: "#000000",
-    white: "#F5F5F5", // trắng sẫm màu
-    blue: "#0066CC",
-    gray: "#808080",
-    charcoal: "#36454F",
-  };
 
   useEffect(() => {
     const getProduct = async () => {
@@ -65,7 +57,9 @@ export default function Home({ params }: { params: unknown }) {
           const variantDetail = productData.variants[initialColor];
           if (variantDetail) {
             // Lấy hình ảnh cho màu đầu tiên
-            const images = variantDetail.images.map((img) => img.url);
+            const images: string[] = variantDetail.images.map(
+              (img: { url: string }) => img.url
+            );
             setColorImages(images);
 
             // Set ảnh đầu tiên làm ảnh hiện tại
@@ -169,51 +163,51 @@ export default function Home({ params }: { params: unknown }) {
   };
 
   // Render stars for rating
-  const renderStars = (rating?: number) => {
-    if (!rating) return null;
+  // const renderStars = (rating?: number) => {
+  //   if (!rating) return null;
 
-    const fullStars = Math.floor(rating);
-    const halfStar = rating % 1 !== 0;
-    const stars = [];
+  //   const fullStars = Math.floor(rating);
+  //   const halfStar = rating % 1 !== 0;
+  //   const stars = [];
 
-    for (let i = 0; i < fullStars; i++) {
-      stars.push(
-        <svg
-          key={`full-${i}`}
-          xmlns="http://www.w3.org/2000/svg"
-          width="19"
-          height="17"
-          viewBox="0 0 19 17"
-          fill="none"
-        >
-          <path
-            d="M9.65059 0.255005L12.2698 5.89491L18.4431 6.6431L13.8886 10.8769L15.0846 16.9793L9.65059 13.956L4.21655 16.9793L5.41263 10.8769L0.858134 6.6431L7.03139 5.89491L9.65059 0.255005Z"
-            fill="#FFC633"
-          />
-        </svg>
-      );
-    }
+  //   for (let i = 0; i < fullStars; i++) {
+  //     stars.push(
+  //       <svg
+  //         key={`full-${i}`}
+  //         xmlns="http://www.w3.org/2000/svg"
+  //         width="19"
+  //         height="17"
+  //         viewBox="0 0 19 17"
+  //         fill="none"
+  //       >
+  //         <path
+  //           d="M9.65059 0.255005L12.2698 5.89491L18.4431 6.6431L13.8886 10.8769L15.0846 16.9793L9.65059 13.956L4.21655 16.9793L5.41263 10.8769L0.858134 6.6431L7.03139 5.89491L9.65059 0.255005Z"
+  //           fill="#FFC633"
+  //         />
+  //       </svg>
+  //     );
+  //   }
 
-    if (halfStar) {
-      stars.push(
-        <svg
-          key="half"
-          xmlns="http://www.w3.org/2000/svg"
-          width="9"
-          height="17"
-          viewBox="0 0 9 17"
-          fill="none"
-        >
-          <path
-            d="M3.56595 16.9793L8.99999 13.956V0.255005L6.38079 5.89491L0.207535 6.6431L4.76203 10.8769L3.56595 16.9793Z"
-            fill="#FFC633"
-          />
-        </svg>
-      );
-    }
+  //   if (halfStar) {
+  //     stars.push(
+  //       <svg
+  //         key="half"
+  //         xmlns="http://www.w3.org/2000/svg"
+  //         width="9"
+  //         height="17"
+  //         viewBox="0 0 9 17"
+  //         fill="none"
+  //       >
+  //         <path
+  //           d="M3.56595 16.9793L8.99999 13.956V0.255005L6.38079 5.89491L0.207535 6.6431L4.76203 10.8769L3.56595 16.9793Z"
+  //           fill="#FFC633"
+  //         />
+  //       </svg>
+  //     );
+  //   }
 
-    return stars;
-  };
+  //   return stars;
+  // };
 
   if (loading) {
     return (
@@ -253,7 +247,11 @@ export default function Home({ params }: { params: unknown }) {
       showToast("Vui lòng chọn kích thước!", { type: "warning" });
       return;
     }
-
+    // kiểm tra nếu số lượng tồn kho = 0 thì hiển thị
+    if (stockCount == 0) {
+      showToast(`Không còn sản phẩm`, { type: "warning" });
+      return;
+    }
     // Kiểm tra số lượng tồn kho
     if (quantity > stockCount) {
       showToast(`Chỉ còn ${stockCount} sản phẩm có sẵn!`, { type: "warning" });
@@ -262,7 +260,7 @@ export default function Home({ params }: { params: unknown }) {
 
     // Lấy giá từ variant
     const variantDetail = product.variants[selectedColor];
-    const price = variantDetail?.price || product.price;
+    const price = variantDetail?.price;
 
     // Thêm vào giỏ hàng bằng utility function
     const cartItem = {
@@ -287,7 +285,7 @@ export default function Home({ params }: { params: unknown }) {
         size: selectedSize,
         quantity: quantity,
         price: price,
-        originalPrice: variantDetail?.originalPrice || product.originalPrice,
+        originalPrice: variantDetail?.originalPrice,
       },
       duration: 4000,
     });
@@ -344,33 +342,37 @@ export default function Home({ params }: { params: unknown }) {
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Product Images */}
           <div className="lg:w-1/2">
-            <div className="flex gap-3 w-full h-full flex-col flex-reverse sm:flex-row">
-              {/* Thumbnail images*/}
-              <div className="flex gap-1 flex-row sm:flex-col h-70 w-1/6">
+            {/* Container chính - flex-col dưới 640px, flex-row trên 640px */}
+            <div className="flex gap-1 w-full h-full flex-col sm:flex-row">
+              {/* Container hình nhỏ - ngang dưới 640px, dọc trên 640px */}
+              <div className="flex gap-2 flex-row sm:flex-col sm:w-1/6 order-last sm:order-first">
                 {colorImages.map((image, index) => (
                   <div
                     key={index}
-                    className="relative w-full h-full cursor-pointer sm:mb-[1px]"
+                    className={`relative cursor-pointer rounded-lg w-full h-20 ${
+                      currentImage === image ? "ring-2 ring-black" : ""
+                    }`}
                     onClick={() => handleImageClick(image)}
                   >
                     <Image
                       src={image}
                       alt={`${product.name} - Image ${index + 1}`}
                       fill
-                      sizes="(max-width: 1440px) 60px, (max-width: 1024px) 30px,(max-width: 376px) 50px"
-                      className={`object-cover rounded-lg`}
+                      className="object-cover rounded-lg"
                     />
                   </div>
                 ))}
               </div>
-              {/* Main image */}
-              <div className="flex-4 relative">
+
+              {/* Hình ảnh chính - full width ở mọi kích thước màn hình */}
+              <div className=" relative h-[400px] sm:h-[500px] mb-3 sm:mb-0 w-full">
                 <Image
                   src={currentImage}
                   alt={product.name}
                   fill
-                  sizes="(max-width-1440px) 100vw, (max-width-376px) 340px"
-                  className="rounded-3xl object-cover"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 40vw"
+                  className="rounded-lg object-cover"
+                  priority
                 />
               </div>
             </div>
@@ -383,7 +385,7 @@ export default function Home({ params }: { params: unknown }) {
               <h1 className="text-3xl md:text-4xl font-bold">{product.name}</h1>
 
               {/* Hiển thị rating dạng sao */}
-              {product.rating && (
+              {/* {product.rating && (
                 <div className="flex items-center gap-4">
                   {renderStars(product.rating.value)}
                   <span className="font-semibold">
@@ -395,7 +397,7 @@ export default function Home({ params }: { params: unknown }) {
                     </span>
                   )}
                 </div>
-              )}
+              )} */}
 
               {/* Giá & discount */}
               <div className="flex items-center gap-2">
@@ -444,7 +446,7 @@ export default function Home({ params }: { params: unknown }) {
                         ? "ring-2 ring-black ring-offset-3"
                         : ""
                     }`}
-                    style={{ backgroundColor: colorMap[color] || color }}
+                    style={{ backgroundColor: getColorCode(color) || color }}
                     onClick={() => handleColorChange(color)}
                   >
                     {selectedColor === color && (
@@ -555,7 +557,7 @@ export default function Home({ params }: { params: unknown }) {
                     color: selectedColor,
                     size: selectedSize,
                     quantity,
-                    price: product.price,
+                    price: product.variants[selectedColor]?.price,
                   });
                   handleAddToCart();
                 }}

@@ -5,7 +5,79 @@ import StatCard from "@/components/admin/dashboard/StatCard";
 import RecentOrdersTable from "@/components/admin/dashboard/RecentOrdersTable";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
 
+import { useState, useEffect } from "react";
+import { OrderService } from "@/services/OrderService";
+import { useRouter } from "next/navigation";
+import { AuthService } from "@/services/AuthService";
+import { mapOrderStatus } from "@/utils/orderUtils";
+
 export default function AdminDashboardPage() {
+  const router = useRouter();
+  const [recentOrders, setRecentOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+  });
+
+  // Kiểm tra quyền admin
+  useEffect(() => {
+    if (!AuthService.isAdmin()) {
+      router.push("/login");
+    }
+  }, [router]);
+
+  // Fetch dữ liệu đơn hàng từ API
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        setLoading(true);
+        const orders = await OrderService.getAdminOrders();
+        console.log("Orders:", orders);
+
+        // Xử lý và định dạng dữ liệu cho component RecentOrdersTable
+        const formattedOrders = orders.items.slice(0, 10).map((order) => {
+          // Map trạng thái đơn hàng sang class tương ứng
+          const getStatusClass = (status) => {
+            const statusMap = {
+              pending: "bg-secondary",
+              processing: "bg-warning",
+              shipping: "bg-info",
+              delivered: "bg-success",
+              canceled: "bg-danger",
+            };
+            return statusMap[status] || "bg-secondary";
+          };
+
+          // Định dạng ngày
+          const formatDate = (dateString) => {
+            const date = new Date(dateString);
+            return date.toLocaleDateString("vi-VN");
+          };
+
+          return {
+            id: order.id,
+            customer: order.customerName || "Khách hàng",
+            status: mapOrderStatus(order.status),
+            statusClass: getStatusClass(order.status),
+            total: (order.total || 0).toLocaleString("vi-VN") + " VNĐ",
+            date: formatDate(order.createdAt),
+          };
+        });
+
+        setRecentOrders(formattedOrders);
+      } catch (error) {
+        console.error("Error fetching orders:", error);
+        setError("Không thể tải dữ liệu đơn hàng");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, []);
   // Dữ liệu cho các thẻ thống kê
   const statsData = [
     {
@@ -36,42 +108,6 @@ export default function AdminDashboardPage() {
       icon: "fas fa-tshirt",
       color: "bg-danger",
       link: "/admin/products",
-    },
-  ];
-
-  // Dữ liệu cho đơn hàng gần đây
-  const recentOrders = [
-    {
-      id: "ORD-0001",
-      customer: "Nguyễn Văn A",
-      status: "Hoàn thành",
-      statusClass: "bg-success",
-      total: "1.500.000đ",
-      date: "01/04/2025",
-    },
-    {
-      id: "ORD-0002",
-      customer: "Trần Thị B",
-      status: "Đang xử lý",
-      statusClass: "bg-warning",
-      total: "2.300.000đ",
-      date: "01/04/2025",
-    },
-    {
-      id: "ORD-0003",
-      customer: "Lê Văn C",
-      status: "Đang giao",
-      statusClass: "bg-info",
-      total: "950.000đ",
-      date: "31/03/2025",
-    },
-    {
-      id: "ORD-0004",
-      customer: "Phạm Thị D",
-      status: "Đã hủy",
-      statusClass: "bg-danger",
-      total: "1.200.000đ",
-      date: "30/03/2025",
     },
   ];
 
