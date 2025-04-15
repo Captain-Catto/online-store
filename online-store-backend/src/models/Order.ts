@@ -53,7 +53,7 @@ Order.init(
       type: DataTypes.ENUM(
         "pending",
         "processing",
-        "shipped",
+        "shipping",
         "delivered",
         "cancelled"
       ),

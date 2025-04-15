@@ -3,7 +3,10 @@ import { useState, useRef, useEffect } from "react";
 import { UserService } from "@/services/UserService";
 import Link from "next/link";
 import { formatDateForInput, formatDateDisplay } from "@/utils/dateUtils";
-import { User, Order, Address, Promotion } from "@/types";
+import { User } from "@/types/user";
+import { AddressPagination, Address } from "@/types/address";
+import { Order } from "@/types/order";
+import { Promotion } from "@/types/promotion";
 
 // Loading component
 const LoadingSpinner: React.FC = () => (
@@ -71,7 +74,7 @@ const AccountInfo: React.FC<{ data?: User | null; onRetry?: () => void }> = ({
   // Handle input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
+    setFormData((prev: User) => ({
       ...prev,
       [name]: value,
     }));
@@ -261,13 +264,92 @@ const AccountInfo: React.FC<{ data?: User | null; onRetry?: () => void }> = ({
 };
 
 // Component đơn hàng
-const MyOrders: React.FC<{ data?: Order[] | null }> = ({ data }) => {
-  // Sử dụng dữ liệu từ API hoặc mẫu nếu không có
-  const orders = data || [];
-  console.log(orders);
+const MyOrders: React.FC<{
+  data?: {
+    orders: Order[];
+    pagination: {
+      total: number;
+      totalPages: number;
+      currentPage: number;
+      perPage: number;
+    };
+  } | null;
+  onPageChange?: (page: number) => void;
+}> = ({ data, onPageChange }) => {
+  console.log("Orders data:", data);
+
+  // Sử dụng dữ liệu từ API hoặc mảng rỗng nếu không có
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [ordersData, setOrdersData] = useState<{
+    orders: Order[];
+    pagination: {
+      total: number;
+      totalPages: number;
+      currentPage: number;
+      perPage: number;
+    };
+  } | null>(null);
+
+  useEffect(() => {
+    if (data) {
+      setOrdersData(data);
+      setCurrentPage(data.pagination?.currentPage || 1);
+    }
+  }, [data]);
+
+  const orders = ordersData?.orders || [];
+  const pagination = ordersData?.pagination;
+  console.log("Orders:", orders);
+
+  // Hàm định dạng tiền tệ
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+      minimumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  // Hàm xử lý chuyển trạng thái từ API sang hiển thị UI
+  const getOrderStatus = (status: string) => {
+    switch (status) {
+      case "pending":
+        return {
+          label: "Chờ xác nhận",
+          className: "bg-yellow-100 text-yellow-800",
+        };
+      case "processing":
+        return { label: "Đang xử lý", className: "bg-blue-100 text-blue-800" };
+      case "shipping":
+        return {
+          label: "Đang vận chuyển",
+          className: "bg-blue-100 text-blue-800",
+        };
+      case "delivered":
+        return { label: "Đã giao", className: "bg-green-100 text-green-800" };
+      case "cancelled":
+        return { label: "Đã hủy", className: "bg-red-100 text-red-800" };
+      default:
+        return { label: status, className: "bg-gray-100 text-gray-800" };
+    }
+  };
+
+  // Hàm xử lý việc chuyển trang
+  // Trong MyOrders component
+  const handlePageChange = (page: number) => {
+    // Vẫn cập nhật state nội bộ
+    setCurrentPage(page);
+
+    // Gọi callback để thông báo cho component cha
+    if (onPageChange) {
+      onPageChange(page);
+    }
+  };
+
   if (orders.length === 0) {
     return <EmptyState message="Bạn chưa có đơn hàng nào." />;
   }
+
   return (
     <div>
       <h2 className="text-2xl font-bold mb-4">Đơn hàng của tôi</h2>
@@ -285,6 +367,9 @@ const MyOrders: React.FC<{ data?: Order[] | null }> = ({ data }) => {
                 Trạng thái
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Sản phẩm
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Tổng tiền
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -293,46 +378,116 @@ const MyOrders: React.FC<{ data?: Order[] | null }> = ({ data }) => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {orders.map((order) => (
-              <tr key={order.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {order.id}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {formatDateDisplay(order.createdAt)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  <span
-                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                    ${
-                      order.status === "Đã giao"
-                        ? "bg-green-100 text-green-800"
-                        : order.status === "Đang vận chuyển"
-                        ? "bg-blue-100 text-blue-800"
-                        : order.status === "Chờ xác nhận"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-red-100 text-red-800"
-                    }`}
-                  >
-                    {order.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {order.total}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  <Link
-                    href={`/account/orders/${order.id}`}
-                    className="text-blue-600 hover:text-blue-900"
-                  >
-                    Chi tiết
-                  </Link>
-                </td>
-              </tr>
-            ))}
+            {orders.map((order: Order) => {
+              const { label, className } = getOrderStatus(order.status);
+              const productCount = order.orderDetails?.length || 0;
+              const productInfo =
+                productCount > 0
+                  ? order.orderDetails?.[0]?.product?.name +
+                    (productCount > 1
+                      ? ` và ${productCount - 1} sản phẩm khác`
+                      : "")
+                  : "Không có thông tin sản phẩm";
+
+              return (
+                <tr key={order.id}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    #{order.id}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {formatDateDisplay(order.createdAt)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <span
+                      className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${className}`}
+                    >
+                      {label}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {productInfo}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {formatCurrency(order.total)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <Link
+                      href={`/account/orders/${order.id}`}
+                      className="text-blue-600 hover:text-blue-900"
+                    >
+                      Chi tiết
+                    </Link>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
+
+      {/* Phân trang */}
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex justify-center mt-6">
+          <nav className="flex items-center space-x-1">
+            {/* Nút trang trước */}
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className={`p-2 rounded-md ${
+                currentPage === 1
+                  ? "text-gray-400 cursor-not-allowed"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+              aria-label="Trang trước"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+
+            {/* Các trang */}
+            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(
+              (page) => (
+                <button
+                  key={page}
+                  onClick={() => handlePageChange(page)}
+                  className={`px-4 py-2 rounded-md ${
+                    page === currentPage
+                      ? "bg-blue-600 text-white"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  {page}
+                </button>
+              )
+            )}
+
+            {/* Nút trang sau */}
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === pagination.totalPages}
+              className={`p-2 rounded-md ${
+                currentPage === pagination.totalPages
+                  ? "text-gray-400 cursor-not-allowed"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+              aria-label="Trang sau"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+          </nav>
+        </div>
+      )}
     </div>
   );
 };
@@ -340,7 +495,7 @@ const MyOrders: React.FC<{ data?: Order[] | null }> = ({ data }) => {
 // component Addresses
 const Addresses: React.FC<{
   data?: Address[] | null;
-  isLoading: boolean;
+  isLoading?: boolean;
   error?: string | null;
   onRetry?: () => void;
 }> = ({ data, isLoading, error, onRetry }) => {
@@ -407,8 +562,17 @@ const Addresses: React.FC<{
   }, []);
 
   // Xử lý khi click vào nút chỉnh sửa
-  const handleEditClick = (address: Address) => {
-    setFormData(address);
+  const handleEditClick = (address: AddressPagination) => {
+    setFormData({
+      id: address.id,
+      fullName: address.fullName,
+      phoneNumber: address.phoneNumber,
+      streetAddress: address.streetAddress,
+      ward: address.ward,
+      district: address.district,
+      city: address.city,
+      isDefault: address.isDefault,
+    });
     setShowEditModal(true);
     setFormErrors({});
   };
@@ -509,9 +673,15 @@ const Addresses: React.FC<{
 
     try {
       // Gọi API cập nhật địa chỉ
-      await UserService.updateAddress(Number(formData.id), {
+      await UserService.updateAddress({
         ...formData,
-        id: formData.id ? Number(formData.id) : undefined,
+        id: formData.id !== undefined ? Number(formData.id) : 0,
+        fullName: formData.fullName || "",
+        streetAddress: formData.streetAddress || "",
+        district: formData.district || "",
+        ward: formData.ward || "",
+        city: formData.city || "",
+        phoneNumber: formData.phoneNumber || "",
       });
 
       // Đóng modal
@@ -618,12 +788,15 @@ const Addresses: React.FC<{
 
     try {
       // Call API to add new address
-      await UserService.addAddress(
-        newAddressData as Omit<
-          Address,
-          "id" | "userId" | "createdAt" | "updatedAt"
-        >
-      );
+      await UserService.addAddress({
+        fullName: newAddressData.fullName || "",
+        phoneNumber: newAddressData.phoneNumber || "",
+        streetAddress: newAddressData.streetAddress || "",
+        ward: newAddressData.ward || "",
+        district: newAddressData.district || "",
+        city: newAddressData.city || "",
+        isDefault: newAddressData.isDefault || false,
+      });
 
       // Close modal
       setShowAddModal(false);
@@ -1706,10 +1879,19 @@ interface UserRightProps {
   hasError?: boolean;
   errorMessage?: string;
   accountData?: User | null;
-  ordersData?: Order[] | null;
+  ordersData?: {
+    orders: Order[];
+    pagination: {
+      total: number;
+      totalPages: number;
+      currentPage: number;
+      perPage: number;
+    };
+  } | null;
   addressesData?: Address[] | null;
   promotionsData?: Promotion[] | null;
   onRetryFetch?: () => void;
+  onPageChange?: (page: number) => void;
 }
 
 export const UserRight: React.FC<UserRightProps> = ({
@@ -1722,6 +1904,7 @@ export const UserRight: React.FC<UserRightProps> = ({
   addressesData,
   promotionsData,
   onRetryFetch,
+  onPageChange,
 }) => {
   if (isLoading) {
     return <LoadingSpinner />;
@@ -1740,7 +1923,9 @@ export const UserRight: React.FC<UserRightProps> = ({
   return (
     <div className="p-4 bg-gray-100 rounded-lg h-full">
       {activeTab === "account" && <AccountInfo data={accountData} />}
-      {activeTab === "orders" && <MyOrders data={ordersData} />}
+      {activeTab === "orders" && (
+        <MyOrders data={ordersData} onPageChange={onPageChange} />
+      )}
       {activeTab === "addresses" && (
         <Addresses
           data={addressesData}

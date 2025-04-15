@@ -7,7 +7,7 @@ import ProductDetail from "../models/ProductDetail";
 import Voucher from "../models/Voucher";
 import Product from "../models/Product";
 import ProductImage from "../models/ProductImage";
-
+import Users from "../models/Users";
 /**
  * Create a new order
  */
@@ -246,8 +246,23 @@ export const getUserOrders = async (
     }
     const userId = req.user.id;
 
+    // Phân trang
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const offset = (page - 1) * limit;
+
+    // Điều kiện lọc theo trạng thái (nếu có)
+    const where: any = { userId };
+    if (req.query.status) {
+      where.status = req.query.status;
+    }
+
+    // Đếm tổng số đơn hàng
+    const count = await Order.count({ where });
+
+    // Lấy danh sách đơn hàng
     const orders = await Order.findAll({
-      where: { userId },
+      where,
       include: [
         {
           model: OrderDetail,
@@ -262,9 +277,19 @@ export const getUserOrders = async (
         },
       ],
       order: [["createdAt", "DESC"]],
+      limit,
+      offset,
     });
 
-    res.status(200).json(orders);
+    res.status(200).json({
+      orders,
+      pagination: {
+        total: count,
+        totalPages: Math.ceil(count / limit),
+        currentPage: page,
+        perPage: limit,
+      },
+    });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -278,15 +303,16 @@ export const getOrderById = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { id } = req.params;
+    const orderId = parseInt(req.params.id);
+    // Kiểm tra và xác nhận user tồn tại
     if (!req.user) {
       res.status(401).json({ message: "Unauthorized" });
       return;
     }
+
     const userId = req.user.id;
 
-    const order = await Order.findOne({
-      where: { id },
+    const order = await Order.findByPk(orderId, {
       include: [
         {
           model: OrderDetail,
@@ -312,9 +338,10 @@ export const getOrderById = async (
       return;
     }
 
-    // Kiểm tra quyền truy cập (chỉ admin hoặc chủ đơn hàng mới được xem)
-    if (order.getDataValue("userId") !== userId && req.body.user.role !== 1) {
-      res.status(403).json({ message: "Không có quyền truy cập đơn hàng này" });
+    // Kiểm tra quyền truy cập
+    // Nếu không phải admin và không phải đơn hàng của người dùng đó
+    if (req.user.role !== 1 && order.userId !== req.user.id) {
+      res.status(403).json({ message: "Bạn không có quyền xem đơn hàng này" });
       return;
     }
 
@@ -543,6 +570,78 @@ export const calculateShippingFeeForCart = async (
       },
     });
   } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Lấy đơn hàng của một user cụ thể (chỉ dành cho admin)
+export const getUserOrdersByAdmin = async (req: Request, res: Response) => {
+  try {
+    // Kiểm tra quyền admin
+    if (!req.user || req.user.role !== 1) {
+      res.status(403).json({ message: "Không có quyền truy cập" });
+      return;
+    }
+
+    const { userId } = req.params;
+
+    // Lấy thông tin user
+    const user = await Users.findByPk(userId, {
+      attributes: { exclude: ["password"] },
+    });
+
+    if (!user) {
+      res.status(404).json({ message: "Người dùng không tồn tại" });
+      return;
+    }
+
+    // Phân trang
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const offset = (page - 1) * limit;
+
+    // Điều kiện lọc theo trạng thái (nếu có)
+    const where: any = { userId };
+    if (req.query.status) {
+      where.status = req.query.status;
+    }
+
+    // Đếm tổng số đơn hàng
+    const count = await Order.count({ where });
+
+    // Lấy đơn hàng với phân trang
+    const orders = await Order.findAll({
+      where,
+      include: [
+        {
+          model: OrderDetail,
+          as: "orderDetails",
+          include: [
+            {
+              model: Product,
+              as: "product",
+              attributes: ["id", "name"],
+            },
+          ],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+      limit,
+      offset,
+    });
+
+    // Trả về dữ liệu với thông tin phân trang
+    res.status(200).json({
+      orders,
+      pagination: {
+        total: count,
+        totalPages: Math.ceil(count / limit),
+        currentPage: page,
+        perPage: limit,
+      },
+    });
+  } catch (error: any) {
+    console.error("Error in getUserOrdersByAdmin:", error);
     res.status(500).json({ message: error.message });
   }
 };

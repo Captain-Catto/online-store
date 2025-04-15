@@ -1,104 +1,151 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
 import Image from "next/image";
 import { useParams } from "next/navigation";
+import { AuthClient } from "@/services/AuthClient";
+import { API_BASE_URL } from "@/config/apiConfig";
+import { formatDateDisplay } from "@/utils/dateUtils";
+import { Order } from "@/types/order";
 
 export default function OrderDetailPage() {
   const { id } = useParams() as { id: string };
-  const [orderStatus, setOrderStatus] = useState("processing");
+  const [order, setOrder] = useState<Order | null>(null);
+  const [orderStatus, setOrderStatus] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | undefined>();
+  const [updating, setUpdating] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: "", type: "" });
 
-  // Dữ liệu mẫu cho chi tiết đơn hàng
-  const orderDetail = {
-    id: id,
-    orderNumber: id,
-    orderDate: "01/04/2025",
-    status: "processing",
-    statusLabel: "Đang xử lý",
-    statusClass: "bg-warning",
-    paymentMethod: "COD (Thanh toán khi nhận hàng)",
-    paymentStatus: "Chưa thanh toán",
-    totalAmount: "2.300.000đ",
-    shippingFee: "30.000đ",
-    discount: "0đ",
-    subTotal: "2.270.000đ",
-    notes: "Giao hàng trong giờ hành chính",
-    customer: {
-      name: "Trần Thị B",
-      phone: "0923456789",
-      email: "tranthi.b@example.com",
-      shippingAddress: "123 Đường ABC, Phường XYZ, Quận 1, TP. Hồ Chí Minh",
-    },
-    items: [
-      {
-        id: "PROD-001",
-        name: "Áo thun nam basic",
-        sku: "AT-NAM-001",
-        price: "250.000đ",
-        quantity: 2,
-        total: "500.000đ",
-        image:
-          "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/ao-thun-nam-cotton/AT.220.xd.12.webp",
-      },
-      {
-        id: "PROD-002",
-        name: "Quần jean nữ ống đứng",
-        sku: "QJ-NU-002",
-        price: "550.000đ",
-        quantity: 1,
-        total: "550.000đ",
-        image:
-          "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/ao-thun-nam-cotton/AT.220.xd.12.webp",
-      },
-      {
-        id: "PROD-003",
-        name: "Áo khoác dù unisex",
-        sku: "AK-UNI-003",
-        price: "1.200.000đ",
-        quantity: 1,
-        total: "1.200.000đ",
-        image:
-          "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/ao-thun-nam-cotton/AT.220.xd.12.webp",
-      },
-    ],
-    history: [
-      {
-        date: "01/04/2025 08:15",
-        status: "pending",
-        statusLabel: "Chờ xác nhận",
-        note: "Đơn hàng đã được tạo.",
-      },
-      {
-        date: "01/04/2025 10:30",
-        status: "processing",
-        statusLabel: "Đang xử lý",
-        note: "Đơn hàng đã được xác nhận.",
-      },
-    ],
+  // Danh sách trạng thái và màu sắc tương ứng
+  const availableStatuses = [
+    { value: "pending", label: "Chờ xác nhận", color: "bg-gray-500" },
+    { value: "processing", label: "Đang xử lý", color: "bg-yellow-500" },
+    { value: "shipping", label: "Đang giao", color: "bg-blue-500" },
+    { value: "delivered", label: "Đã giao", color: "bg-green-500" },
+    { value: "cancelled", label: "Đã hủy", color: "bg-red-500" },
+  ];
+
+  // Fetch order data
+  useEffect(() => {
+    const fetchOrderDetails = async () => {
+      if (!id) return;
+
+      try {
+        setLoading(true);
+        const response = await AuthClient.fetchWithAuth(
+          `${API_BASE_URL}/orders/${id}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`Error fetching order: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("Order data:", data);
+        setOrder(data);
+        setOrderStatus(data.status);
+      } catch (error) {
+        if (error instanceof Error) {
+          setError(error.message || "Không thể tải dữ liệu đơn hàng");
+        } else {
+          setError("Không thể tải dữ liệu đơn hàng");
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrderDetails();
+  }, [id]);
+
+  // Get status label
+  const getStatusLabel = (status: string): string => {
+    return availableStatuses.find((s) => s.value === status)?.label || status;
+  };
+
+  // Lấy thông tin màu của trạng thái
+  interface Status {
+    value: string;
+    label: string;
+    color: string;
+  }
+
+  const getCurrentStatusColor = (status: string): string => {
+    return (
+      availableStatuses.find((s: Status) => s.value === status)?.color ||
+      "bg-gray-500"
+    );
+  };
+
+  // Format currency
+  const formatCurrency = (value: number): string => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
   };
 
   // Xử lý thay đổi trạng thái đơn hàng
-  const handleUpdateStatus = (newStatus: string) => {
-    setOrderStatus(newStatus);
-    // Thêm code xử lý cập nhật status ở đây (API call)
+  const handleUpdateStatus = async () => {
+    if (order && orderStatus === order.status) {
+      return; // Không có thay đổi
+    }
 
-    // Mô phỏng thêm vào lịch sử
-    const statusLabels: { [key: string]: string } = {
-      pending: "Chờ xác nhận",
-      processing: "Đang xử lý",
-      shipping: "Đang giao",
-      completed: "Hoàn thành",
-      cancelled: "Đã hủy",
-    };
+    try {
+      setUpdating(true);
 
-    orderDetail.history.push({
-      date: new Date().toLocaleString("vi-VN"),
-      status: newStatus,
-      statusLabel: statusLabels[newStatus],
-      note: `Đơn hàng đã được cập nhật sang ${statusLabels[newStatus]}`,
-    });
+      // Call API to update order status
+      const response = await AuthClient.fetchWithAuth(
+        `${API_BASE_URL}/orders/${id}/status`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: orderStatus }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Không thể cập nhật trạng thái đơn hàng");
+      }
+
+      const data = await response.json();
+      console.log("Update response data:", data);
+
+      // Update order data with the response
+      if (data.order) {
+        setOrder(data.order);
+        // Đồng bộ orderStatus với dữ liệu mới
+        setOrderStatus(data.order.status);
+      }
+
+      // Hiển thị toast thông báo thành công
+      setToast({
+        show: true,
+        message: data.message || "Cập nhật trạng thái đơn hàng thành công",
+        type: "success",
+      });
+    } catch (error) {
+      console.error("Error updating status:", error);
+      // Hiển thị toast lỗi
+      setToast({
+        show: true,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Có lỗi xảy ra khi cập nhật trạng thái",
+        type: "error",
+      });
+    } finally {
+      setUpdating(false);
+    }
   };
 
   // Breadcrumb items
@@ -108,19 +155,252 @@ export default function OrderDetailPage() {
     { label: id, active: true },
   ];
 
-  // Danh sách trạng thái và màu sắc tương ứng
-  const availableStatuses = [
-    { value: "pending", label: "Chờ xác nhận", color: "bg-gray-500" },
-    { value: "processing", label: "Đang xử lý", color: "bg-yellow-500" },
-    { value: "shipping", label: "Đang giao", color: "bg-blue-500" },
-    { value: "completed", label: "Hoàn thành", color: "bg-green-500" },
-    { value: "cancelled", label: "Đã hủy", color: "bg-red-500" },
-  ];
+  // Thay thế hàm handleCancelOrder hiện tại
+  const handleCancelOrder = () => {
+    setShowCancelModal(true); // Mở modal thay vì hiển thị alert
+  };
 
-  // Lấy thông tin màu của trạng thái hiện tại
-  const getCurrentStatusColor = (status: string) => {
+  // Thêm hàm xác nhận hủy đơn hàng
+  const confirmCancelOrder = async () => {
+    try {
+      setUpdating(true);
+
+      // Call API to cancel order
+      const response = await AuthClient.fetchWithAuth(
+        `${API_BASE_URL}/orders/${id}/status`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: "cancelled" }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Không thể hủy đơn hàng");
+      }
+
+      const data = await response.json();
+      console.log("Cancel response data:", data);
+
+      // Update order data directly from API response
+      if (data.order) {
+        setOrder(data.order);
+        setOrderStatus(data.order.status);
+      }
+
+      // Hiển thị toast thành công
+      setToast({
+        show: true,
+        message: data.message || "Đơn hàng đã được hủy thành công",
+        type: "success",
+      });
+
+      // Đóng modal sau khi xử lý thành công
+      setShowCancelModal(false);
+    } catch (error) {
+      console.error("Error cancelling order:", error);
+      // Hiển thị toast lỗi
+      setToast({
+        show: true,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Có lỗi xảy ra khi hủy đơn hàng",
+        type: "error",
+      });
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  if (loading) {
     return (
-      availableStatuses.find((s) => s.value === status)?.color || "bg-gray-500"
+      <AdminLayout title="Đang tải...">
+        <div className="content-wrapper">
+          <section className="content">
+            <div className="container-fluid">
+              <div className="text-center py-5">
+                <div className="spinner-border text-primary" role="status">
+                  <span className="sr-only">Đang tải...</span>
+                </div>
+                <p className="mt-3">Đang tải thông tin đơn hàng...</p>
+              </div>
+            </div>
+          </section>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <AdminLayout title="Lỗi">
+        <div className="content-wrapper">
+          <section className="content">
+            <div className="container-fluid">
+              <div className="alert alert-danger">
+                <h5>
+                  <i className="icon fas fa-ban"></i> Lỗi!
+                </h5>
+                {error}
+              </div>
+              <Link href="/admin/orders" className="btn btn-primary">
+                <i className="fas fa-arrow-left mr-2"></i> Quay lại danh sách
+                đơn hàng
+              </Link>
+            </div>
+          </section>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (!order) return null;
+
+  const CancelOrderModal = () => {
+    if (!showCancelModal) return null;
+
+    return (
+      <div
+        className="fixed inset-0 z-50 overflow-y-auto"
+        aria-labelledby="modal-title"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+          {/* Overlay */}
+          <div
+            className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+            aria-hidden="true"
+            onClick={() => !updating && setShowCancelModal(false)}
+          ></div>
+
+          {/* Modal */}
+          <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full">
+            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+              <div className="sm:flex flex-col sm:items-start">
+                <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                  <svg
+                    className="h-6 w-6 text-red-600"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                </div>
+                <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                  <h3
+                    className="text-lg leading-6 font-medium text-gray-900"
+                    id="modal-title"
+                  >
+                    Xác nhận hủy đơn hàng
+                  </h3>
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-500">
+                      Bạn có chắc chắn muốn hủy đơn hàng này? Hành động này
+                      không thể hoàn tác. Số sản phẩm trong đơn hàng sẽ được
+                      hoàn lại vô kho.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse flex gap-2">
+              <button
+                type="button"
+                className={`w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm ${
+                  updating ? "opacity-75 cursor-not-allowed" : ""
+                }`}
+                onClick={confirmCancelOrder}
+                disabled={updating}
+              >
+                {updating ? (
+                  <>
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Đang xử lý...
+                  </>
+                ) : (
+                  "Xác nhận hủy"
+                )}
+              </button>
+              <button
+                type="button"
+                className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                onClick={() => setShowCancelModal(false)}
+                disabled={updating}
+              >
+                Quay lại
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const Toast = () => {
+    useEffect(() => {
+      if (!toast.show) return;
+
+      const timer = setTimeout(() => {
+        setToast((prevToast) => ({ ...prevToast, show: false }));
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }, [toast.show]);
+
+    // Điều kiện render sau khi đã khai báo tất cả hooks
+    if (!toast.show) return null;
+
+    const bgColor =
+      toast.type === "success"
+        ? "bg-green-500"
+        : toast.type === "error"
+        ? "bg-red-500"
+        : "bg-blue-500";
+
+    return (
+      <div className="fixed bottom-4 right-4 z-50">
+        <div
+          className={`${bgColor} text-white px-6 py-4 rounded-lg shadow-lg flex items-center`}
+        >
+          {toast.type === "success" && (
+            <i className="fas fa-check-circle mr-2"></i>
+          )}
+          {toast.type === "error" && (
+            <i className="fas fa-exclamation-circle mr-2"></i>
+          )}
+          <span>{toast.message}</span>
+        </div>
+      </div>
     );
   };
 
@@ -154,11 +434,11 @@ export default function OrderDetailPage() {
               >
                 <i className="fas fa-arrow-left mr-2"></i> Quay lại
               </Link>
-              <button className="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition">
+              <button
+                className="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition"
+                onClick={() => window.print()}
+              >
                 <i className="fas fa-print mr-2"></i> In hóa đơn
-              </button>
-              <button className="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition">
-                <i className="fas fa-envelope mr-2"></i> Gửi email
               </button>
             </div>
 
@@ -177,16 +457,14 @@ export default function OrderDetailPage() {
                         <th className="text-left py-2 w-2/5 text-gray-600 font-medium">
                           Mã đơn hàng
                         </th>
-                        <td className="py-2 text-gray-800">
-                          {orderDetail.orderNumber}
-                        </td>
+                        <td className="py-2 text-gray-800">{order.id}</td>
                       </tr>
                       <tr>
                         <th className="text-left py-2 w-2/5 text-gray-600 font-medium">
                           Ngày đặt hàng
                         </th>
                         <td className="py-2 text-gray-800">
-                          {orderDetail.orderDate}
+                          {formatDateDisplay(order.createdAt)}
                         </td>
                       </tr>
                       <tr>
@@ -194,7 +472,9 @@ export default function OrderDetailPage() {
                           Phương thức thanh toán
                         </th>
                         <td className="py-2 text-gray-800">
-                          {orderDetail.paymentMethod}
+                          {order.paymentMethodId === 1
+                            ? "Tiền mặt khi nhận hàng (COD)"
+                            : "Chuyển khoản ngân hàng"}
                         </td>
                       </tr>
                       <tr>
@@ -202,17 +482,19 @@ export default function OrderDetailPage() {
                           Trạng thái thanh toán
                         </th>
                         <td className="py-2 text-gray-800">
-                          {orderDetail.paymentStatus}
+                          {order.paymentStatusId === 1
+                            ? "Chưa thanh toán"
+                            : "Đã thanh toán"}
                         </td>
                       </tr>
-                      <tr>
+                      {/* <tr>
                         <th className="text-left py-2 w-2/5 text-gray-600 font-medium">
                           Ghi chú
                         </th>
                         <td className="py-2 text-gray-800">
-                          {orderDetail.notes || "Không có"}
+                          {order.note || "Không có"}
                         </td>
-                      </tr>
+                      </tr> */}
                       <tr>
                         <th className="text-left py-2 w-2/5 text-gray-600 font-medium">
                           Trạng thái đơn hàng
@@ -220,14 +502,10 @@ export default function OrderDetailPage() {
                         <td className="py-2">
                           <span
                             className={`inline-flex px-2 py-1 text-xs font-medium rounded-full text-white ${getCurrentStatusColor(
-                              orderStatus
+                              order.status
                             )}`}
                           >
-                            {
-                              availableStatuses.find(
-                                (s) => s.value === orderStatus
-                              )?.label
-                            }
+                            {getStatusLabel(order.status)}
                           </span>
                         </td>
                       </tr>
@@ -250,7 +528,7 @@ export default function OrderDetailPage() {
                           Tên khách hàng
                         </th>
                         <td className="py-2 text-gray-800">
-                          {orderDetail.customer.name}
+                          {order.user?.name || "Khách hàng"}
                         </td>
                       </tr>
                       <tr>
@@ -258,23 +536,30 @@ export default function OrderDetailPage() {
                           Số điện thoại
                         </th>
                         <td className="py-2 text-gray-800">
-                          {orderDetail.customer.phone}
+                          {order.phoneNumber}
                         </td>
                       </tr>
-                      <tr>
-                        <th className="text-left py-2 w-2/5 text-gray-600 font-medium">
-                          Email
-                        </th>
-                        <td className="py-2 text-gray-800">
-                          {orderDetail.customer.email}
-                        </td>
-                      </tr>
+
                       <tr>
                         <th className="text-left py-2 w-2/5 text-gray-600 font-medium">
                           Địa chỉ giao hàng
                         </th>
                         <td className="py-2 text-gray-800">
-                          {orderDetail.customer.shippingAddress}
+                          {order.shippingAddress}
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <th className="text-left py-2 w-2/5 text-gray-600 font-medium">
+                          Xem chi tiết thông tin khách hàng
+                        </th>
+                        <td className="py-2 text-gray-800">
+                          <Link
+                            href={`/admin/users/${order.userId}`}
+                            className="text-blue-500 hover:underline"
+                          >
+                            Xem chi tiết
+                          </Link>
                         </td>
                       </tr>
                     </tbody>
@@ -312,35 +597,39 @@ export default function OrderDetailPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {orderDetail.items.map((item) => (
+                    {order.orderDetails?.map((item) => (
                       <tr key={item.id} className="hover:bg-gray-50">
                         <td className="py-3 px-4">
                           <div className="flex items-center">
                             <div className="relative w-12 h-12 mr-3 flex-shrink-0">
                               <Image
-                                src={item.image}
-                                alt={item.name}
+                                src={item.imageUrl}
+                                alt={item.product?.name || "Sản phẩm"}
                                 fill
                                 sizes="48px"
                                 className="rounded object-cover"
                               />
                             </div>
                             <span className="text-sm text-gray-800">
-                              {item.name}
+                              {item.product?.name}
+                              <br />
+                              <span className="text-xs text-gray-500">
+                                {item.color}, {item.size}
+                              </span>
                             </span>
                           </div>
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-500">
-                          {item.sku}
+                          {item.product?.sku || "N/A"}
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-500">
-                          {item.price}
+                          {formatCurrency(item.discountPrice)}
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-500">
                           {item.quantity}
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-900 text-right font-medium">
-                          {item.total}
+                          {formatCurrency(item.discountPrice * item.quantity)}
                         </td>
                       </tr>
                     ))}
@@ -354,7 +643,7 @@ export default function OrderDetailPage() {
                         Tổng tiền sản phẩm:
                       </th>
                       <th className="py-3 px-4 text-right text-sm font-medium text-gray-900">
-                        {orderDetail.subTotal}
+                        {formatCurrency(order.subtotal)}
                       </th>
                     </tr>
                     <tr>
@@ -365,7 +654,7 @@ export default function OrderDetailPage() {
                         Phí vận chuyển:
                       </th>
                       <td className="py-3 px-4 text-right text-sm text-gray-900">
-                        {orderDetail.shippingFee}
+                        {formatCurrency(order.shippingFee ?? 0)}
                       </td>
                     </tr>
                     <tr>
@@ -376,7 +665,7 @@ export default function OrderDetailPage() {
                         Giảm giá:
                       </th>
                       <td className="py-3 px-4 text-right text-sm text-gray-900">
-                        {orderDetail.discount}
+                        {formatCurrency(order.voucherDiscount)}
                       </td>
                     </tr>
                     <tr>
@@ -387,7 +676,7 @@ export default function OrderDetailPage() {
                         Tổng thanh toán:
                       </th>
                       <th className="py-3 px-4 text-right text-base font-semibold text-gray-900">
-                        {orderDetail.totalAmount}
+                        {formatCurrency(order.total)}
                       </th>
                     </tr>
                   </tfoot>
@@ -413,80 +702,104 @@ export default function OrderDetailPage() {
                       value={orderStatus}
                       onChange={(e) => setOrderStatus(e.target.value)}
                     >
-                      {availableStatuses.map((status) => (
-                        <option key={status.value} value={status.value}>
-                          {status.label}
-                        </option>
-                      ))}
+                      {availableStatuses
+                        .filter((status) => status.value !== "cancelled")
+                        .map((status) => (
+                          <option key={status.value} value={status.value}>
+                            {status.label}
+                          </option>
+                        ))}
                     </select>
                   </div>
-                  <div>
+                  <div className="flex gap-2">
                     <button
-                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition"
-                      onClick={() => handleUpdateStatus(orderStatus)}
+                      className={`inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition ${
+                        updating ? "opacity-75 cursor-not-allowed" : ""
+                      }`}
+                      onClick={handleUpdateStatus}
+                      disabled={updating || orderStatus === order.status}
                     >
-                      Cập nhật trạng thái
+                      {updating ? (
+                        <>
+                          <svg
+                            className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          Đang cập nhật...
+                        </>
+                      ) : (
+                        "Cập nhật trạng thái"
+                      )}
                     </button>
-                  </div>
-                </div>
-              </div>
-            </div>
 
-            {/* Order history */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-              <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-                <h3 className="font-medium text-gray-700">Lịch sử đơn hàng</h3>
-              </div>
-              <div className="p-4">
-                <div className="flow-root">
-                  <ul className="-mb-8">
-                    {orderDetail.history.map((record, index) => (
-                      <li key={index}>
-                        <div className="relative pb-8">
-                          {index !== orderDetail.history.length - 1 ? (
-                            <span
-                              className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200"
-                              aria-hidden="true"
-                            ></span>
-                          ) : null}
-                          <div className="relative flex space-x-3">
-                            <div>
-                              <span
-                                className={`h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-white ${getCurrentStatusColor(
-                                  record.status
-                                )}`}
+                    {/* Nút hủy đơn hàng - chỉ hiển thị khi đơn không ở trạng thái cancelled hoặc delivered */}
+                    {order.status !== "cancelled" &&
+                      order.status !== "delivered" && (
+                        <button
+                          className={`inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition ${
+                            updating ? "opacity-75 cursor-not-allowed" : ""
+                          }`}
+                          onClick={handleCancelOrder}
+                          disabled={updating}
+                        >
+                          {updating ? (
+                            <>
+                              <svg
+                                className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
                               >
-                                <i className="fas fa-check text-white text-sm"></i>
-                              </span>
-                            </div>
-                            <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
-                              <div>
-                                <p className="text-sm text-gray-700">
-                                  <span
-                                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getCurrentStatusColor(
-                                      record.status
-                                    )} mr-2`}
-                                  >
-                                    {record.statusLabel}
-                                  </span>
-                                  {record.note}
-                                </p>
-                              </div>
-                              <div className="text-right text-sm whitespace-nowrap text-gray-500">
-                                {record.date}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                ></circle>
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                ></path>
+                              </svg>
+                              Đang xử lý...
+                            </>
+                          ) : (
+                            <>
+                              <i className="fas fa-ban mr-2"></i>
+                              Hủy đơn hàng
+                            </>
+                          )}
+                        </button>
+                      )}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </section>
+      <CancelOrderModal />
+      {/* Toast Notification */}
+      <Toast />
     </AdminLayout>
   );
 }

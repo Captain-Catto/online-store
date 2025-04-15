@@ -4,6 +4,7 @@ import {
   getUserOrders,
   getOrderById,
   calculateShippingFeeForCart,
+  getUserOrdersByAdmin,
 } from "../controllers/Order.Controller";
 import {
   updateOrderStatus,
@@ -20,16 +21,23 @@ const router = Router();
 
 // Tạo đơn hàng mới (cần đăng nhập)
 router.post("/", authMiddleware, createOrder);
-
-// Lấy danh sách đơn hàng của người dùng
-router.get("/my-orders", authMiddleware, getUserOrders);
-
-// Lấy chi tiết đơn hàng theo ID
-router.get("/:id", authMiddleware, getOrderById);
-
 // ADMIN ROUTES (Tất cả đều yêu cầu quyền admin)
 // Lấy tất cả đơn hàng (Admin)
 router.get("/admin/all", authMiddleware, roleMiddleware([1]), getAllOrders);
+
+// Lấy danh sách đơn hàng của người dùng (chỉ người dùng đã đăng nhập)
+router.get("/my-orders", authMiddleware, getUserOrders);
+
+// Lấy danh sách đơn hàng của người dùng theo ID (Admin)
+router.get(
+  "/user/:userId",
+  authMiddleware,
+  roleMiddleware([1]),
+  getUserOrdersByAdmin
+);
+
+// Lấy chi tiết đơn hàng theo ID
+router.get("/:id", authMiddleware, getOrderById);
 
 // Cập nhật trạng thái đơn hàng
 router.put(

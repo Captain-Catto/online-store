@@ -13,7 +13,16 @@ import { mapOrderStatus } from "@/utils/orderUtils";
 
 export default function AdminDashboardPage() {
   const router = useRouter();
-  const [recentOrders, setRecentOrders] = useState([]);
+  const [recentOrders, setRecentOrders] = useState<
+    {
+      id: number;
+      userId: string | number;
+      status: string;
+      statusClass: string;
+      total: string;
+      date: string;
+    }[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({
@@ -37,11 +46,18 @@ export default function AdminDashboardPage() {
         const orders = await OrderService.getAdminOrders();
         console.log("Orders:", orders);
 
+        // setPagination để hiển thị cho stat card
+        setPagination({
+          currentPage: orders.currentPage || 1,
+          totalPages: orders.totalPages || 1,
+          totalItems: orders.totalItems || 0,
+        });
+
         // Xử lý và định dạng dữ liệu cho component RecentOrdersTable
         const formattedOrders = orders.items.slice(0, 10).map((order) => {
           // Map trạng thái đơn hàng sang class tương ứng
-          const getStatusClass = (status) => {
-            const statusMap = {
+          const getStatusClass = (status: string): string => {
+            const statusMap: Record<string, string> = {
               pending: "bg-secondary",
               processing: "bg-warning",
               shipping: "bg-info",
@@ -52,14 +68,15 @@ export default function AdminDashboardPage() {
           };
 
           // Định dạng ngày
-          const formatDate = (dateString) => {
+          const formatDate = (dateString: string): string => {
             const date = new Date(dateString);
             return date.toLocaleDateString("vi-VN");
           };
+          console.log("Order:", order);
 
           return {
             id: order.id,
-            customer: order.customerName || "Khách hàng",
+            userId: order.userId || "Unknown",
             status: mapOrderStatus(order.status),
             statusClass: getStatusClass(order.status),
             total: (order.total || 0).toLocaleString("vi-VN") + " VNĐ",
@@ -78,6 +95,7 @@ export default function AdminDashboardPage() {
 
     fetchOrders();
   }, []);
+
   // Dữ liệu cho các thẻ thống kê
   const statsData = [
     {
@@ -97,7 +115,7 @@ export default function AdminDashboardPage() {
     },
     {
       title: "Người dùng đăng ký",
-      value: "44",
+      value: pagination.totalItems,
       icon: "fas fa-user-plus",
       color: "bg-warning",
       link: "/admin/users",
@@ -136,27 +154,60 @@ export default function AdminDashboardPage() {
       {/* Main content */}
       <section className="content">
         <div className="container-fluid">
-          {/* Small boxes (Stat box) */}
-          <div className="row">
-            {statsData.map((stat, index) => (
-              <StatCard
-                key={index}
-                title={stat.title}
-                value={stat.value}
-                suffix={stat.suffix}
-                icon={stat.icon}
-                color={stat.color}
-                link={stat.link}
-              />
-            ))}
-          </div>
-
-          {/* Recent Orders */}
-          <div className="row">
-            <div className="col-md-12">
-              <RecentOrdersTable orders={recentOrders} />
+          {loading ? (
+            // Hiển thị spinner khi đang tải
+            <div className="text-center my-5">
+              <div
+                className="spinner-border text-primary"
+                role="status"
+                style={{ width: "3rem", height: "3rem" }}
+              >
+                <span className="sr-only">Đang tải...</span>
+              </div>
+              <h4 className="mt-3">Đang tải dữ liệu...</h4>
             </div>
-          </div>
+          ) : error ? (
+            // Hiển thị thông báo lỗi khi có lỗi
+            <div className="alert alert-danger alert-dismissible">
+              <button
+                type="button"
+                className="close"
+                data-dismiss="alert"
+                aria-hidden="true"
+              >
+                ×
+              </button>
+              <h5>
+                <i className="icon fas fa-ban"></i> Lỗi!
+              </h5>
+              {error}
+            </div>
+          ) : (
+            // Hiển thị nội dung khi đã tải xong và không có lỗi
+            <>
+              {/* Small boxes (Stat box) */}
+              <div className="row">
+                {statsData.map((stat, index) => (
+                  <StatCard
+                    key={index}
+                    title={stat.title}
+                    value={stat.value}
+                    suffix={stat.suffix}
+                    icon={stat.icon}
+                    color={stat.color}
+                    link={stat.link}
+                  />
+                ))}
+              </div>
+
+              {/* Recent Orders */}
+              <div className="row">
+                <div className="col-md-12">
+                  <RecentOrdersTable orders={recentOrders} />
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </section>
     </AdminLayout>

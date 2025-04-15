@@ -9,6 +9,11 @@ export interface Address {
   phoneNumber: string;
   isDefault: boolean;
 }
+export interface AddressPagination extends Address {
+  total?: number;
+  page?: number;
+  limit?: number;
+}
 
 // Interface cho việc tạo địa chỉ mới từ API
 export interface AddressCreate {

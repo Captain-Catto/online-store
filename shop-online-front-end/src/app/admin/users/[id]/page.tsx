@@ -3,98 +3,121 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
-import userIcon from "@/assets/imgs/logo-coolmate-new-mobile-v2.svg";
+
+import { useEffect } from "react";
+import { AuthClient } from "@/services/AuthClient";
+import { API_BASE_URL } from "@/config/apiConfig";
+import { Order } from "@/types/order";
+import { formatDateDisplay } from "@/utils/dateUtils";
+import { UserAdminApi } from "@/types/user";
+import PaginationComponent from "@/components/Category/Pagination";
 
 export default function UserDetailPage() {
   const { id } = useParams() as { id: string };
   const [activeTab, setActiveTab] = useState("info");
+  const [userOrders, setUserOrders] = useState<Order[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+  const [user, setUser] = useState<UserAdminApi | null>(null);
+  const [userLoading, setUserLoading] = useState(true);
+  const [userError, setUserError] = useState<string | null>(null);
 
-  // Mock user data - replace with API call in production
-  const userData = {
-    id: id,
-    name: "Nguyễn Văn A",
-    email: "nguyenvana@example.com",
-    phone: "0912345678",
-    status: "active",
-    statusLabel: "Đang hoạt động",
-    statusClass: "bg-success",
-    gender: "Nam",
-    birthdate: "15/05/1990",
-    address: "123 Đường Nguyễn Huệ, Quận 1, TP.HCM",
-    registeredDate: "15/01/2025",
-    totalOrders: 5,
-    totalSpent: "4.500.000đ",
-    lastPurchase: "01/04/2025",
-    notes: "Khách hàng VIP, thích sản phẩm cao cấp",
-    addresses: [
-      {
-        id: 1,
-        name: "Nhà riêng",
-        address: "123 Đường Nguyễn Huệ, Quận 1",
-        city: "TP.HCM",
-        phone: "0912345678",
-        isDefault: true,
-      },
-      {
-        id: 2,
-        name: "Văn phòng",
-        address: "456 Đường Lê Lợi, Quận 3",
-        city: "TP.HCM",
-        phone: "0912345678",
-        isDefault: false,
-      },
-    ],
-    orders: [
-      {
-        id: "ORD-0001",
-        date: "01/04/2025",
-        status: "completed",
-        statusLabel: "Hoàn thành",
-        statusClass: "bg-success",
-        total: "1.500.000đ",
-        items: 3,
-      },
-      {
-        id: "ORD-0005",
-        date: "15/03/2025",
-        status: "completed",
-        statusLabel: "Hoàn thành",
-        statusClass: "bg-success",
-        total: "900.000đ",
-        items: 2,
-      },
-      {
-        id: "ORD-0012",
-        date: "28/02/2025",
-        status: "completed",
-        statusLabel: "Hoàn thành",
-        statusClass: "bg-success",
-        total: "750.000đ",
-        items: 1,
-      },
-      {
-        id: "ORD-0018",
-        date: "10/02/2025",
-        status: "completed",
-        statusLabel: "Hoàn thành",
-        statusClass: "bg-success",
-        total: "1.200.000đ",
-        items: 2,
-      },
-      {
-        id: "ORD-0025",
-        date: "20/01/2025",
-        status: "cancelled",
-        statusLabel: "Đã hủy",
-        statusClass: "bg-danger",
-        total: "650.000đ",
-        items: 1,
-      },
-    ],
+  // state cho phân trang và bộ lọc
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    totalPages: 1,
+    currentPage: 1,
+    perPage: 10,
+  });
+  const [orderStatus, setOrderStatus] = useState("all");
+
+  // Danh sách các trạng thái đơn hàng
+  const orderStatuses = [
+    { value: "all", label: "Tất cả" },
+    { value: "pending", label: "Chờ xác nhận" },
+    { value: "processing", label: "Đang xử lý" },
+    { value: "shipping", label: "Đang giao hàng" },
+    { value: "delivered", label: "Đã giao" },
+    { value: "cancelled", label: "Đã hủy" },
+  ];
+
+  const fetchUserOrders = async (page = currentPage, status = orderStatus) => {
+    try {
+      setOrdersLoading(true);
+      setOrdersError(null);
+
+      let url = `${API_BASE_URL}/orders/user/${id}?page=${page}&limit=${pagination.perPage}`;
+      if (status !== "all") {
+        url += `&status=${status}`;
+      }
+
+      console.log("Fetching user orders from:", url);
+      const response = await AuthClient.fetchWithAuth(url);
+
+      if (!response.ok) {
+        throw new Error(`Error fetching orders: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("User orders data:", data);
+
+      setUserOrders(data.orders);
+      setPagination(data.pagination);
+    } catch (error) {
+      console.error("Failed to fetch user orders:", error);
+      setOrdersError(
+        error instanceof Error
+          ? error.message
+          : "Không thể tải dữ liệu đơn hàng"
+      );
+    } finally {
+      setOrdersLoading(false);
+    }
   };
+
+  const fetchUserData = async () => {
+    try {
+      setUserLoading(true);
+      setUserError(null);
+
+      const response = await AuthClient.fetchWithAuth(
+        `${API_BASE_URL}/users/${id}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Error fetching user: ${response.status}`);
+      }
+
+      const userData = await response.json();
+      console.log("User data:", userData);
+
+      setUser(userData);
+    } catch (error) {
+      console.error("Failed to fetch user data:", error);
+      setUserError(
+        error instanceof Error
+          ? error.message
+          : "Không thể tải thông tin người dùng"
+      );
+    } finally {
+      setUserLoading(false);
+    }
+  };
+
+  // Thêm useEffect để fetch dữ liệu khi component mount
+  useEffect(() => {
+    fetchUserData();
+  }, [id]);
+
+  // Thêm useEffect để fetch dữ liệu khi tab được kích hoạt
+  useEffect(() => {
+    if (activeTab === "orders") {
+      fetchUserOrders(currentPage, orderStatus);
+    }
+  }, [activeTab, id, currentPage, orderStatus]);
 
   // Breadcrumb items
   const breadcrumbItems = [
@@ -102,6 +125,100 @@ export default function UserDetailPage() {
     { label: "Người dùng", href: "/admin/users" },
     { label: id, active: true },
   ];
+
+  const handleStatusChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setOrderStatus(event.target.value);
+    setCurrentPage(1);
+  };
+
+  // Hàm helper để map trạng thái đơn hàng sang màu sắc
+  const getOrderStatusClass = (status: string): string => {
+    switch (status) {
+      case "pending":
+        return "bg-gray-500";
+      case "processing":
+        return "bg-yellow-500";
+      case "shipping":
+        return "bg-blue-500";
+      case "delivered":
+        return "bg-green-500";
+      case "cancelled":
+        return "bg-red-500";
+      default:
+        return "bg-gray-500";
+    }
+  };
+
+  // Hàm map trạng thái sang nhãn tiếng Việt
+  const getOrderStatusLabel = (status: string): string => {
+    switch (status) {
+      case "pending":
+        return "Chờ xác nhận";
+      case "processing":
+        return "Đang xử lý";
+      case "shipping":
+        return "Đang giao";
+      case "delivered":
+        return "Đã giao";
+      case "cancelled":
+        return "Đã hủy";
+      default:
+        return status;
+    }
+  };
+
+  // Hàm định dạng tiền tệ
+  const formatCurrency = (value: number): string => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
+  // Hàm xử lý khi chuyển trang
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= pagination.totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const OrderFilters = () => (
+    <div className="mb-4 bg-gray-50 p-4 rounded-lg">
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex items-center">
+          <label
+            htmlFor="status-filter"
+            className="mr-2 text-sm font-medium text-gray-700"
+          >
+            Lọc theo trạng thái:
+          </label>
+          <select
+            id="status-filter"
+            className="form-select rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50"
+            value={orderStatus}
+            onChange={handleStatusChange}
+          >
+            {orderStatuses.map((status) => (
+              <option key={status.value} value={status.value}>
+                {status.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {orderStatus !== "all" && (
+          <button
+            onClick={() => setOrderStatus("all")}
+            className="text-sm text-blue-600 hover:text-blue-800"
+          >
+            <i className="fas fa-times mr-1"></i> Xóa bộ lọc
+          </button>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <AdminLayout title={`Thông tin khách hàng ${id}`}>
@@ -139,7 +256,7 @@ export default function UserDetailPage() {
               >
                 <i className="fas fa-edit mr-2"></i> Chỉnh sửa
               </button>
-              {userData.status === "active" ? (
+              {user?.isActive ? (
                 <button className="inline-flex items-center px-4 py-2 bg-danger border border-transparent rounded-md font-semibold text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition">
                   <i className="fas fa-ban mr-2"></i> Vô hiệu hóa
                 </button>
@@ -150,101 +267,106 @@ export default function UserDetailPage() {
               )}
             </div>
 
-            {/* User profile summary */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden mb-6">
-              <div className="p-6 flex flex-col md:flex-row gap-6">
-                <div className="md:w-1/4 flex flex-col items-center">
-                  <div className="w-32 h-32 rounded-full overflow-hidden mb-4">
-                    <Image
-                      src={userIcon}
-                      alt={userData.name}
-                      width={128}
-                      height={128}
-                      className="object-cover"
-                    />
-                  </div>
-                  <h2 className="text-xl font-bold text-center">
-                    {userData.name}
-                  </h2>
-                  <p className="text-gray-600 text-center">{userData.email}</p>
-                  <span
-                    className={`mt-2 px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${userData.statusClass} text-white`}
-                  >
-                    {userData.statusLabel}
-                  </span>
+            {userLoading ? (
+              <div className="text-center py-10 bg-white rounded-lg shadow-sm mb-6">
+                <div className="spinner-border text-primary" role="status">
+                  <span className="sr-only">Đang tải...</span>
                 </div>
-                <div className="md:w-3/4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h3 className="text-gray-500 font-medium mb-2">
-                        Thông tin tài khoản
-                      </h3>
-                      <table className="min-w-full">
-                        <tbody className="divide-y divide-gray-200">
-                          <tr>
-                            <td className="py-2 text-sm font-medium text-gray-500 w-1/3">
-                              ID
-                            </td>
-                            <td className="py-2 text-sm text-gray-900">
-                              {userData.id}
-                            </td>
-                          </tr>
-                          <tr>
-                            <td className="py-2 text-sm font-medium text-gray-500">
-                              Điện thoại
-                            </td>
-                            <td className="py-2 text-sm text-gray-900">
-                              {userData.phone}
-                            </td>
-                          </tr>
-                          <tr>
-                            <td className="py-2 text-sm font-medium text-gray-500">
-                              Ngày đăng ký
-                            </td>
-                            <td className="py-2 text-sm text-gray-900">
-                              {userData.registeredDate}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                    <div>
-                      <h3 className="text-gray-500 font-medium mb-2">
-                        Thống kê mua hàng
-                      </h3>
-                      <table className="min-w-full">
-                        <tbody className="divide-y divide-gray-200">
-                          <tr>
-                            <td className="py-2 text-sm font-medium text-gray-500 w-1/2">
-                              Tổng đơn hàng
-                            </td>
-                            <td className="py-2 text-sm text-gray-900">
-                              {userData.totalOrders} đơn
-                            </td>
-                          </tr>
-                          <tr>
-                            <td className="py-2 text-sm font-medium text-gray-500">
-                              Tổng chi tiêu
-                            </td>
-                            <td className="py-2 text-sm text-gray-900">
-                              {userData.totalSpent}
-                            </td>
-                          </tr>
-                          <tr>
-                            <td className="py-2 text-sm font-medium text-gray-500">
-                              Mua hàng gần nhất
-                            </td>
-                            <td className="py-2 text-sm text-gray-900">
-                              {userData.lastPurchase}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
+                <p className="mt-2">Đang tải thông tin người dùng...</p>
               </div>
-            </div>
+            ) : userError ? (
+              <div className="alert alert-danger mb-6">
+                <i className="fas fa-exclamation-circle mr-2"></i> {userError}
+              </div>
+            ) : user ? (
+              <>
+                {/* User profile summary */}
+                <div className="bg-white rounded-lg shadow-sm overflow-hidden mb-6">
+                  <div className="p-6 flex flex-col md:flex-row gap-6">
+                    <div className="md:w-1/4 flex flex-col items-center">
+                      <h2 className="text-xl font-bold text-center">
+                        {user.username || "Chưa đặt tên"}
+                      </h2>
+                      <p className="text-gray-600 text-center">{user.email}</p>
+                      <span
+                        className={`mt-2 px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          user.isActive ? "bg-green-500" : "bg-red-500"
+                        } text-white`}
+                      >
+                        {user.isActive ? "Đang hoạt động" : "Đã bị vô hiệu hóa"}
+                      </span>
+                    </div>
+                    <div className="md:w-3/4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <h3 className="text-gray-500 font-medium mb-2">
+                            Thông tin tài khoản
+                          </h3>
+                          <table className="min-w-full">
+                            <tbody className="divide-y divide-gray-200">
+                              <tr>
+                                <td className="py-2 text-sm font-medium text-gray-500 w-1/3">
+                                  ID
+                                </td>
+                                <td className="py-2 text-sm text-gray-900">
+                                  {user.id}
+                                </td>
+                              </tr>
+                              <tr>
+                                <td className="py-2 text-sm font-medium text-gray-500">
+                                  Điện thoại
+                                </td>
+                                <td className="py-2 text-sm text-gray-900">
+                                  {user.phoneNumber || "Chưa cung cấp"}
+                                </td>
+                              </tr>
+
+                              <tr>
+                                <td className="py-2 text-sm font-medium text-gray-500">
+                                  Ngày đăng ký
+                                </td>
+                                <td className="py-2 text-sm text-gray-900">
+                                  {formatDateDisplay(user.createdAt)}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                        <div>
+                          <h3 className="text-gray-500 font-medium mb-2">
+                            Thống kê mua hàng
+                          </h3>
+                          <table className="min-w-full">
+                            <tbody className="divide-y divide-gray-200">
+                              <tr>
+                                <td className="py-2 text-sm font-medium text-gray-500 w-1/2">
+                                  Tổng đơn hàng
+                                </td>
+                                <td className="py-2 text-sm text-gray-900">
+                                  {user.totalOrders || 0} đơn
+                                </td>
+                              </tr>
+                              <tr>
+                                <td className="py-2 text-sm font-medium text-gray-500">
+                                  Tổng chi tiêu
+                                </td>
+                                <td className="py-2 text-sm text-gray-900">
+                                  {formatCurrency(user.totalSpent || 0)}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="alert alert-warning mb-6">
+                Không tìm thấy thông tin người dùng
+              </div>
+            )}
 
             {/* Tabs */}
             <div className="bg-white rounded-lg shadow-sm overflow-hidden">
@@ -308,7 +430,7 @@ export default function UserDetailPage() {
                               Họ tên
                             </td>
                             <td className="py-3 text-sm text-gray-900">
-                              {userData.name}
+                              {user?.username || "Chưa đặt tên"}
                             </td>
                           </tr>
                           <tr>
@@ -316,7 +438,7 @@ export default function UserDetailPage() {
                               Email
                             </td>
                             <td className="py-3 text-sm text-gray-900">
-                              {userData.email}
+                              {user?.email}
                             </td>
                           </tr>
                           <tr>
@@ -324,31 +446,16 @@ export default function UserDetailPage() {
                               Điện thoại
                             </td>
                             <td className="py-3 text-sm text-gray-900">
-                              {userData.phone}
+                              {user?.phoneNumber || "Chưa cung cấp"}
                             </td>
                           </tr>
-                          <tr>
-                            <td className="py-3 text-sm font-medium text-gray-500">
-                              Giới tính
-                            </td>
-                            <td className="py-3 text-sm text-gray-900">
-                              {userData.gender}
-                            </td>
-                          </tr>
+
                           <tr>
                             <td className="py-3 text-sm font-medium text-gray-500">
                               Ngày sinh
                             </td>
                             <td className="py-3 text-sm text-gray-900">
-                              {userData.birthdate}
-                            </td>
-                          </tr>
-                          <tr>
-                            <td className="py-3 text-sm font-medium text-gray-500">
-                              Địa chỉ
-                            </td>
-                            <td className="py-3 text-sm text-gray-900">
-                              {userData.address}
+                              {user?.dateOfBirth || "Chưa cung cấp"}
                             </td>
                           </tr>
                         </tbody>
@@ -365,7 +472,7 @@ export default function UserDetailPage() {
                               ID tài khoản
                             </td>
                             <td className="py-3 text-sm text-gray-900">
-                              {userData.id}
+                              {user?.id}
                             </td>
                           </tr>
                           <tr>
@@ -374,9 +481,13 @@ export default function UserDetailPage() {
                             </td>
                             <td className="py-3 text-sm text-gray-900">
                               <span
-                                className={`px-2 py-1 text-xs font-semibold rounded-full ${userData.statusClass} text-white`}
+                                className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                  user?.isActive ? "bg-green-500" : "bg-red-500"
+                                } text-white`}
                               >
-                                {userData.statusLabel}
+                                {user?.isActive
+                                  ? "Đang hoạt động"
+                                  : "Đã bị vô hiệu hóa"}
                               </span>
                             </td>
                           </tr>
@@ -385,7 +496,7 @@ export default function UserDetailPage() {
                               Ngày đăng ký
                             </td>
                             <td className="py-3 text-sm text-gray-900">
-                              {userData.registeredDate}
+                              {formatDateDisplay(user?.createdAt || "")}
                             </td>
                           </tr>
                         </tbody>
@@ -400,83 +511,131 @@ export default function UserDetailPage() {
                     <h3 className="font-medium text-gray-900 mb-3">
                       Lịch sử đơn hàng
                     </h3>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th
-                              scope="col"
-                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                            >
-                              Mã đơn hàng
-                            </th>
-                            <th
-                              scope="col"
-                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                            >
-                              Ngày đặt
-                            </th>
-                            <th
-                              scope="col"
-                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                            >
-                              Trạng thái
-                            </th>
-                            <th
-                              scope="col"
-                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                            >
-                              Sản phẩm
-                            </th>
-                            <th
-                              scope="col"
-                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                            >
-                              Tổng tiền
-                            </th>
-                            <th
-                              scope="col"
-                              className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-                            >
-                              Thao tác
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {userData.orders.map((order) => (
-                            <tr key={order.id} className="hover:bg-gray-50">
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                {order.id}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {order.date}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span
-                                  className={`px-2 py-1 text-xs font-semibold rounded-full ${order.statusClass} text-white`}
-                                >
-                                  {order.statusLabel}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {order.items} sản phẩm
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {order.total}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <Link
-                                  href={`/admin/orders/${order.id}`}
-                                  className="text-indigo-600 hover:text-indigo-900"
-                                >
-                                  Xem chi tiết
-                                </Link>
-                              </td>
+                    {/* Thêm bộ lọc */}
+                    <OrderFilters />
+                    {ordersLoading ? (
+                      <div className="text-center py-4">
+                        <div
+                          className="spinner-border text-primary"
+                          role="status"
+                        >
+                          <span className="sr-only">Đang tải...</span>
+                        </div>
+                        <p className="mt-2">Đang tải dữ liệu đơn hàng...</p>
+                      </div>
+                    ) : ordersError ? (
+                      <div className="alert alert-danger">
+                        <i className="fas fa-exclamation-circle mr-2"></i>{" "}
+                        {ordersError}
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Mã đơn hàng
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Ngày đặt
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Trạng thái
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Sản phẩm
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Tổng tiền
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Thao tác
+                              </th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {userOrders && userOrders.length > 0 ? (
+                              userOrders.map((order) => (
+                                <tr key={order.id} className="hover:bg-gray-50">
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                    {order.id}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {formatDateDisplay(order.createdAt)}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <span
+                                      className={`px-2 py-1 text-xs font-semibold rounded-full ${getOrderStatusClass(
+                                        order.status
+                                      )} text-white`}
+                                    >
+                                      {getOrderStatusLabel(order.status)}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {order.orderDetails?.length || 0} sản phẩm
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {formatCurrency(order.total)}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <Link
+                                      href={`/admin/orders/${order.id}`}
+                                      className="text-indigo-600 hover:text-indigo-900"
+                                    >
+                                      Xem chi tiết
+                                    </Link>
+                                  </td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td
+                                  colSpan={6}
+                                  className="px-6 py-4 text-center text-sm text-gray-500"
+                                >
+                                  {orderStatus !== "all"
+                                    ? `Không có đơn hàng nào có trạng thái "${
+                                        orderStatuses.find(
+                                          (s) => s.value === orderStatus
+                                        )?.label
+                                      }"`
+                                    : "Không có đơn hàng nào"}
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+
+                        {!ordersLoading && !ordersError && userOrders && (
+                          <div className="mt-6">
+                            <PaginationComponent
+                              currentPage={pagination.currentPage}
+                              totalPages={pagination.totalPages}
+                              onPageChange={handlePageChange}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -487,7 +646,7 @@ export default function UserDetailPage() {
                       Danh sách địa chỉ
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {userData.addresses.map((address) => (
+                      {userOrders.addresses.map((address) => (
                         <div
                           key={address.id}
                           className={`border rounded-lg p-4 ${
@@ -526,7 +685,7 @@ export default function UserDetailPage() {
                       Ghi chú về khách hàng
                     </h3>
                     <div className="bg-gray-50 p-4 rounded-lg">
-                      <p className="text-gray-700">{userData.notes}</p>
+                      <p className="text-gray-700">{userOrders.notes}</p>
                     </div>
                     <div className="mt-4">
                       <label

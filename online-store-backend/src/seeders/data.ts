@@ -44,6 +44,94 @@ const users = [
     phoneNumber: "0909123456",
     dateOfBirth: new Date("1998-12-24"),
   },
+  {
+    username: "customer2",
+    email: "customer2@example.com",
+    password: "$2b$10$qnKBm0aVuY7GgRuWVYmzXO6HLYkYzrxHKTe1i3JS5hWCZIwTUCFnO", // password: admin123
+    roleId: 2,
+    phoneNumber: "0909123456",
+    dateOfBirth: new Date("1998-12-24"),
+  }, // Add these to your users array
+  {
+    username: "user3",
+    email: "user3@example.com",
+    password: "$2b$10$qnKBm0aVuY7GgRuWVYmzXO6HLYkYzrxHKTe1i3JS5hWCZIwTUCFnO", // password: admin123
+    roleId: 2,
+    phoneNumber: "0909111222",
+    dateOfBirth: new Date("1995-05-15"),
+  },
+  {
+    username: "user4",
+    email: "user4@example.com",
+    password: "$2b$10$qnKBm0aVuY7GgRuWVYmzXO6HLYkYzrxHKTe1i3JS5hWCZIwTUCFnO",
+    roleId: 2,
+    phoneNumber: "0909222333",
+    dateOfBirth: new Date("1992-08-20"),
+  },
+  {
+    username: "user5",
+    email: "user5@example.com",
+    password: "$2b$10$qnKBm0aVuY7GgRuWVYmzXO6HLYkYzrxHKTe1i3JS5hWCZIwTUCFnO",
+    roleId: 2,
+    phoneNumber: "0909333444",
+    dateOfBirth: new Date("1988-11-12"),
+  },
+  {
+    username: "user6",
+    email: "user6@example.com",
+    password: "$2b$10$qnKBm0aVuY7GgRuWVYmzXO6HLYkYzrxHKTe1i3JS5hWCZIwTUCFnO",
+    roleId: 2,
+    phoneNumber: "0909444555",
+    dateOfBirth: new Date("1994-03-25"),
+  },
+  {
+    username: "user7",
+    email: "user7@example.com",
+    password: "$2b$10$qnKBm0aVuY7GgRuWVYmzXO6HLYkYzrxHKTe1i3JS5hWCZIwTUCFnO",
+    roleId: 2,
+    phoneNumber: "0909555666",
+    dateOfBirth: new Date("1990-07-17"),
+  },
+  {
+    username: "user8",
+    email: "user8@example.com",
+    password: "$2b$10$qnKBm0aVuY7GgRuWVYmzXO6HLYkYzrxHKTe1i3JS5hWCZIwTUCFnO",
+    roleId: 2,
+    phoneNumber: "0909666777",
+    dateOfBirth: new Date("1993-04-08"),
+  },
+  {
+    username: "user9",
+    email: "user9@example.com",
+    password: "$2b$10$qnKBm0aVuY7GgRuWVYmzXO6HLYkYzrxHKTe1i3JS5hWCZIwTUCFnO",
+    roleId: 2,
+    phoneNumber: "0909777888",
+    dateOfBirth: new Date("1996-01-30"),
+  },
+  {
+    username: "user10",
+    email: "user10@example.com",
+    password: "$2b$10$qnKBm0aVuY7GgRuWVYmzXO6HLYkYzrxHKTe1i3JS5hWCZIwTUCFnO",
+    roleId: 2,
+    phoneNumber: "0909888999",
+    dateOfBirth: new Date("1991-09-22"),
+  },
+  {
+    username: "user11",
+    email: "user11@example.com",
+    password: "$2b$10$qnKBm0aVuY7GgRuWVYmzXO6HLYkYzrxHKTe1i3JS5hWCZIwTUCFnO",
+    roleId: 2,
+    phoneNumber: "0909123789",
+    dateOfBirth: new Date("1997-06-14"),
+  },
+  {
+    username: "user12",
+    email: "user12@example.com",
+    password: "$2b$10$qnKBm0aVuY7GgRuWVYmzXO6HLYkYzrxHKTe1i3JS5hWCZIwTUCFnO",
+    roleId: 2,
+    phoneNumber: "0909456987",
+    dateOfBirth: new Date("1994-12-05"),
+  },
 ];
 
 // 3. Categories
@@ -690,8 +778,425 @@ const userAddresses = [
     city: "Hà Nội",
     isDefault: true,
   },
+  {
+    userId: 4, // user3
+    fullName: "Hoàng Văn C",
+    phoneNumber: "0909111222",
+    streetAddress: "72 Nguyễn Huệ",
+    ward: "Phường Bến Nghé",
+    district: "Quận 1",
+    city: "TP. Hồ Chí Minh",
+    isDefault: true,
+  },
 ];
 
+// 13. Orders (10 orders for user3)
+const orders = [
+  {
+    userId: 4, // user3
+    total: 1048000,
+    status: "delivered",
+    paymentMethodId: 1, // COD
+    paymentStatusId: 2, // Paid
+    shippingAddress: "72 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh",
+    phoneNumber: "0909111222",
+    voucherDiscount: 0,
+    subtotal: 998000,
+    shippingFee: 50000,
+    shippingBasePrice: 50000,
+    shippingDiscount: 0,
+    createdAt: new Date(2023, 5, 1), // June 1, 2023
+  },
+  {
+    userId: 4, // user3
+    total: 898000,
+    status: "delivered",
+    paymentMethodId: 2, // Credit Card
+    paymentStatusId: 2, // Paid
+    shippingAddress: "72 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh",
+    phoneNumber: "0909111222",
+    voucherDiscount: 0,
+    subtotal: 848000,
+    shippingFee: 50000,
+    shippingBasePrice: 50000,
+    shippingDiscount: 0,
+    createdAt: new Date(2023, 6, 15), // July 15, 2023
+  },
+  {
+    userId: 4, // user3
+    total: 1128000,
+    status: "delivered",
+    paymentMethodId: 3, // Internet Banking
+    paymentStatusId: 2, // Paid
+    shippingAddress: "72 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh",
+    phoneNumber: "0909111222",
+    voucherDiscount: 0,
+    subtotal: 1078000,
+    shippingFee: 50000,
+    shippingBasePrice: 50000,
+    shippingDiscount: 0,
+    createdAt: new Date(2023, 8, 5), // September 5, 2023
+  },
+  {
+    userId: 4, // user3
+    total: 758000,
+    status: "delivered",
+    paymentMethodId: 1, // COD
+    paymentStatusId: 2, // Paid
+    shippingAddress: "72 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh",
+    phoneNumber: "0909111222",
+    voucherDiscount: 0,
+    subtotal: 708000,
+    shippingFee: 50000,
+    shippingBasePrice: 50000,
+    shippingDiscount: 0,
+    createdAt: new Date(2023, 9, 20), // October 20, 2023
+  },
+  {
+    userId: 4, // user3
+    total: 968000,
+    status: "delivered",
+    paymentMethodId: 4, // Momo
+    paymentStatusId: 2, // Paid
+    shippingAddress: "72 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh",
+    phoneNumber: "0909111222",
+    voucherDiscount: 0,
+    subtotal: 918000,
+    shippingFee: 50000,
+    shippingBasePrice: 50000,
+    shippingDiscount: 0,
+    createdAt: new Date(2023, 11, 10), // December 10, 2023
+  },
+  {
+    userId: 4, // user3
+    total: 788000,
+    status: "delivered",
+    paymentMethodId: 2, // Credit Card
+    paymentStatusId: 2, // Paid
+    shippingAddress: "72 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh",
+    phoneNumber: "0909111222",
+    voucherDiscount: 0,
+    subtotal: 738000,
+    shippingFee: 50000,
+    shippingBasePrice: 50000,
+    shippingDiscount: 0,
+    createdAt: new Date(2024, 0, 25), // January 25, 2024
+  },
+  {
+    userId: 4, // user3
+    total: 928000,
+    status: "processing",
+    paymentMethodId: 3, // Internet Banking
+    paymentStatusId: 2, // Paid
+    shippingAddress: "72 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh",
+    phoneNumber: "0909111222",
+    voucherDiscount: 0,
+    subtotal: 878000,
+    shippingFee: 50000,
+    shippingBasePrice: 50000,
+    shippingDiscount: 0,
+    createdAt: new Date(2024, 2, 5), // March 5, 2024
+  },
+  {
+    userId: 4, // user3
+    total: 678000,
+    status: "processing",
+    paymentMethodId: 4, // Momo
+    paymentStatusId: 2, // Paid
+    shippingAddress: "72 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh",
+    phoneNumber: "0909111222",
+    voucherDiscount: 0,
+    subtotal: 628000,
+    shippingFee: 50000,
+    shippingBasePrice: 50000,
+    shippingDiscount: 0,
+    createdAt: new Date(2024, 3, 15), // April 15, 2024
+  },
+  {
+    userId: 4, // user3
+    total: 1218000,
+    status: "pending",
+    paymentMethodId: 1, // COD
+    paymentStatusId: 1, // Pending
+    shippingAddress: "72 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh",
+    phoneNumber: "0909111222",
+    voucherDiscount: 50000,
+    subtotal: 1218000,
+    shippingFee: 50000,
+    shippingBasePrice: 100000,
+    shippingDiscount: 50000,
+    createdAt: new Date(2024, 4, 1), // May 1, 2024
+  },
+  {
+    userId: 4, // user3
+    total: 848000,
+    status: "cancelled",
+    paymentMethodId: 1, // COD
+    paymentStatusId: 1, // Pending
+    shippingAddress: "72 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh",
+    phoneNumber: "0909111222",
+    voucherDiscount: 0,
+    subtotal: 798000,
+    shippingFee: 50000,
+    shippingBasePrice: 50000,
+    shippingDiscount: 0,
+    cancelNote: "Người dùng hủy đơn hàng",
+    createdAt: new Date(2024, 4, 5), // May 5, 2024
+  },
+];
+
+// 14. Order Details
+const orderDetails = [
+  // Order 1
+  {
+    orderId: 1,
+    productId: 1, // Áo thun nam basic cotton
+    productDetailId: 1, // Black
+    quantity: 2,
+    color: "black",
+    size: "L",
+    originalPrice: 250000,
+    discountPrice: 199000,
+    discountPercent: 20,
+    imageUrl: `${S3_BASE_URL}/products/28b5ceed-2777caa1_1305_41cf_93a8_c7fe2956d5a6.jpg`,
+  },
+  {
+    orderId: 1,
+    productId: 2, // Áo thun polo pique nam
+    productDetailId: 4, // Black
+    quantity: 2,
+    color: "black",
+    size: "M",
+    originalPrice: 399000,
+    discountPrice: 329000,
+    discountPercent: 18,
+    imageUrl: `${S3_BASE_URL}/products/28b5ceed-2777caa1_1305_41cf_93a8_c7fe2956d5a6.jpg`,
+  },
+
+  // Order 2
+  {
+    orderId: 2,
+    productId: 5, // Áo khoác denim unisex
+    productDetailId: 9, // Blue
+    quantity: 1,
+    color: "blue",
+    size: "L",
+    originalPrice: 699000,
+    discountPrice: 599000,
+    discountPercent: 14,
+    imageUrl: `${S3_BASE_URL}/products/b31e541f-3bc3efb5_86f8_4f30_8f8f_d607dc06b109.jpg`,
+  },
+  {
+    orderId: 2,
+    productId: 9, // Quần short jean nam rách gối
+    productDetailId: 13, // Blue
+    quantity: 1,
+    color: "blue",
+    size: "30",
+    originalPrice: 359000,
+    discountPrice: 299000,
+    discountPercent: 17,
+    imageUrl: `${S3_BASE_URL}/products/269ea64b-55b9b941_9b8e_4c6a_a35b_ee9806f43c5e.jpg`,
+  },
+
+  // Order 3
+  {
+    orderId: 3,
+    productId: 6, // Áo khoác bomber da nam
+    productDetailId: 10, // Black
+    quantity: 1,
+    color: "black",
+    size: "L",
+    originalPrice: 999000,
+    discountPrice: 799000,
+    discountPercent: 20,
+    imageUrl: `${S3_BASE_URL}/products/bf57a1f6-0caa25aa_238a_4e5c_b4bc_62a1e3a03107.jpg`,
+  },
+  {
+    orderId: 3,
+    productId: 2, // Áo thun polo pique nam
+    productDetailId: 5, // Navy
+    quantity: 1,
+    color: "navy",
+    size: "M",
+    originalPrice: 399000,
+    discountPrice: 329000,
+    discountPercent: 18,
+    imageUrl: `${S3_BASE_URL}/products/bf57a1f6-0caa25aa_238a_4e5c_b4bc_62a1e3a03107.jpg`,
+  },
+
+  // Order 4
+  {
+    orderId: 4,
+    productId: 2, // Áo thun polo pique nam
+    productDetailId: 6, // White
+    quantity: 1,
+    color: "white",
+    size: "M",
+    originalPrice: 399000,
+    discountPrice: 329000,
+    discountPercent: 18,
+    imageUrl: `${S3_BASE_URL}/products/269ea64b-55b9b941_9b8e_4c6a_a35b_ee9806f43c5e.jpg`,
+  },
+  {
+    orderId: 4,
+    productId: 3, // Áo sơ mi nam kẻ caro
+    productDetailId: 7, // Blue
+    quantity: 1,
+    color: "blue",
+    size: "L",
+    originalPrice: 450000,
+    discountPrice: 349000,
+    discountPercent: 22,
+    imageUrl: `${S3_BASE_URL}/products/89ff0371-dbb5-42b7-93f3-c31b18b52076.webp`,
+  },
+
+  // Order 5
+  {
+    orderId: 5,
+    productId: 4, // Áo sơ mi nam Oxford dài tay
+    productDetailId: 8, // White
+    quantity: 1,
+    color: "white",
+    size: "L",
+    originalPrice: 499000,
+    discountPrice: 399000,
+    discountPercent: 20,
+    imageUrl: `${S3_BASE_URL}/products/7f4611fa-8d89-42fa-be17-810a1776a725.webp`,
+  },
+  {
+    orderId: 5,
+    productId: 7, // Quần jean nam straight fit
+    productDetailId: 11, // Blue
+    quantity: 1,
+    color: "blue",
+    size: "30",
+    originalPrice: 599000,
+    discountPrice: 499000,
+    discountPercent: 17,
+    imageUrl: `${S3_BASE_URL}/products/89ff0371-dbb5-42b7-93f3-c31b18b52076.webp`,
+  },
+
+  // Order 6
+  {
+    orderId: 6,
+    productId: 8, // Quần kaki nam slim fit
+    productDetailId: 12, // Beige
+    quantity: 2,
+    color: "beige",
+    size: "30",
+    originalPrice: 459000,
+    discountPrice: 399000,
+    discountPercent: 13,
+    imageUrl: `${S3_BASE_URL}/products/28b5ceed-2777caa1_1305_41cf_93a8_c7fe2956d5a6.jpg`,
+  },
+
+  // Order 7
+  {
+    orderId: 7,
+    productId: 1, // Áo thun nam basic cotton
+    productDetailId: 1, // Black
+    quantity: 2,
+    color: "black",
+    size: "M",
+    originalPrice: 250000,
+    discountPrice: 199000,
+    discountPercent: 20,
+    imageUrl: `${S3_BASE_URL}/products/28b5ceed-2777caa1_1305_41cf_93a8_c7fe2956d5a6.jpg`,
+  },
+  {
+    orderId: 7,
+    productId: 4, // Áo sơ mi nam Oxford dài tay
+    productDetailId: 8, // White
+    quantity: 1,
+    color: "white",
+    size: "L",
+    originalPrice: 499000,
+    discountPrice: 399000,
+    discountPercent: 20,
+    imageUrl: `${S3_BASE_URL}/products/7f4611fa-8d89-42fa-be17-810a1776a725.webp`,
+  },
+
+  // Order 8
+  {
+    orderId: 8,
+    productId: 10, // Quần short thể thao nam
+    productDetailId: 14, // Black
+    quantity: 1,
+    color: "black",
+    size: "M",
+    originalPrice: 299000,
+    discountPrice: 249000,
+    discountPercent: 17,
+    imageUrl: `${S3_BASE_URL}/products/269ea64b-55b9b941_9b8e_4c6a_a35b_ee9806f43c5e.jpg`,
+  },
+  {
+    orderId: 8,
+    productId: 3, // Áo sơ mi nam kẻ caro
+    productDetailId: 7, // Blue
+    quantity: 1,
+    color: "blue",
+    size: "M",
+    originalPrice: 450000,
+    discountPrice: 349000,
+    discountPercent: 22,
+    imageUrl: `${S3_BASE_URL}/products/89ff0371-dbb5-42b7-93f3-c31b18b52076.webp`,
+  },
+
+  // Order 9
+  {
+    orderId: 9,
+    productId: 6, // Áo khoác bomber da nam
+    productDetailId: 10, // Black
+    quantity: 1,
+    color: "black",
+    size: "L",
+    originalPrice: 999000,
+    discountPrice: 799000,
+    discountPercent: 20,
+    imageUrl: `${S3_BASE_URL}/products/bf57a1f6-0caa25aa_238a_4e5c_b4bc_62a1e3a03107.jpg`,
+  },
+  {
+    orderId: 9,
+    productId: 8, // Quần kaki nam slim fit
+    productDetailId: 12, // Beige
+    quantity: 1,
+    color: "beige",
+    size: "31",
+    originalPrice: 459000,
+    discountPrice: 399000,
+    discountPercent: 13,
+    imageUrl: `${S3_BASE_URL}/products/28b5ceed-2777caa1_1305_41cf_93a8_c7fe2956d5a6.jpg`,
+  },
+
+  // Order 10
+  {
+    orderId: 10,
+    productId: 1, // Áo thun nam basic cotton
+    productDetailId: 2, // Navy
+    quantity: 2,
+    color: "navy",
+    size: "L",
+    originalPrice: 250000,
+    discountPrice: 199000,
+    discountPercent: 20,
+    imageUrl: `${S3_BASE_URL}/products/7f4611fa-8d89-42fa-be17-810a1776a725.webp`,
+  },
+  {
+    orderId: 10,
+    productId: 10, // Quần short thể thao nam
+    productDetailId: 14, // Black
+    quantity: 2,
+    color: "black",
+    size: "L",
+    originalPrice: 299000,
+    discountPrice: 249000,
+    discountPercent: 17,
+    imageUrl: `${S3_BASE_URL}/products/269ea64b-55b9b941_9b8e_4c6a_a35b_ee9806f43c5e.jpg`,
+  },
+];
+
+// Update the export
 export {
   roles,
   users,
@@ -705,4 +1210,6 @@ export {
   paymentStatuses,
   vouchers,
   userAddresses,
+  orders, // New
+  orderDetails, // New
 };

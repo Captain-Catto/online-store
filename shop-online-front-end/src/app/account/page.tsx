@@ -11,31 +11,14 @@ import { useAuth } from "@/utils/useAuth";
 import Link from "next/link";
 import { Promotion } from "@/types/promotion";
 import { Order } from "@/types/order";
+import { AddressPagination } from "@/types/address";
 
-// Interface địa chỉ dựa trên API response
-interface Address {
-  id: number;
-  userId: number;
-  fullName: string;
-  phoneNumber: string;
-  streetAddress: string;
-  ward: string;
-  district: string;
-  city: string;
-  isDefault: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Thêm vào phần interface ở đầu file
 interface AccountData {
   name: string;
   email: string;
   phone: string;
   birthdate: string;
 }
-
-// Thay đổi khai báo state
 
 export default function AccountPage() {
   const searchParams = useSearchParams();
@@ -45,6 +28,11 @@ export default function AccountPage() {
     return searchParams.get("tab") || "account";
   });
 
+  // Hàm xử lý khi trang đơn hàng thay đổi
+  const handleOrderPageChange = (page: number) => {
+    fetchOrders(page); // Truyền page vào fetchOrders
+  };
+
   // States for user data
   const [accountData, setAccountData] = useState<AccountData>({
     name: "",
@@ -53,8 +41,24 @@ export default function AccountPage() {
     birthdate: "",
   });
 
-  const [ordersData, setOrdersData] = useState<Order[]>([]);
-  const [addressesData, setAddressesData] = useState<Address[]>([]);
+  const [ordersData, setOrdersData] = useState<{
+    orders: Order[];
+    pagination: {
+      total: number;
+      totalPages: number;
+      currentPage: number;
+      perPage: number;
+    };
+  }>({
+    orders: [],
+    pagination: {
+      total: 0,
+      totalPages: 1,
+      currentPage: 1,
+      perPage: 10,
+    },
+  });
+  const [addressesData, setAddressesData] = useState<AddressPagination[]>([]);
   const [promotionsData, setPromotionsData] = useState<Promotion[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [addressError, setAddressError] = useState<string | null>(null);
@@ -94,6 +98,7 @@ export default function AccountPage() {
       setAddressError(null);
 
       const data = await UserService.getAddresses();
+      console.log("Addresses:", data);
       setAddressesData(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error fetching addresses:", error);
@@ -106,24 +111,39 @@ export default function AccountPage() {
   }, [isLoggedIn]);
 
   // Hàm gọi API để lấy danh sách đơn hàng
-  const fetchOrders = useCallback(async () => {
-    if (!isLoggedIn) return;
+  const fetchOrders = useCallback(
+    async (page = 1) => {
+      if (!isLoggedIn) return;
 
-    try {
-      setDataLoading(true);
-      setOrderError(null);
+      try {
+        setDataLoading(true);
+        setOrderError(null);
 
-      const orders = await OrderService.getMyOrders();
-      setOrdersData(orders);
-    } catch (error) {
-      console.error("Error fetching orders:", error);
-      setOrderError(
-        error instanceof Error ? error.message : "Không thể tải đơn hàng"
-      );
-    } finally {
-      setDataLoading(false);
-    }
-  }, [isLoggedIn]);
+        // Gọi API với tham số trang
+        const response = await OrderService.getMyOrders(page);
+        console.log("Orders API Response:", response);
+
+        // Xử lý response và cập nhật state
+        setOrdersData({
+          orders: response.orders || [],
+          pagination: {
+            total: response.pagination?.total || 0,
+            totalPages: response.pagination?.totalPages || 1,
+            currentPage: page,
+            perPage: response.pagination?.perPage || 10,
+          },
+        });
+      } catch (error) {
+        console.error("Error fetching orders:", error);
+        setOrderError(
+          error instanceof Error ? error.message : "Không thể tải đơn hàng"
+        );
+      } finally {
+        setDataLoading(false);
+      }
+    },
+    [isLoggedIn]
+  );
 
   // Load data based on active tab
   useEffect(() => {
@@ -233,6 +253,9 @@ export default function AccountPage() {
                   : activeTab === "account"
                   ? fetchAccountInfo
                   : undefined
+              }
+              onPageChange={
+                activeTab === "orders" ? handleOrderPageChange : undefined
               }
             />
           </div>

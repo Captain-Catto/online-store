@@ -14,7 +14,6 @@ import UserAddress from "../models/UserAddress"; // Thêm import này
 import Order from "../models/Order"; // Import Order model
 import OrderDetail from "../models/OrderDetail"; // Import OrderDetail model
 
-// Import dữ liệu mẫu
 import {
   roles,
   users,
@@ -27,7 +26,9 @@ import {
   paymentMethods,
   paymentStatuses,
   vouchers,
-  userAddresses, // Thêm import dữ liệu địa chỉ người dùng
+  userAddresses,
+  orders, // Add this
+  orderDetails, // Add this
 } from "./data";
 
 // Đảm bảo associations được thiết lập đúng
@@ -106,6 +107,12 @@ const seedDatabase = async () => {
     // Thêm phần tạo dữ liệu địa chỉ người dùng
     await UserAddress.bulkCreate(userAddresses);
     console.log("✓ Đã tạo user addresses");
+
+    await Order.bulkCreate(orders);
+    console.log("✓ Đã tạo orders");
+
+    await OrderDetail.bulkCreate(orderDetails);
+    console.log("✓ Đã tạo order details");
 
     console.log("Đã thêm dữ liệu mẫu vào cơ sở dữ liệu thành công!");
     process.exit(0);

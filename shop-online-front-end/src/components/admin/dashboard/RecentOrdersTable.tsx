@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 interface Order {
-  id: string;
-  customer: string;
+  id: number;
+  userId: string | number;
   status: string;
   statusClass: string;
   total: string;
@@ -24,7 +24,6 @@ export default function RecentOrdersTable({ orders }: RecentOrdersTableProps) {
           <thead>
             <tr>
               <th>Mã đơn hàng</th>
-              <th>Khách hàng</th>
               <th>Trạng thái</th>
               <th>Tổng tiền</th>
               <th>Ngày đặt</th>
@@ -35,7 +34,6 @@ export default function RecentOrdersTable({ orders }: RecentOrdersTableProps) {
             {orders.map((order) => (
               <tr key={order.id}>
                 <td>{order.id}</td>
-                <td>{order.customer}</td>
                 <td>
                   <span className={`badge ${order.statusClass}`}>
                     {order.status}

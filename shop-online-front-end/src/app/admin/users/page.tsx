@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
@@ -7,16 +6,17 @@ import Breadcrumb from "@/components/admin/shared/Breadcrumb";
 import { AuthClient } from "@/services/AuthClient";
 import { API_BASE_URL } from "@/config/apiConfig";
 import { formatDateDisplay } from "@/utils/dateUtils";
+import { UserAdminApi } from "@/types/user";
 
 export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const [usersPerPage, setUsersPerPage] = useState(10);
+  const [usersPerPage] = useState(10);
 
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState<UserAdminApi[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({
     total: 0,
     pages: 1,
@@ -38,6 +38,11 @@ export default function UsersPage() {
         if (searchTerm) {
           params.append("search", searchTerm);
         }
+        console.log("Current filters:", {
+          searchTerm,
+          statusFilter,
+          params: params.toString(),
+        });
 
         if (statusFilter !== "all") {
           params.append("status", statusFilter);
@@ -60,7 +65,9 @@ export default function UsersPage() {
         setPagination(data.pagination);
       } catch (error) {
         console.error("Error fetching users:", error);
-        setError(error.message);
+        setError(
+          error instanceof Error ? error.message : "An unknown error occurred"
+        );
       } finally {
         setLoading(false);
       }
@@ -73,16 +80,19 @@ export default function UsersPage() {
   const formattedUsers = users.map((user) => {
     return {
       id: user.id,
-      name: user.username || "Chưa cập nhật",
+      username: user.username,
       email: user.email,
-      phone: user.phoneNumber || "Chưa cập nhật",
-      status: user.isActive !== false ? "active" : "inactive", // Assuming a field like isActive exists
-      statusLabel:
-        user.isActive !== false ? "Đang hoạt động" : "Đã vô hiệu hóa",
-      statusClass: user.isActive !== false ? "bg-success" : "bg-danger",
+      phoneNumber: user.phoneNumber,
+      isActive: user.isActive,
+      statusLabel: user.isActive ? "Đang hoạt động" : "Đã vô hiệu hóa",
+      statusClass: user.isActive ? "bg-success" : "bg-danger",
       role: user.role?.name || "User",
-      createdAt: formatDateDisplay(user.createdAt), // Format date properly
-      // Add any additional fields you need
+      roleId: user.roleId,
+      totalOrders: user.totalOrders || 0,
+      totalSpent: user.totalSpent || 0,
+      createdAt: formatDateDisplay(user.createdAt),
+      updatedAt: user.updatedAt,
+      dateOfBirth: user.dateOfBirth,
     };
   });
 
@@ -93,15 +103,17 @@ export default function UsersPage() {
   ];
 
   // Handle search - debounced search would be better
-  const handleSearch = (e) => {
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>): void => {
     setSearchTerm(e.target.value);
-    setCurrentPage(1); // Reset to first page on new search
+    setCurrentPage(1);
   };
 
   // Handle status filter change
-  const handleStatusFilter = (e) => {
+  const handleStatusFilter = (
+    e: React.ChangeEvent<HTMLSelectElement>
+  ): void => {
     setStatusFilter(e.target.value);
-    setCurrentPage(1); // Reset to first page on filter change
+    setCurrentPage(1);
   };
 
   return (
@@ -211,7 +223,7 @@ export default function UsersPage() {
                         <tr key={user.id}>
                           <td>{user.id}</td>
                           <td>{user.email}</td>
-                          <td>{user.phone}</td>
+                          <td>{user.phoneNumber}</td>
                           <td>{user.role}</td>
                           <td>{user.totalOrders}</td>
                           <td>

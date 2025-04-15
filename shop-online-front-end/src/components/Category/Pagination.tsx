@@ -1,4 +1,3 @@
-// src/components/Category/Pagination.tsx
 import React from "react";
 
 interface PaginationProps {
@@ -7,15 +6,16 @@ interface PaginationProps {
   onPageChange: (page: number) => void;
 }
 
-export default function Pagination({
+const Pagination: React.FC<PaginationProps> = ({
   currentPage,
   totalPages,
   onPageChange,
-}: PaginationProps) {
+}) => {
+  // Không hiển thị pagination nếu chỉ có 1 trang
   if (totalPages <= 1) return null;
 
   return (
-    <div className="flex justify-center mt-8">
+    <div className="flex justify-center mt-6">
       <nav className="flex items-center space-x-1">
         {/* Nút trang trước */}
         <button
@@ -37,7 +37,7 @@ export default function Pagination({
           </svg>
         </button>
 
-        {/* Số trang */}
+        {/* Các trang */}
         {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
           // Hiển thị số trang giới hạn với dấu ba chấm khi có nhiều trang
           if (
@@ -51,7 +51,7 @@ export default function Pagination({
                 onClick={() => onPageChange(page)}
                 className={`px-4 py-2 rounded-md ${
                   currentPage === page
-                    ? "bg-black text-white"
+                    ? "bg-blue-600 text-white"
                     : "text-gray-700 hover:bg-gray-100"
                 }`}
               >
@@ -90,4 +90,6 @@ export default function Pagination({
       </nav>
     </div>
   );
-}
+};
+
+export default Pagination;

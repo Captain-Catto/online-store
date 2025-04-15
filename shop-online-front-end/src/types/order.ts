@@ -1,10 +1,52 @@
-// Interface cho đơn hàng hiển thị trong trang account
-export interface Order {
+// Interface cho đơn hàng hiển thị trong trang account (client-side format)
+export interface OrderDisplay {
   id: string;
   date: string;
   status: "Đã giao" | "Đang vận chuyển" | "Đã hủy" | "Chờ xác nhận";
   total: string;
 }
+
+// Interface cho đơn hàng từ API (server-side format)
+export interface Order {
+  id: number;
+  userId: number;
+  total: number;
+  subtotal: number;
+  voucherDiscount: number;
+  status: string; // Sử dụng string thay vì enum để phù hợp với API
+  paymentMethodId: number;
+  paymentStatusId: number;
+  shippingAddress: string;
+  phoneNumber: string;
+  cancelNote: string | null;
+  refundAmount: number | null;
+  refundReason: string | null;
+  shippingFee?: number;
+  shippingBasePrice?: number;
+  shippingDiscount?: number;
+  createdAt: string;
+  updatedAt: string;
+  orderDetails?: OrderDetail[];
+  user?: {
+    id: number;
+    name: string;
+    email: string;
+  };
+}
+
+// Interface cho kết quả phân trang
+export interface PaginatedResponse<T> {
+  orders: T[];
+  pagination: {
+    total: number;
+    currentPage: number;
+    totalPages: number;
+    perPage: number;
+  };
+}
+
+// Interface cho kết quả đơn hàng có phân trang
+export type PaginatedOrders = PaginatedResponse<Order>;
 
 // Interface chi tiết đơn hàng từ API
 export interface OrderDetail {
@@ -25,11 +67,11 @@ export interface OrderDetail {
   product: {
     id: number;
     name: string;
+    sku?: string;
   };
 }
 
-// Interface đơn hàng đầy đủ từ API
-export interface OrderResponse {
+export interface OrderFullResponse {
   id: number;
   userId: number;
   total: number;
@@ -43,9 +85,17 @@ export interface OrderResponse {
   cancelNote: string | null;
   refundAmount: number | null;
   refundReason: string | null;
+  shippingFee: number;
+  shippingBasePrice: number;
+  shippingDiscount: number;
   createdAt: string;
   updatedAt: string;
   orderDetails: OrderDetail[];
+  user?: {
+    id: number;
+    name: string;
+    email: string;
+  };
 }
 
 // Interface để tạo đơn hàng
@@ -62,4 +112,19 @@ export interface OrderItem {
   color: string;
   size: string;
   quantity: number;
+}
+
+// Enum cho trạng thái đơn hàng
+export enum OrderStatus {
+  PENDING = "pending",
+  PROCESSING = "processing",
+  SHIPPING = "shipping",
+  DELIVERED = "delivered",
+  CANCELLED = "cancelled",
+}
+
+// Interface cho việc cập nhật trạng thái đơn hàng
+export interface OrderStatusUpdate {
+  status: OrderStatus;
+  note?: string;
 }

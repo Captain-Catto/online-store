@@ -26,6 +26,7 @@ class Users extends Model {
   public roleId!: number;
   public phoneNumber?: string;
   public dateOfBirth?: Date;
+  public isActive!: boolean;
 }
 
 // khai báo các trường của bảng Users
@@ -53,7 +54,7 @@ Users.init(
       type: DataTypes.INTEGER,
       allowNull: false,
       references: { model: Role, key: "id" },
-      defaultValue: 2,
+      defaultValue: true,
     },
     phoneNumber: {
       type: DataTypes.STRING,
@@ -62,6 +63,11 @@ Users.init(
     dateOfBirth: {
       type: DataTypes.DATE,
       allowNull: true,
+    },
+    isActive: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
     },
   },
   {

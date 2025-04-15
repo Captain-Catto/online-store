@@ -10,6 +10,7 @@ import crypto from "crypto";
 import { sendEmail } from "../utils/email";
 import { Op, Sequelize } from "sequelize";
 import Order from "../models/Order";
+import sequelize from "sequelize";
 
 // Tạo mới access token
 export const refreshToken = async (
@@ -97,7 +98,16 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     const user = await Users.findOne({ where: { email } });
     if (!user) {
-      res.status(400).json({ message: "Email không tồn tại" });
+      res.status(401).json({ message: "Email hoặc mật khẩu không đúng" });
+      return;
+    }
+
+    // Kiểm tra trạng thái tài khoản
+    if (!user.isActive) {
+      res.status(403).json({
+        message:
+          "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ với quản trị viên.",
+      });
       return;
     }
 
@@ -250,15 +260,29 @@ export const getUserById = async (
   res: Response
 ): Promise<void> => {
   try {
-    // Kiểm tra quyền admin
-    if (req.user?.role !== 1) {
-      res.status(403).json({ message: "Không có quyền truy cập" });
-      return;
-    }
-
     const { id } = req.params;
     const user = await Users.findByPk(id, {
-      attributes: { exclude: ["password"] },
+      attributes: {
+        exclude: ["password"],
+        include: [
+          [
+            Sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM orders
+              WHERE orders.userId = Users.id
+            )`),
+            "totalOrders",
+          ],
+          [
+            Sequelize.literal(`(
+              SELECT COALESCE(SUM(orders.total), 0)
+              FROM orders
+              WHERE orders.userId = Users.id
+            )`),
+            "totalSpent",
+          ],
+        ],
+      },
       include: [
         {
           model: Role,
@@ -295,12 +319,35 @@ export const getAllUsers = async (
       return;
     }
 
+    // thêm điều kiện để lấy tất cả người dùng
+    const { search } = req.query;
+    const whereCondition: any = search
+      ? {
+          [Op.or]: [
+            { username: { [Op.like]: `%${search}%` } },
+            { email: { [Op.like]: `%${search}%` } },
+            { phoneNumber: { [Op.like]: `%${search}%` } },
+            { roleId: { [Op.like]: `%${search}%` } },
+          ],
+        }
+      : {};
+
+    // thêm điều kiện nếu như có truyền vào status
+    if (req.query.status === "active") {
+      whereCondition.isActive = true; // hoặc 1
+    } else if (req.query.status === "inactive") {
+      whereCondition.isActive = false; // hoặc 0
+    } else {
+      whereCondition.isActive = { [Op.ne]: null }; // Lấy tất cả người dùng có trạng thái không null
+    }
+
     // Phân trang
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const offset = (page - 1) * limit;
 
     const { count, rows: users } = await Users.findAndCountAll({
+      where: whereCondition,
       attributes: {
         exclude: ["password"],
         include: [
@@ -548,5 +595,58 @@ export const resetPassword = async (
   } catch (error: any) {
     console.error("Lỗi đặt lại mật khẩu:", error);
     res.status(500).json({ message: error.message });
+  }
+};
+
+// Khóa/Mở khóa tài khoản người dùng (Admin only)
+export const toggleUserStatus = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    // Kiểm tra quyền admin
+    if (!req.user || req.user.role !== 1) {
+      res.status(403).json({ message: "Không có quyền truy cập" });
+      return;
+    }
+
+    const userId = parseInt(req.params.id);
+
+    // Tìm người dùng
+    const user = await Users.findByPk(userId);
+    if (!user) {
+      res.status(404).json({ message: "Không tìm thấy người dùng" });
+      return;
+    }
+
+    // Không cho phép khóa tài khoản admin
+    if (user.roleId === 1) {
+      res
+        .status(403)
+        .json({ message: "Không thể khóa tài khoản quản trị viên" });
+      return;
+    }
+
+    // Đảo ngược trạng thái
+    const newStatus = !user.isActive;
+    await user.update({ isActive: newStatus });
+
+    // Nếu đang khóa tài khoản, xóa tất cả refresh tokens để đăng xuất khỏi tất cả thiết bị
+    if (newStatus === false) {
+      await RefreshToken.destroy({ where: { userId: user.id } });
+    }
+
+    res.status(200).json({
+      message: `Tài khoản đã được ${newStatus ? "mở khóa" : "khóa"} thành công`,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        isActive: user.isActive,
+      },
+    });
+  } catch (error: any) {
+    console.error("Error toggling user status:", error);
+    res.status(500).json({ message: error.message || "Đã xảy ra lỗi" });
   }
 };

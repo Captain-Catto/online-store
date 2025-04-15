@@ -4,6 +4,7 @@ import {
   getUserById,
   getAllUsers,
   updateUser,
+  toggleUserStatus,
 } from "../controllers/User.controller";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { roleMiddleware } from "../middlewares/roleMiddleware";
@@ -21,5 +22,14 @@ router.get("/", authMiddleware, roleMiddleware([1]), getAllUsers);
 
 // Lấy thông tin người dùng theo ID (admin only)
 router.get("/:id", authMiddleware, roleMiddleware([1]), getUserById);
+
+// mở/khóa tài khoản (âdmin only)
+// xài patch vì nó chỉ thay đổi một thuộc tính trong bảng user
+router.patch(
+  "/:id/toggle-status",
+  authMiddleware,
+  roleMiddleware([1]),
+  toggleUserStatus
+);
 
 export default router;

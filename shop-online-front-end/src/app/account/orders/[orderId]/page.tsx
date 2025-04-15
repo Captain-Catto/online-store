@@ -8,7 +8,7 @@ import Footer from "@/components/Footer/Footer";
 import { OrderService } from "@/services/OrderService";
 import Image from "next/image";
 
-export default function OrderDetailPage() {
+export default function Page() {
   const params = useParams();
   const router = useRouter();
   const orderId = params.orderId as string;
@@ -88,7 +88,10 @@ export default function OrderDetailPage() {
       try {
         setLoading(true);
         const orderData = await OrderService.getOrderById(Number(orderId));
-        setOrder(orderData);
+        setOrder({
+          ...orderData,
+          orderDetails: orderData.orderDetails || [],
+        });
       } catch (error) {
         console.error("Lỗi khi lấy chi tiết đơn hàng:", error);
         setError(
@@ -172,7 +175,10 @@ export default function OrderDetailPage() {
 
       // Refresh lại dữ liệu đơn hàng sau khi hủy
       const updatedOrder = await OrderService.getOrderById(Number(orderId));
-      setOrder(updatedOrder);
+      setOrder({
+        ...updatedOrder,
+        orderDetails: updatedOrder.orderDetails || [],
+      });
     } catch (error) {
       console.error("Lỗi khi hủy đơn hàng:", error);
       setCancelError(

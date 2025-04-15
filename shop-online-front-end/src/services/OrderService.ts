@@ -1,32 +1,31 @@
 // src/services/OrderService.ts
 import { API_BASE_URL } from "@/config/apiConfig";
 import { AuthClient } from "./AuthClient";
-import { OrderCreate, OrderResponse, Order } from "@/types/order";
+import {
+  OrderCreate,
+  OrderFullResponse,
+  Order,
+  PaginatedOrders,
+} from "@/types/order";
 
 export const OrderService = {
-  getMyOrders: async (): Promise<Order[]> => {
+  // OrderService.ts
+  // Trong src/services/OrderService.ts
+  getMyOrders: async (page = 1, limit = 10): Promise<PaginatedOrders> => {
     try {
       const response = await AuthClient.fetchWithAuth(
-        `${API_BASE_URL}/orders/my-orders`
+        `${API_BASE_URL}/orders/my-orders?page=${page}&limit=${limit}`
       );
 
       if (!response.ok) {
-        const errorText = await response.text();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(
-          `Error ${response.status}: ${errorText || response.statusText}`
+          errorData.message || "Không thể lấy danh sách đơn hàng"
         );
       }
 
       return await response.json();
     } catch (error) {
-      if (
-        error instanceof Error &&
-        (error.message === "NO_AUTH_TOKEN" ||
-          error.message === "TOKEN_REFRESH_FAILED")
-      ) {
-        throw new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
-      }
-
       console.error("Error fetching orders:", error);
       throw error;
     }
@@ -54,8 +53,10 @@ export const OrderService = {
     }
   },
 
-  placeOrder: async (orderData: OrderCreate): Promise<OrderResponse> => {
+  placeOrder: async (orderData: OrderCreate): Promise<OrderFullResponse> => {
     try {
+      console.log("Sending order data:", JSON.stringify(orderData)); // Log dữ liệu gửi đi
+
       const response = await AuthClient.fetchWithAuth(
         `${API_BASE_URL}/orders`,
         {
@@ -64,25 +65,29 @@ export const OrderService = {
         }
       );
 
+      // Log đầy đủ response để debug
+      console.log(`Order API response status: ${response.status}`);
+      const responseText = await response.text();
+      console.log(`Response body: ${responseText}`);
+
       if (!response.ok) {
-        // Kiểm tra content type để xử lý đúng định dạng
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.message ||
-              `Error ${response.status}: ${response.statusText}`
-          );
-        } else {
-          const errorText = await response.text();
-          throw new Error(
-            `Error ${response.status}: ${errorText || response.statusText}`
-          );
+        let errorMessage = `Error ${response.status}`;
+        try {
+          // Thử parse JSON
+          const errorData = JSON.parse(responseText);
+          if (errorData && errorData.message) {
+            errorMessage = errorData.message;
+          }
+        } catch (e) {
+          // Nếu không phải JSON, dùng text gốc
+          errorMessage = responseText || response.statusText;
         }
+
+        throw new Error(errorMessage);
       }
 
-      const data = await response.json();
-      console.log("Order placed successfully:", data);
+      // Parse lại JSON từ text đã đọc
+      const data = JSON.parse(responseText);
       return data;
     } catch (error) {
       console.error("Error placing order:", error);
@@ -91,7 +96,7 @@ export const OrderService = {
   },
 
   // Có thể thêm các phương thức khác như cancelOrder, trackOrder nếu cần
-  getAdminOrders: async (): Promise<Order[]> => {
+  getAdminOrders: async (): Promise<PaginatedOrders> => {
     try {
       const response = await AuthClient.fetchWithAuth(
         `${API_BASE_URL}/orders/admin/all`
@@ -112,7 +117,6 @@ export const OrderService = {
           );
         }
       }
-
       return await response.json();
     } catch (error) {
       console.error("Error fetching admin orders:", error);
