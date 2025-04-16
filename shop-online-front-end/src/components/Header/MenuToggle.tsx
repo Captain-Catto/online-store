@@ -3,21 +3,35 @@
 import React, { useState } from "react";
 import Link from "next/link";
 
-// Khai báo navItems ở đây để có thể tái sử dụng
 export const navItems = [
   { label: "Trang chủ", href: "/" },
   {
-    label: "Sản phẩm",
-    href: "/categories",
+    label: "ÁO",
+    href: "/category/1",
     dropdown: [
-      { label: "Áo", href: "/category/1" },
-      { label: "Quần", href: "/category/2" },
-      { label: "Phụ Kiện", href: "/category/3" },
+      { label: "Áo Tanktop", href: "/category/1?subtype=6" },
+      { label: "Áo Thun", href: "/category/1?subtype=1" },
+      { label: "Áo Thể Thao", href: "/category/1?subtype=7" },
+      { label: "Áo Polo", href: "/category/1?subtype=3" },
+      { label: "Áo Sơ Mi", href: "/category/1?subtype=5" },
+      { label: "Áo Dài Tay", href: "/category/1?subtype=2" },
+      { label: "Áo Khoác", href: "/category/1?subtype=4" },
     ],
   },
-  { label: "Giới thiệu", href: "/about" },
-  { label: "Chính sách", href: "/policy" },
-  { label: "Liên hệ", href: "/contact" },
+  {
+    label: "QUẦN",
+    href: "/category/2",
+    dropdown: [
+      { label: "Quần Short", href: "/category/2?subtype=12" },
+      { label: "Quần Jogger", href: "/category/2?subtype=9" },
+      { label: "Quần Thể Thao", href: "/category/2?subtype=11" },
+      { label: "Quần Dài", href: "/category/2?subtype=14" },
+      { label: "Quần Jean", href: "/category/2?subtype=8" },
+      { label: "Quần Bơi", href: "/category/2?subtype=10" },
+    ],
+  },
+  { label: "CHÍNH SÁCH", href: "/policy" },
+  { label: "GIỚI THIỆU", href: "/about" },
 ];
 
 const MenuToggle: React.FC = () => {

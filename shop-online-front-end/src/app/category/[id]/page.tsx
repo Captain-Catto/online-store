@@ -14,7 +14,6 @@ import ProductGrid from "@/components/Category/ProductGrid";
 import Pagination from "@/components/Category/Pagination";
 import { ProductService } from "@/services/ProductService";
 import { Product } from "@/types/product";
-import { CategoryWithSubtypes } from "@/types/category";
 
 export default function CategoryDetailPage() {
   const params = useParams();
@@ -22,9 +21,6 @@ export default function CategoryDetailPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const categoryId = params.id as string;
-  const [productGroups, setProductGroups] = useState<CategoryWithSubtypes[]>(
-    []
-  );
 
   // States
   const [products, setProducts] = useState<Product[]>([]);
@@ -40,6 +36,16 @@ export default function CategoryDetailPage() {
     []
   );
   const [categoryName, setCategoryName] = useState<string>("");
+  const [subtypes, setSubtypes] = useState<
+    Array<{
+      id: number;
+      name: string;
+      displayName: string;
+      categoryId: number;
+      createdAt: string;
+      updatedAt: string;
+    }>
+  >([]);
 
   // State cho pagination
   const [currentPage, setCurrentPage] = useState(() => {
@@ -76,12 +82,11 @@ export default function CategoryDetailPage() {
   // Cập nhật URL khi filters thay đổi mà không reload trang
   const updateUrlWithFilters = () => {
     const params = new URLSearchParams();
-
     if (currentPage > 1) {
       params.set("page", currentPage.toString());
     }
 
-    if (filters.color) {
+    if (filters.color && filters.color.length > 0) {
       params.set("color", filters.color);
     }
 
@@ -93,10 +98,14 @@ export default function CategoryDetailPage() {
       params.set("suitability", filters.suitability.join(","));
     }
 
+    // Add subtype to URL params
+    if (filters.subtype) {
+      params.set("subtype", filters.subtype);
+    }
+
     const newUrl =
       pathname + (params.toString() ? `?${params.toString()}` : "");
 
-    // Sử dụng shallow routing để không reload trang
     router.push(newUrl, { scroll: false });
   };
 
@@ -108,7 +117,6 @@ export default function CategoryDetailPage() {
         if (response.ok) {
           const data = await response.json();
           setAvailableSuitability(data.suitabilities);
-          console.log("Fetched suitabilities:", data.suitabilities);
         } else {
           console.error("Failed to fetch suitabilities");
         }
@@ -124,6 +132,36 @@ export default function CategoryDetailPage() {
   useEffect(() => {
     updateUrlWithFilters();
   }, [filters, currentPage]);
+
+  // Fetch subtypes for this category
+  useEffect(() => {
+    const fetchSubtypes = async () => {
+      try {
+        const response = await fetch(`/api/subtypes/category/${categoryId}`);
+
+        if (response.ok) {
+          const data = await response.json();
+          setSubtypes(data || []);
+        } else {
+          console.error("Failed to fetch subtypes");
+        }
+      } catch (error) {
+        console.error("Error fetching subtypes:", error);
+      }
+    };
+
+    fetchSubtypes();
+  }, [categoryId]);
+
+  // Add handler for subtype filtering
+  const handleSubtypeFilter = (subtype: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      subtype: prev.subtype === subtype ? "" : subtype,
+    }));
+    // Reset to page 1 when changing filters
+    setCurrentPage(1);
+  };
 
   // Fetch products khi truy cập lần đầu hoặc filters thay đổi
   useEffect(() => {
@@ -143,6 +181,7 @@ export default function CategoryDetailPage() {
         if (filters.suitability.length > 0) {
           apiFilters.suitability = filters.suitability.join(",");
         }
+        if (filters.subtype) apiFilters.subtype = filters.subtype;
 
         // Gọi API lấy sản phẩm theo category
         const response = await ProductService.getProductsByCategory(
@@ -162,7 +201,7 @@ export default function CategoryDetailPage() {
         const initialColors: { [productId: string]: string } = {};
         const initialImages: { [productId: string]: string } = {};
 
-        productsData.forEach((product: any) => {
+        productsData.forEach((product: Product) => {
           // Thiết lập màu mặc định cho mỗi sản phẩm (màu đầu tiên)
           if (product.colors && product.colors.length > 0) {
             const defaultColor = product.colors[0];
@@ -174,8 +213,9 @@ export default function CategoryDetailPage() {
               let imageUrl = "";
               if (variant.images && variant.images.length > 0) {
                 const mainImage =
-                  variant.images.find((img: any) => img.isMain) ||
-                  variant.images[0];
+                  variant.images.find(
+                    (img: { isMain: boolean; url: string }) => img.isMain
+                  ) || variant.images[0];
                 imageUrl = mainImage.url;
               }
               initialImages[product.id.toString()] = imageUrl;
@@ -211,7 +251,9 @@ export default function CategoryDetailPage() {
         let imageUrl = "";
         if (variant.images && variant.images.length > 0) {
           const mainImage =
-            variant.images.find((img: any) => img.isMain) || variant.images[0];
+            variant.images.find(
+              (img: { isMain: boolean; url: string }) => img.isMain
+            ) || variant.images[0];
           imageUrl = mainImage.url;
         }
         setProductImages((prev) => ({
@@ -266,10 +308,15 @@ export default function CategoryDetailPage() {
 
   // Xử lý filter color (chỉ chọn một giá trị)
   const handleColorFilter = (color: string) => {
-    setFilters((prev) => ({
-      ...prev,
-      color: prev.color === color ? "" : color,
-    }));
+    console.log("handleColorFilter called with:", color);
+    setFilters((prev) => {
+      const newFilters = {
+        ...prev,
+        color: prev.color === color ? "" : color,
+      };
+      console.log("New filters:", newFilters);
+      return newFilters;
+    });
   };
 
   // Hàm xử lý khi chuyển trang
@@ -315,6 +362,13 @@ export default function CategoryDetailPage() {
     );
   }
 
+  const formattedCategories = availableSuitability
+    .filter(Boolean)
+    .map((suitability) => ({
+      id: Number(suitability), // Use the string as id
+      name: suitability.charAt(0).toUpperCase() + suitability.slice(1),
+    }));
+
   return (
     <>
       <Header />
@@ -331,10 +385,11 @@ export default function CategoryDetailPage() {
             handleCategoryFilter={(category: string) =>
               setFilters((prev) => ({ ...prev, category }))
             }
-            categories={availableSuitability}
+            handleSubtypeFilter={handleSubtypeFilter}
+            categories={formattedCategories}
             availableSuitability={availableSuitability}
+            subtypes={subtypes}
           />
-
           {/* Product grid */}
           <div className="lg:w-3/4">
             {loading ? (

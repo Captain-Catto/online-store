@@ -1,5 +1,6 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/db";
+import Subtype from "./Subtype";
 
 class Product extends Model {
   public id!: number;
@@ -76,16 +77,10 @@ Product.init(
         this.setDataValue("suitability", JSON.stringify(value));
       },
     },
-    subtype: {
-      type: DataTypes.STRING,
+    subtypeId: {
+      type: DataTypes.INTEGER,
       allowNull: true,
-      defaultValue: null,
-      // Giá trị có thể: 't-shirt', 'polo', 'shirt', 'jacket', etc.
-      set(value: string) {
-        if (value) {
-          this.setDataValue("subtype", value.toLowerCase());
-        }
-      },
+      references: { model: Subtype, key: "id" },
     },
   },
   {

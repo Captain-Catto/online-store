@@ -2,7 +2,7 @@ import React from "react";
 import SuitabilityFilter from "./SuitabilityFilter";
 import SizeFilter from "./SizeFilter";
 import ColorFilter from "./ColorFilter";
-import CategoryFilter from "./CategoryFilter";
+import SubtypeFilter from "./SubtypeFilter";
 
 interface FilterSidebarProps {
   filtersOpen: {
@@ -10,20 +10,31 @@ interface FilterSidebarProps {
     size: boolean;
     color: boolean;
     category: boolean;
+    productGroups?: boolean;
   };
   activeFilters: {
     suitability: string[];
     size: string[];
     color: string;
     category: string;
+    subtype?: string;
   };
   toggleFilter: (filterName: keyof FilterSidebarProps["filtersOpen"]) => void;
   handleSuitabilityFilter: (suitability: string) => void;
   handleSizeFilter: (size: string) => void;
   handleColorFilter: (color: string) => void;
   handleCategoryFilter: (categoryId: string) => void;
+  handleSubtypeFilter?: (subtype: string) => void;
   availableSuitability?: string[];
   categories: { id: number; name: string }[];
+  subtypes?: Array<{
+    id: number;
+    name: string;
+    displayName: string;
+    categoryId: number;
+    createdAt: string;
+    updatedAt: string;
+  }>;
 }
 
 export default function FilterSidebar({
@@ -33,22 +44,29 @@ export default function FilterSidebar({
   handleSuitabilityFilter,
   handleSizeFilter,
   handleColorFilter,
-  handleCategoryFilter,
+
+  handleSubtypeFilter,
   availableSuitability,
-  categories,
+  subtypes,
 }: FilterSidebarProps) {
   return (
     <div className="lg:w-1/4">
       <div className="sticky top-24">
         <h2 className="text-2xl font-bold mb-6">Bộ lọc</h2>
 
-        <CategoryFilter
-          isOpen={filtersOpen.category}
-          activeCategory={activeFilters.category}
-          onToggle={() => toggleFilter("category")}
-          onFilterChange={handleCategoryFilter}
-          categories={categories}
-        />
+        {/* Chỉ hiển thị SubtypeFilter khi có đủ props cần thiết */}
+        {filtersOpen.productGroups !== undefined &&
+          activeFilters.subtype !== undefined &&
+          handleSubtypeFilter &&
+          subtypes && (
+            <SubtypeFilter
+              isOpen={filtersOpen.productGroups}
+              activeSubtype={activeFilters.subtype}
+              onToggle={() => toggleFilter("productGroups")}
+              onFilterChange={handleSubtypeFilter}
+              subtypes={subtypes}
+            />
+          )}
 
         <SuitabilityFilter
           isOpen={filtersOpen.suitability}

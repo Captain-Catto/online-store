@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
+import { ProductService } from "@/services/ProductService";
 
 // Kiểu dữ liệu cho hình ảnh của một màu
 interface ColorImage {
@@ -39,6 +40,7 @@ export default function AddProductPage() {
     material: "",
     price: 0,
     originalPrice: 0,
+    suitability: [] as string[],
     stock: {
       total: 0,
       variants: [] as ProductVariant[],
@@ -402,39 +404,112 @@ export default function AddProductPage() {
 
   // Hàm xử lý lưu sản phẩm
   const handleSaveProduct = async () => {
-    if (!validateProductData()) {
-      return;
-    }
+    if (!validateProductData()) return;
 
     setIsSubmitting(true);
 
     try {
-      // Chuẩn bị dữ liệu ảnh để gửi API
-      const formattedImages = Object.entries(colorImages).map(
-        ([color, images]) => ({
-          color,
-          images: images.map((img) => ({
-            id: img.id,
-            file: img.file, // Trong thực tế sẽ upload file và lưu URL
-            isMain: img.isMain,
-          })),
-        })
-      );
+      // Chuyển đổi dữ liệu từ form thành định dạng API yêu cầu
+      interface ProductCreate {
+        name: string;
+        sku: string;
+        description: string;
+        brand: string;
+        material: string;
+        featured: boolean;
+        status: string;
+        tags: string[];
+        suitability: string[];
+        subtype: string;
+        categories: number[];
+        details: Array<{
+          color: string;
+          price: number;
+          originalPrice: number;
+          sizes: Array<{ size: string; stock: number }>;
+        }>;
+      }
 
-      // Trong thực tế, chỗ này sẽ gọi API để upload hình ảnh và lưu sản phẩm
-      console.log("Product data:", {
-        ...product,
-        images: formattedImages,
+      const productData: ProductCreate = {
+        name: product.name,
+        sku: product.sku,
+        description: product.description,
+        brand: product.brand,
+        material: product.material,
+        featured: product.featured,
+        status: product.status,
+        tags: product.tags,
+        suitability: ["casual", "daily"], // Thêm vào form nếu cần
+        subtype: product.category === "shirts" ? "T-SHIRT" : "", // Cần xử lý theo nghiệp vụ
+        categories: [parseInt(product.category) || 1],
+        details: [],
+      };
+
+      // Nhóm variants theo màu sắc
+      const colorGroups: Record<string, any> = {};
+      product.stock.variants.forEach((variant) => {
+        if (!colorGroups[variant.color]) {
+          colorGroups[variant.color] = {
+            color: variant.color,
+            price: product.price,
+            originalPrice: product.originalPrice,
+            sizes: [],
+          };
+        }
+
+        colorGroups[variant.color].sizes.push({
+          size: variant.size,
+          stock: variant.stock,
+        });
       });
 
-      // Giả lập việc gọi API
-      setTimeout(() => {
-        alert("Thêm sản phẩm thành công!");
-        router.push("/admin/products");
-      }, 1500);
+      // Chuyển đổi thành mảng details
+      productData.details = Object.values(colorGroups);
+
+      console.log("Sending product data:", productData);
+
+      // Gửi API tạo sản phẩm
+      const createdProduct = await ProductService.createProduct(productData);
+      console.log("Created product:", createdProduct);
+
+      // gọi hàm getProductVariants để lấy danh sách các biến thể
+      const productVariants = await ProductService.getProductVariants(
+        createdProduct.productId
+      );
+
+      console.log("Product variants:", productVariants);
+
+      // Upload hình ảnh cho từng màu (nếu có)
+      if (createdProduct && productVariants.details) {
+        for (const detail of productVariants.details) {
+          const color = detail.color;
+          const detailId = detail.id;
+
+          // Nếu có hình ảnh cho màu này
+          if (colorImages[color] && colorImages[color].length > 0) {
+            const formData = new FormData();
+
+            // Thêm thông tin isMain cho mỗi hình
+            colorImages[color].forEach((img, index) => {
+              formData.append(`images`, img.file);
+              formData.append(`isMain${index}`, img.isMain.toString());
+            });
+
+            await ProductService.uploadProductImages(detailId, formData);
+          }
+        }
+      } else {
+        console.error(
+          "Không tìm thấy thông tin chi tiết sản phẩm sau khi tạo!"
+        );
+      }
+
+      alert("Thêm sản phẩm thành công!");
+      router.push("/admin/products");
     } catch (error) {
       console.error("Lỗi khi thêm sản phẩm:", error);
       alert("Có lỗi xảy ra khi thêm sản phẩm. Vui lòng thử lại sau!");
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -811,6 +886,33 @@ export default function AddProductPage() {
                           Giữ Ctrl để chọn nhiều kích thước
                         </small>
                       </div>
+                    </div>
+                    <div className="form-group">
+                      <label>Phù hợp cho</label>
+                      <select
+                        multiple
+                        className="form-control"
+                        value={product.suitability || []}
+                        onChange={(e) => {
+                          const selected = Array.from(
+                            e.target.selectedOptions,
+                            (option) => option.value
+                          );
+                          setProduct({
+                            ...product,
+                            suitability: selected,
+                          });
+                        }}
+                      >
+                        <option value="casual">Thường ngày</option>
+                        <option value="sport">Thể thao</option>
+                        <option value="party">Dự tiệc</option>
+                        <option value="formal">Trang trọng</option>
+                        <option value="daily">Hàng ngày</option>
+                      </select>
+                      <small className="form-text text-muted">
+                        Giữ Ctrl để chọn nhiều mục
+                      </small>
                     </div>
                   </div>
 

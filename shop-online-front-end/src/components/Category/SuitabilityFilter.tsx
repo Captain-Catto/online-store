@@ -51,16 +51,25 @@ export default function SuitabilityFilter({
           ) : (
             suitabilities.map(({ label, value }) => (
               <div key={value} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id={`suitability-${value}`}
-                  checked={activeFilters.includes(value)}
-                  onChange={() => onFilterChange(value)}
-                  className="h-4 w-4 rounded border-gray-300 text-black focus:ring-black"
-                />
+                <span
+                  className={`w-4 h-4 border rounded mr-2 flex items-center justify-center ${
+                    activeFilters.includes(value)
+                      ? "border-blue-600"
+                      : "border-gray-300"
+                  }`}
+                  onClick={() => onFilterChange(value)}
+                >
+                  {activeFilters.includes(value) && (
+                    <span className="block w-2 h-2 bg-blue-600 rounded-sm"></span>
+                  )}
+                </span>
                 <label
-                  htmlFor={`suitability-${value}`}
-                  className="text-sm font-medium text-gray-900 cursor-pointer"
+                  className={`text-sm font-medium cursor-pointer ${
+                    activeFilters.includes(value)
+                      ? "text-blue-600"
+                      : "text-gray-900"
+                  }`}
+                  onClick={() => onFilterChange(value)}
                 >
                   {label}
                 </label>

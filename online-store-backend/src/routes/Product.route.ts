@@ -8,6 +8,7 @@ import {
   getProductsByCategory,
   getSuitabilities,
   getSubtypes,
+  getProductVariantsById,
 } from "../controllers/Product.controller";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { roleMiddleware } from "../middlewares/roleMiddleware";
@@ -17,6 +18,7 @@ const router = Router();
 // Public routes
 router.get("/", getProductsWithVariants);
 router.get("/suitabilities", getSuitabilities);
+router.get("/variants/:id", getProductVariantsById);
 router.get("/category/:categoryId", getProductsByCategory);
 router.get("/subtypes", getSubtypes);
 // luôn để route này ở dưới cùng vì khi để /subtypes thì nó đang hiểu là

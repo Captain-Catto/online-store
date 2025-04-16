@@ -196,6 +196,7 @@ const CasualProducts: React.FC = () => {
             const simpleProduct: SimpleProduct = {
               id: product.id,
               name: product.name,
+              featured: product.featured,
               colors: product.colors,
               variants: product.variants,
             };

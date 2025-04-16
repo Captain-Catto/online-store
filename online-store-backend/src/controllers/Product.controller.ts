@@ -20,6 +20,7 @@ export const createProductWithDetails = async (
   req: Request,
   res: Response
 ): Promise<void> => {
+  // bắt đầu transaction để đảm bảo tính toàn vẹn dữ liệu
   const t = await sequelize.transaction();
 
   try {
@@ -135,12 +136,47 @@ export const getProductsWithVariants = async (
     const status = req.query.status as string;
     const brand = req.query.brand as string;
     const subtype = req.query.subtype as string;
+    const featured =
+      req.query.featured === "true"
+        ? true
+        : req.query.featured === "false"
+        ? false
+        : null;
     // Thêm lọc theo color và size
     const color = req.query.color as string;
     const sizeParam = req.query.size as string;
     const sizes = sizeParam ? sizeParam.split(",") : [];
     const suitabilityParam = req.query.suitability as string;
     const suitabilities = suitabilityParam ? suitabilityParam.split(",") : [];
+
+    // thêm tham số để sort
+    const sort = req.query.sort as string;
+
+    let order: any[] = [["createdAt", "DESC"]]; // Default sort
+
+    if (sort) {
+      const [field, direction] = sort.split("_");
+      const validFields = ["name", "createdAt", "price", "featured"];
+      const validDirections = ["asc", "desc"];
+
+      if (
+        validFields.includes(field) &&
+        validDirections.includes(direction?.toLowerCase())
+      ) {
+        if (field === "price") {
+          // Sắp xếp theo giá cần xử lý đặc biệt vì price nằm trong bảng ProductDetail
+          order = [
+            [
+              { model: ProductDetail, as: "details" },
+              "price",
+              direction.toUpperCase(),
+            ],
+          ];
+        } else {
+          order = [[field, direction.toUpperCase()]];
+        }
+      }
+    }
 
     // Tính offset
     const offset = (page - 1) * limit;
@@ -155,7 +191,7 @@ export const getProductsWithVariants = async (
       where.name = { [Op.like]: `%${search}%` };
     }
     if (status) {
-      where.status = status;
+      where.status = { [Op.eq]: status };
     }
     if (brand) {
       where.brand = brand;
@@ -166,7 +202,11 @@ export const getProductsWithVariants = async (
       }));
     }
     if (subtype) {
-      where.subtype = subtype;
+      where.subtypeId = subtype;
+    }
+
+    if (featured === true) {
+      where.featured = true;
     }
 
     // Category include
@@ -216,7 +256,7 @@ export const getProductsWithVariants = async (
       include,
       limit,
       offset,
-      order: [["createdAt", "DESC"]],
+      order,
       distinct: true,
     } as ExtendedFindOptions);
 
@@ -351,6 +391,7 @@ export const getProductsWithVariants = async (
           ),
         },
         variants: variantMap,
+        subtypeId: product.subtypeId,
       };
     });
 
@@ -364,7 +405,9 @@ export const getProductsWithVariants = async (
         brand: brand || null,
         color: color || null,
         size: sizeParam || null,
-        subtype: subtype || null,
+        subtypeId: subtype || null,
+        featured: req.query.featured === "true" ? true : null,
+        sort: sort || null,
         suitability: products
           .flatMap((product: any) => {
             try {
@@ -734,7 +777,7 @@ export const getProductsByCategory = async (
   res: Response
 ): Promise<void> => {
   try {
-    console.log("Fetching products by category ID");
+    console.log("Fetching products by category ID", req.params);
     const { categoryId } = req.params;
 
     // Pagination parameters
@@ -775,7 +818,7 @@ export const getProductsByCategory = async (
 
     // Thêm filter theo subtype
     if (subtype) {
-      where.subtype = subtype;
+      where.subtypeId = subtype;
     }
 
     // Add suitability filter if present
@@ -1051,5 +1094,48 @@ export const getSubtypes = async (
   } catch (error: any) {
     console.error("Error fetching subtypes:", error);
     res.status(500).json({ message: "Lỗi khi lấy danh sách subtypes" });
+  }
+};
+
+// hàm để lấy variant của sản phẩm theo id ở product
+export const getProductVariantsById = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    // Tìm sản phẩm theo ID
+    const product = await Product.findByPk(id, {
+      include: [
+        {
+          model: ProductDetail,
+          as: "details",
+          include: [
+            {
+              model: ProductInventory,
+              as: "inventories",
+            },
+            { model: ProductImage, as: "images" },
+          ],
+        },
+        {
+          model: Category,
+          as: "categories",
+          attributes: ["id", "name"],
+          through: { attributes: [] }, // Ẩn bảng trung gian
+        },
+      ],
+    });
+
+    if (!product) {
+      res.status(404).json({ message: "Không tìm thấy sản phẩm" });
+      return;
+    }
+
+    // Trả về thông tin chi tiết của sản phẩm
+    res.status(200).json(product);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
   }
 };

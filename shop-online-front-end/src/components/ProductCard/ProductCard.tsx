@@ -71,6 +71,11 @@ const ProductCard: React.FC<ProductCardProps> = ({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
+        {product.featured && (
+          <div className="absolute top-2 right-2 z-10 bg-blue-600 text-white px-3 py-1 text-xs font-semibold rounded-md">
+            Đáng mua
+          </div>
+        )}
         <Link href={`/products/${product.id}`}>
           {productImage ? (
             <div className="relative w-full h-80">
@@ -130,9 +135,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
         href={`/products/${product.id}`}
         className="block hover:text-blue-600"
       >
-        <h3 className="text-lg font-medium line-clamp-2 min-h-[3rem]">
-          {product.name}
-        </h3>
+        <h3 className="text-lg font-medium line-clamp-2">{product.name}</h3>
       </Link>
 
       {/*  */}

@@ -48,6 +48,7 @@ export default function CategoryPage() {
     size: false,
     color: false,
     category: true,
+    productGroups: false, // Added productGroups property
   });
 
   // Thêm state để lưu danh sách categories từ API
@@ -191,7 +192,6 @@ export default function CategoryPage() {
         if (response.ok) {
           const data = await response.json();
           setAvailableSuitability(data.suitabilities);
-          console.log("Fetched suitabilities:", data.suitabilities);
         } else {
           console.error("Failed to fetch suitabilities");
         }

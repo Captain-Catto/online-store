@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import Users from "../models/Users";
 import RefreshToken from "../models/RefreshToken";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
+import jwt, { JwtPayload } from "jsonwebtoken";
 import UserAddress from "../models/UserAddress";
 import Role from "../models/Role";
 import PasswordReset from "../models/PasswordReset";
@@ -18,49 +18,66 @@ export const refreshToken = async (
   res: Response
 ): Promise<void> => {
   try {
+    // Lấy refreshToken từ cookie
     const refreshToken = req.cookies.refreshToken;
 
     if (!refreshToken) {
-      res.status(401).json({ message: "Không có Refresh Token" });
+      res.status(401).json({ message: "Không tìm thấy Refresh Token" });
       return;
     }
 
-    // Kiểm tra Refresh Token trong cơ sở dữ liệu
-    const storedToken = await RefreshToken.findOne({
+    // Tìm token trong database
+    const tokenRecord = await RefreshToken.findOne({
       where: { token: refreshToken },
+      include: [
+        {
+          model: Users,
+          as: "user",
+          attributes: ["id", "username", "roleId"],
+        },
+      ],
     });
-    if (!storedToken) {
-      res.status(403).json({ message: "Refresh Token không hợp lệ" });
+
+    // Kiểm tra token có tồn tại không
+    if (!tokenRecord) {
+      res.status(401).json({ message: "Refresh Token không hợp lệ" });
       return;
     }
 
-    // Xác minh Refresh Token
-    const decoded = jwt.verify(
-      refreshToken,
-      process.env.JWT_REFRESH_SECRET as string
-    ) as { id: number };
+    // Xác thực Refresh Token
+    try {
+      const decoded = jwt.verify(
+        refreshToken,
+        process.env.JWT_REFRESH_SECRET as string
+      ) as JwtPayload;
 
-    // Tìm thêm thông tin người dùng từ database
-    const user = await Users.findByPk(decoded.id);
-    if (!user) {
-      res.status(404).json({ message: "Không tìm thấy người dùng" });
-      return;
+      // Tạo access token mới
+      const accessToken = jwt.sign(
+        {
+          id: decoded.id,
+          role: decoded.role,
+        },
+        process.env.JWT_SECRET as string,
+        { expiresIn: "15m" }
+      );
+
+      // Trả về access token mới
+      res.status(200).json({
+        message: "Token đã được làm mới",
+        accessToken,
+      });
+    } catch (error) {
+      // Token hết hạn hoặc không hợp lệ
+      // Xóa token khỏi database
+      await tokenRecord.destroy();
+
+      // Xóa cookie
+      res.clearCookie("refreshToken");
+
+      res.status(401).json({ message: "Refresh Token hết hạn" });
     }
-
-    // Tạo Access Token mới với đầy đủ thông tin
-    const accessToken = jwt.sign(
-      {
-        id: user.id,
-        role: user.roleId,
-        username: user.username,
-      },
-      process.env.JWT_SECRET as string,
-      { expiresIn: "15m" }
-    );
-
-    res.status(200).json({ accessToken });
   } catch (error: any) {
-    res.status(403).json({ message: "Refresh Token không hợp lệ" });
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -130,7 +147,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     );
 
     const refreshToken = jwt.sign(
-      { id: user.id },
+      { id: user.id, role: user.roleId },
       process.env.JWT_REFRESH_SECRET as string,
       { expiresIn: refreshExpiration }
     );

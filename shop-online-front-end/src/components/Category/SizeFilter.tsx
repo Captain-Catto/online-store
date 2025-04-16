@@ -58,8 +58,8 @@ export default function SizeFilter({
                   htmlFor={`size_${size}`}
                   className={`inline-block px-3 py-2 rounded-lg border flex-1 text-center ${
                     activeFilters.includes(size)
-                      ? "bg-black text-white"
-                      : "hover:bg-gray-100"
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "hover:bg-gray-100 border-gray-300"
                   } cursor-pointer text-sm`}
                 >
                   {size}

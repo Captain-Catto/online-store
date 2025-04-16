@@ -24,6 +24,17 @@ export default function ColorFilter({
     gray: "#808080",
   };
 
+  // Hàm xử lý khi click vào màu - thêm logic để hủy chọn
+  const handleColorClick = (colorId: string) => {
+    // Nếu màu đã được chọn, gọi hàm với chuỗi rỗng để hủy chọn
+    if (activeFilter === colorId) {
+      onFilterChange("");
+    } else {
+      // Nếu chưa chọn, chọn màu đó
+      onFilterChange(colorId);
+    }
+  };
+
   return (
     <div className="mb-6">
       <div
@@ -54,28 +65,26 @@ export default function ColorFilter({
         <div className="mt-3 grid grid-cols-4 gap-2">
           {Object.entries(colorMap).map(([colorId, colorCode]) => (
             <div key={colorId} className="flex flex-col items-center">
-              <input
-                type="radio"
-                id={`color_${colorId}`}
-                name="color"
-                checked={activeFilter === colorId}
-                onChange={() => onFilterChange(colorId)}
-                className="hidden"
-              />
-              <label
-                htmlFor={`color_${colorId}`}
+              <div
                 className="flex flex-col items-center cursor-pointer"
+                onClick={() => handleColorClick(colorId)}
               >
                 <div
                   className={`w-8 h-8 rounded-full border ${
                     activeFilter === colorId
-                      ? "border-2 border-black"
+                      ? "border-2 border-blue-600"
                       : "border-gray-300"
                   }`}
                   style={{ backgroundColor: colorCode }}
                 ></div>
-                <span className="mt-1 text-xs capitalize">{colorId}</span>
-              </label>
+                <span
+                  className={`mt-1 text-xs capitalize ${
+                    activeFilter === colorId ? "text-blue-600 font-medium" : ""
+                  }`}
+                >
+                  {colorId}
+                </span>
+              </div>
             </div>
           ))}
         </div>

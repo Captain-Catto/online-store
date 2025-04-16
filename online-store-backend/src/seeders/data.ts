@@ -135,16 +135,9 @@ const users = [
 ];
 
 // 3. Categories
-const categories = [
-  { name: "Áo" },
-  { name: "Quần" },
-  { name: "Giày" },
-  { name: "Phụ kiện" },
-  { name: "Sale" },
-  { name: "Hàng mới" },
-];
+const categories = [{ name: "Áo" }, { name: "Quần" }];
 
-// 4. Products - Đã cập nhật với subtype
+// 4. Products - Đã cập nhật với suitability chỉ dùng casual, daily và sport
 const products = [
   {
     name: "Áo thun nam basic cotton",
@@ -157,6 +150,7 @@ const products = [
     tags: JSON.stringify(["áo thun", "nam", "cotton", "basic"]),
     suitability: JSON.stringify(["casual", "daily"]),
     subtype: "T-SHIRT",
+    isNew: true,
   },
   {
     name: "Áo thun polo pique nam",
@@ -167,8 +161,9 @@ const products = [
     featured: false,
     status: "active",
     tags: JSON.stringify(["áo polo", "nam", "pique", "cổ bẻ"]),
-    suitability: JSON.stringify(["office", "casual", "dating"]),
+    suitability: JSON.stringify(["casual"]),
     subtype: "T-SHIRT",
+    isOnSale: true,
   },
   {
     name: "Áo sơ mi nam kẻ caro",
@@ -180,7 +175,7 @@ const products = [
     featured: false,
     status: "active",
     tags: JSON.stringify(["áo sơ mi", "kẻ caro", "nam"]),
-    suitability: JSON.stringify(["office", "casual", "dating"]),
+    suitability: JSON.stringify(["casual"]),
     subtype: "SHIRT",
   },
   {
@@ -192,7 +187,7 @@ const products = [
     featured: true,
     status: "active",
     tags: JSON.stringify(["áo sơ mi", "oxford", "nam", "dài tay"]),
-    suitability: JSON.stringify(["office", "formal", "business"]),
+    suitability: JSON.stringify(["casual"]),
     subtype: "SHIRT",
   },
   {
@@ -216,7 +211,7 @@ const products = [
     featured: false,
     status: "active",
     tags: JSON.stringify(["áo khoác", "bomber", "da", "nam"]),
-    suitability: JSON.stringify(["casual", "winter", "dating"]),
+    suitability: JSON.stringify(["casual", "daily"]),
     subtype: "JACKET",
   },
   {
@@ -241,7 +236,7 @@ const products = [
     featured: true,
     status: "active",
     tags: JSON.stringify(["quần kaki", "nam", "slim fit"]),
-    suitability: JSON.stringify(["office", "casual", "formal"]),
+    suitability: JSON.stringify(["casual"]),
     subtype: "PANTS",
   },
   {
@@ -253,7 +248,7 @@ const products = [
     featured: false,
     status: "active",
     tags: JSON.stringify(["quần short", "jean", "rách", "nam"]),
-    suitability: JSON.stringify(["casual", "beach", "summer"]),
+    suitability: JSON.stringify(["casual", "daily"]),
     subtype: "SHORTS",
   },
   {
@@ -265,7 +260,7 @@ const products = [
     featured: true,
     status: "active",
     tags: JSON.stringify(["quần short", "thể thao", "nam"]),
-    suitability: JSON.stringify(["sport", "gym", "running"]),
+    suitability: JSON.stringify(["sport"]),
     subtype: "SHORTS",
   },
 ];
@@ -672,40 +667,33 @@ const productImages = [
 const productCategories = [
   // Áo thun nam basic cotton
   { productId: 1, categoryId: 1 }, // Áo
-  { productId: 1, categoryId: 6 }, // Hàng mới
 
   // Áo thun polo pique nam
   { productId: 2, categoryId: 1 }, // Áo
-  { productId: 2, categoryId: 6 }, // Hàng mới
 
   // Áo sơ mi nam kẻ caro
   { productId: 3, categoryId: 1 }, // Áo
 
   // Áo sơ mi nam Oxford dài tay
   { productId: 4, categoryId: 1 }, // Áo
-  { productId: 4, categoryId: 6 }, // Hàng mới
 
   // Áo khoác denim unisex
   { productId: 5, categoryId: 1 }, // Áo
-  { productId: 5, categoryId: 5 }, // Sale
 
   // Áo khoác bomber da nam
   { productId: 6, categoryId: 1 }, // Áo
-  { productId: 6, categoryId: 5 }, // Sale
 
   // Quần jean nam straight fit
   { productId: 7, categoryId: 2 }, // Quần
 
   // Quần kaki nam slim fit
   { productId: 8, categoryId: 2 }, // Quần
-  { productId: 8, categoryId: 6 }, // Hàng mới
 
   // Quần short jean nam rách gối
   { productId: 9, categoryId: 2 }, // Quần
 
   // Quần short thể thao nam
   { productId: 10, categoryId: 2 }, // Quần
-  { productId: 10, categoryId: 6 }, // Hàng mới
 ];
 
 // 9. PaymentMethods
@@ -1196,6 +1184,27 @@ const orderDetails = [
   },
 ];
 
+// 15. subtypes
+const subtypes = [
+  // Subtypes cho Áo (categoryId: 1)
+  { name: "tshirt", displayName: "Áo Thun", categoryId: 1 },
+  { name: "longsleeve", displayName: "Áo dài tay", categoryId: 1 },
+  { name: "polo", displayName: "Áo Polo", categoryId: 1 },
+  { name: "jacket", displayName: "Áo khoác", categoryId: 1 },
+  { name: "shirt", displayName: "Áo Sơ Mi", categoryId: 1 },
+  { name: "tanktop", displayName: "Áo Tanktop", categoryId: 1 },
+  { name: "sportswear", displayName: "Áo thể thao", categoryId: 1 },
+
+  // Subtypes cho Quần (categoryId: 2)
+  { name: "jeans", displayName: "Quần Jean", categoryId: 2 },
+  { name: "jogger", displayName: "Quần Jogger", categoryId: 2 },
+  { name: "khaki", displayName: "Quần Kaki", categoryId: 2 },
+  { name: "pants", displayName: "Quần Pants", categoryId: 2 },
+  { name: "shorts", displayName: "Quần Shorts", categoryId: 2 },
+  { name: "underwear", displayName: "Quần Lót", categoryId: 2 },
+  { name: "trousers", displayName: "Quần Dài", categoryId: 2 },
+];
+
 // Update the export
 export {
   roles,
@@ -1212,4 +1221,5 @@ export {
   userAddresses,
   orders, // New
   orderDetails, // New
+  subtypes, // New
 };

@@ -66,9 +66,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
         href={`/products/${product.id}`}
         className="block hover:text-blue-600"
       >
-        <h3 className="text-lg font-medium line-clamp-2 min-h-[3rem]">
-          {product.name}
-        </h3>
+        <h3 className="text-lg font-medium line-clamp-2">{product.name}</h3>
       </Link>
 
       {currentVariant && (

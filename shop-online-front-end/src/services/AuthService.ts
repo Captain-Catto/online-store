@@ -164,10 +164,16 @@ export const AuthService = {
 
 // hàm xử lý để tạo user
 export const createUser = async (user: User) => {
+  // lấy token từ sessionStorage
+  const token = sessionStorage.getItem("authToken");
+  if (!token) {
+    throw new Error("Bạn chưa đăng nhập");
+  }
   const response = await fetch(API_BASE_URL + "/auth/register", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(user),
   });

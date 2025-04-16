@@ -37,6 +37,7 @@ export interface Product {
 export interface SimpleProduct {
   id: number;
   name: string;
+  featured: boolean;
   colors: string[];
   variants: Record<string, VariantDetail>;
 }

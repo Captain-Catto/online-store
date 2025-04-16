@@ -441,7 +441,7 @@ export default function CheckoutPage() {
       console.log("API response:", response);
 
       // Lưu ID đơn hàng vào sessionStorage
-      sessionStorage.setItem("recentOrderId", response.orderId || response.id);
+      sessionStorage.setItem("recentOrderId", String(response.id || ""));
 
       // Clear cart
       clearCart();

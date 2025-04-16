@@ -56,9 +56,9 @@ const LatestProducts: React.FC = () => {
       try {
         setLoading(true);
         const response = await ProductService.getProducts(1, 10, {
-          featured: true,
-          sort: "createdAt:desc",
+          sort: "name_desc",
         });
+        console.log("Response:", response);
 
         const initialColors: { [key: number]: string } = {};
         const initialImages: { [key: number]: string } = {};
@@ -193,7 +193,7 @@ const LatestProducts: React.FC = () => {
   return (
     <div className="w-full xl:px-20 lg:px-10 md:px-4 px-2 mt-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-semibold text-left">SẢN PHẨM MỚI NHẤT</h2>
+        <h2 className="text-3xl font-semibold text-left">SẢN PHẨM NỔI BẬT</h2>
         <Link
           href="/products"
           className="text-right text-lg text-gray-500 hover:underline hover:text-gray-700"
@@ -211,6 +211,7 @@ const LatestProducts: React.FC = () => {
             // Sử dụng SimpleProduct cho ProductCard
             const simpleProduct: SimpleProduct = {
               id: product.id,
+              featured: product.featured,
               name: product.name,
               colors: product.colors,
               variants: product.variants,

@@ -1,97 +1,150 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
+import { ProductService } from "@/services/ProductService";
 
 export default function ProductDetailPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("info");
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Mock product data
-  const [product, setProduct] = useState({
-    id: id,
-    name: "Áo thun cotton basic",
-    sku: "AT-NAM-001",
-    description:
-      "Áo thun cotton chất lượng cao, phù hợp cho mọi hoạt động thường ngày. Thiết kế đơn giản, dễ phối đồ.",
-    category: "shirts",
-    categoryName: "Áo",
-    material: "100% Cotton",
-    price: 299000,
-    originalPrice: 350000,
-    stock: {
-      total: 150,
-      variants: [
-        { color: "Đen", size: "S", stock: 20 },
-        { color: "Đen", size: "M", stock: 30 },
-        { color: "Đen", size: "L", stock: 25 },
-        { color: "Trắng", size: "S", stock: 15 },
-        { color: "Trắng", size: "M", stock: 35 },
-        { color: "Trắng", size: "L", stock: 25 },
-      ],
-    },
-    colors: ["Đen", "Trắng", "Xanh dương"],
-    sizes: ["S", "M", "L", "XL"],
-    status: "active",
-    statusLabel: "Đang bán",
-    statusClass: "bg-success",
-    featured: true,
-    tags: ["áo thun", "cotton", "casual"],
-    images: [
-      {
-        id: 1,
-        url: "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/ao-thun-nam-cotton/AT.220.xd.12.webp",
-        color: "Đen",
-        isMain: true,
-      },
-      {
-        id: 2,
-        url: "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/ao-thun-nam-cotton/ao-thun-nam-cotton-220gsm-mau-xanh-dam_(1).webp",
-        color: "Xanh dương",
-        isMain: false,
-      },
-      {
-        id: 3,
-        url: "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/ao-thun-nam-cotton/ao-thun-nam-cotton-220gsm-mau-xanh-dam_(2).webp",
-        color: "Xanh dương",
-        isMain: false,
-      },
-    ],
-    createdAt: "15/01/2025",
-    updatedAt: "01/03/2025",
-    modificationHistory: [
-      {
-        date: "01/03/2025 15:30",
-        user: "Admin",
-        action: "Cập nhật giá",
-        detail: "Giá thay đổi từ 320.000đ xuống 299.000đ",
-      },
-      {
-        date: "20/02/2025 10:15",
-        user: "Admin",
-        action: "Thêm màu mới",
-        detail: "Thêm màu Xanh dương",
-      },
-      {
-        date: "15/01/2025 09:00",
-        user: "Admin",
-        action: "Tạo sản phẩm",
-        detail: "Tạo mới sản phẩm",
-      },
-    ],
-  });
+  const [product, setProduct] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        setLoading(true);
+        // Sử dụng API mới để lấy chi tiết sản phẩm và variants
+        const productData = await ProductService.getProductVariants(id);
+        console.log("Product Variants Data:", productData);
+
+        // Parse tags và suitability từ JSON string nếu cần
+        const tags =
+          typeof productData.tags === "string"
+            ? JSON.parse(productData.tags)
+            : productData.tags;
+
+        const suitability =
+          typeof productData.suitability === "string"
+            ? JSON.parse(productData.suitability)
+            : productData.suitability;
+
+        // Tính tổng số lượng tồn kho
+        const totalStock = productData.details.reduce((total, detail) => {
+          return (
+            total + detail.inventories.reduce((sum, inv) => sum + inv.stock, 0)
+          );
+        }, 0);
+
+        // Tạo mảng các màu sắc và kích thước
+        const colors = productData.details.map((detail) => detail.color);
+        const sizes = [
+          ...new Set(
+            productData.details.flatMap((detail) =>
+              detail.inventories.map((inv) => inv.size)
+            )
+          ),
+        ];
+
+        // Tạo các biến thể tồn kho
+        const stockVariants = productData.details.flatMap((detail) =>
+          detail.inventories.map((inv) => ({
+            color: detail.color,
+            size: inv.size,
+            stock: inv.stock,
+          }))
+        );
+
+        // Làm phẳng các hình ảnh
+        const images = productData.details.flatMap((detail) =>
+          detail.images.map((image) => ({
+            ...image,
+            color: detail.color,
+          }))
+        );
+
+        // Định dạng dữ liệu sản phẩm cho component
+        const formattedProduct = {
+          id: productData.id,
+          name: productData.name,
+          sku: productData.sku,
+          description: productData.description,
+          category: productData.categories[0].id,
+          categoryName: productData.categories[0].name,
+          material: productData.material,
+          price: productData.details[0]?.price || 0,
+          originalPrice: productData.details[0]?.originalPrice || 0,
+          stock: {
+            total: totalStock,
+            variants: stockVariants,
+          },
+          colors: colors,
+          sizes: sizes,
+          status: productData.status,
+          statusLabel:
+            productData.status === "active"
+              ? "Đang bán"
+              : productData.status === "outofstock"
+              ? "Hết hàng"
+              : "Nháp",
+          statusClass:
+            productData.status === "active"
+              ? "bg-success"
+              : productData.status === "outofstock"
+              ? "bg-danger"
+              : "bg-secondary",
+          featured: productData.featured,
+          tags: tags,
+          suitability: suitability,
+          images: images,
+          createdAt: new Date(productData.createdAt).toLocaleDateString(
+            "vi-VN"
+          ),
+          updatedAt: new Date(productData.updatedAt).toLocaleDateString(
+            "vi-VN"
+          ),
+          modificationHistory: [
+            {
+              date: new Date(productData.updatedAt).toLocaleString("vi-VN"),
+              user: "Admin",
+              action: "Cập nhật sản phẩm",
+              detail: "Cập nhật thông tin sản phẩm",
+            },
+            {
+              date: new Date(productData.createdAt).toLocaleString("vi-VN"),
+              user: "Admin",
+              action: "Tạo sản phẩm",
+              detail: "Tạo mới sản phẩm",
+            },
+          ],
+        };
+
+        setProduct(formattedProduct);
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching product:", error);
+        setError("Không thể tải thông tin sản phẩm");
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [id]);
 
   // Breadcrumb items
   const breadcrumbItems = [
     { label: "Trang chủ", href: "/admin" },
     { label: "Sản phẩm", href: "/admin/products" },
-    { label: product.name, active: true },
+    { label: product?.name, active: true },
   ];
 
   const handleStatusChange = (newStatus: string) => {
@@ -127,6 +180,147 @@ export default function ProductDetailPage() {
     alert("Đã lưu thay đổi thành công!");
     setIsEditing(false);
   };
+
+  // Hiển thị trạng thái loading
+  if (loading) {
+    return (
+      <AdminLayout title="Đang tải...">
+        <div className="content-header">
+          <div className="container-fluid">
+            <div className="row mb-2">
+              <div className="col-sm-6">
+                <h1 className="m-0">Chi tiết sản phẩm</h1>
+              </div>
+              <div className="col-sm-6">
+                <Breadcrumb
+                  items={[
+                    { label: "Trang chủ", href: "/admin" },
+                    { label: "Sản phẩm", href: "/admin/products" },
+                    { label: "Đang tải...", active: true },
+                  ]}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        <section className="content">
+          <div className="container-fluid">
+            <div className="card">
+              <div
+                className="card-body d-flex justify-content-center align-items-center"
+                style={{ minHeight: "300px" }}
+              >
+                <div className="text-center">
+                  <div
+                    className="spinner-border text-primary mb-3"
+                    role="status"
+                  >
+                    <span className="sr-only">Đang tải...</span>
+                  </div>
+                  <p className="mb-0">Đang tải thông tin sản phẩm...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </AdminLayout>
+    );
+  }
+
+  // Hiển thị thông báo lỗi
+  if (error) {
+    return (
+      <AdminLayout title="Lỗi">
+        <div className="content-header">
+          <div className="container-fluid">
+            <div className="row mb-2">
+              <div className="col-sm-6">
+                <h1 className="m-0">Chi tiết sản phẩm</h1>
+              </div>
+              <div className="col-sm-6">
+                <Breadcrumb
+                  items={[
+                    { label: "Trang chủ", href: "/admin" },
+                    { label: "Sản phẩm", href: "/admin/products" },
+                    { label: "Lỗi", active: true },
+                  ]}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        <section className="content">
+          <div className="container-fluid">
+            <div className="card">
+              <div
+                className="card-body text-center"
+                style={{ minHeight: "300px" }}
+              >
+                <div className="text-danger mb-3">
+                  <i className="fas fa-exclamation-circle fa-3x"></i>
+                </div>
+                <h5 className="mb-3">{error}</h5>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => router.push("/admin/products")}
+                >
+                  <i className="fas fa-arrow-left mr-2"></i>
+                  Quay lại danh sách sản phẩm
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </AdminLayout>
+    );
+  }
+
+  if (!product) {
+    return (
+      <AdminLayout title="Không tìm thấy sản phẩm">
+        <div className="content-header">
+          <div className="container-fluid">
+            <div className="row mb-2">
+              <div className="col-sm-6">
+                <h1 className="m-0">Chi tiết sản phẩm</h1>
+              </div>
+              <div className="col-sm-6">
+                <Breadcrumb
+                  items={[
+                    { label: "Trang chủ", href: "/admin" },
+                    { label: "Sản phẩm", href: "/admin/products" },
+                    { label: "Không tìm thấy", active: true },
+                  ]}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        <section className="content">
+          <div className="container-fluid">
+            <div className="card">
+              <div
+                className="card-body text-center"
+                style={{ minHeight: "300px" }}
+              >
+                <div className="text-warning mb-3">
+                  <i className="fas fa-exclamation-triangle fa-3x"></i>
+                </div>
+                <h5 className="mb-3">Không tìm thấy thông tin sản phẩm</h5>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => router.push("/admin/products")}
+                >
+                  <i className="fas fa-arrow-left mr-2"></i>
+                  Quay lại danh sách sản phẩm
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout title={`Chi tiết sản phẩm ${product.name}`}>

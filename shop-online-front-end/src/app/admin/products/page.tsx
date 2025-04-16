@@ -6,11 +6,12 @@ import Image from "next/image";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
 import { ProductService } from "@/services/ProductService";
+import { Product } from "@/types/product";
 
 export default function ProductsPage() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [search, setSearchTerm] = useState("");
+  const [category, setCategoryFilter] = useState("");
+  const [status, setStatusFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const productsPerPage = 10;
 
@@ -26,16 +27,14 @@ export default function ProductsPage() {
 
   // Mock product categories
   const categories = [
-    { value: "all", label: "Tất cả danh mục" },
-    { value: "shirts", label: "Áo" },
-    { value: "pants", label: "Quần" },
-    { value: "jackets", label: "Áo khoác" },
-    { value: "accessories", label: "Phụ kiện" },
+    { value: "", label: "Tất cả danh mục" },
+    { value: "1", label: "Áo" },
+    { value: "2", label: "Quần" },
   ];
 
   // Mock product statuses
   const statuses = [
-    { value: "all", label: "Tất cả trạng thái" },
+    { value: "", label: "Tất cả trạng thái" },
     { value: "active", label: "Đang bán", class: "bg-success" },
     { value: "outofstock", label: "Hết hàng", class: "bg-danger" },
     { value: "draft", label: "Sản phẩm ảo", class: "bg-secondary" },
@@ -43,26 +42,27 @@ export default function ProductsPage() {
   // lấy data về
   const fetchProducts = useCallback(async () => {
     try {
+      setLoading(true);
       const response = await ProductService.getProducts(
         currentPage,
         productsPerPage,
         {
-          searchTerm,
-          categoryFilter,
-          statusFilter,
+          search: String(search),
+          category,
+          status,
         }
       );
-      // Chuyển đổi dữ liệu từ API sang định dạng hiển thị
-      const formattedProducts = (response.products || []).map((product) => {
-        // Tạo categoryLabel từ mảng categories
-        const categoryLabel =
-          product.categories?.map((cat) => cat.name).join(", ") || "";
 
-        return {
-          ...product, // giữ lại tất cả thuộc tính gốc
-          categoryLabel, // thêm label để hiển thị trên UI
-        };
-      });
+      const formattedProducts = (response.products || []).map(
+        (product: Product) => {
+          const categoryLabel =
+            product.categories?.map((cat) => cat.name).join(", ") || "";
+          return {
+            ...product,
+            categoryLabel,
+          };
+        }
+      );
 
       setProducts(formattedProducts || []);
       setPagination({
@@ -71,45 +71,27 @@ export default function ProductsPage() {
         totalItems: response.pagination.total,
         limit: productsPerPage,
       });
-      console.log("Products:", response.products);
+
+      setLoading(false);
     } catch (error) {
       console.error("Error fetching products:", error);
-      return [];
+      setLoading(false);
+      setError("Có lỗi xảy ra khi tải dữ liệu");
     }
-  }, [currentPage, productsPerPage, searchTerm, categoryFilter, statusFilter]);
+  }, [currentPage, productsPerPage, search, category, status]);
 
   // Lấy dữ liệu khi component mount hoặc khi các filter thay đổi
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
 
-  // Filter products based on search, category and status
-  const filteredProducts = products.filter((product) => {
-    // Search filter
-    const searchMatch =
-      searchTerm === "" ||
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.sku.toLowerCase().includes(searchTerm.toLowerCase());
-
-    // Category filter
-    const categoryMatch =
-      categoryFilter === "all" || product.category === categoryFilter;
-
-    // Status filter
-    const statusMatch =
-      statusFilter === "all" || product.status === statusFilter;
-
-    return searchMatch && categoryMatch && statusMatch;
-  });
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, category, status]);
 
   // Pagination logic
-  const indexOfLastProduct = currentPage * productsPerPage;
-  const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
-  const currentProducts = filteredProducts.slice(
-    indexOfFirstProduct,
-    indexOfLastProduct
-  );
-  const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
+  const currentProducts = products;
+  const totalPages = pagination.totalPages;
 
   // Breadcrumb items
   const breadcrumbItems = [
@@ -135,8 +117,8 @@ export default function ProductsPage() {
     // Nếu không, trả về ảnh đầu tiên hoặc ảnh mặc định
     return (
       mainImage?.url ||
-      variant.Image[0]?.url ||
-      "https://via.placeholder.com/50"
+      // variant.Image[0]?.url ||
+      "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/products/269ea64b-55b9b941_9b8e_4c6a_a35b_ee9806f43c5e.jpg"
     );
   };
   return (
@@ -195,7 +177,7 @@ export default function ProductsPage() {
                         type="text"
                         className="form-control"
                         placeholder="Tên sản phẩm, mã SKU..."
-                        value={searchTerm}
+                        value={search}
                         onChange={(e) => setSearchTerm(e.target.value)}
                       />
                       <div className="input-group-append">
@@ -211,7 +193,7 @@ export default function ProductsPage() {
                     <label>Danh mục</label>
                     <select
                       className="form-control"
-                      value={categoryFilter}
+                      value={category}
                       onChange={(e) => setCategoryFilter(e.target.value)}
                     >
                       {categories.map((category) => (
@@ -227,7 +209,7 @@ export default function ProductsPage() {
                     <label>Trạng thái</label>
                     <select
                       className="form-control"
-                      value={statusFilter}
+                      value={status}
                       onChange={(e) => setStatusFilter(e.target.value)}
                     >
                       {statuses.map((status) => (
@@ -276,8 +258,6 @@ export default function ProductsPage() {
                     <th>Mã sản phẩm</th>
                     <th>Tên sản phẩm</th>
                     <th>Danh mục</th>
-                    <th>Giá</th>
-                    <th>Giá gốc</th>
                     <th>Tồn kho</th>
                     <th>Trạng thái</th>
                     <th>Ngày tạo</th>
@@ -300,12 +280,7 @@ export default function ProductsPage() {
                         <td>{product.sku}</td>
                         <td>{product.name}</td>
                         <td>{product.categoryLabel}</td>
-                        <td>{product.price}</td>
-                        <td>
-                          <del className="text-muted">
-                            {product.originalPrice}
-                          </del>
-                        </td>
+
                         <td>
                           <span
                             className={
@@ -372,9 +347,15 @@ export default function ProductsPage() {
               <div className="float-left">
                 <div className="dataTables_info">
                   Hiển thị{" "}
-                  {filteredProducts.length > 0 ? indexOfFirstProduct + 1 : 0}{" "}
-                  đến {Math.min(indexOfLastProduct, filteredProducts.length)}{" "}
-                  của {filteredProducts.length} sản phẩm
+                  {products.length
+                    ? (pagination.currentPage - 1) * pagination.limit + 1
+                    : 0}{" "}
+                  đến{" "}
+                  {Math.min(
+                    pagination.currentPage * pagination.limit,
+                    pagination.totalItems
+                  )}{" "}
+                  của {pagination.totalItems} sản phẩm
                 </div>
               </div>
               <ul className="pagination pagination-sm m-0 float-right">

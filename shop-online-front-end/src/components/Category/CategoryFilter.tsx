@@ -44,37 +44,36 @@ export default function CategoryFilter({
       </div>
 
       {isOpen && (
-        <div className="space-y-2">
-          <div
-            className={`flex items-center cursor-pointer ${
-              activeCategory === "" ? "font-semibold" : ""
-            }`}
-            onClick={() => onFilterChange("")}
-          >
-            <span className="w-4 h-4 inline-block border border-gray-400 rounded mr-2 flex-shrink-0">
-              {activeCategory === "" && (
-                <span className="block w-full h-full bg-black rounded-sm"></span>
-              )}
-            </span>
-            <span>Tất cả</span>
-          </div>
+        <div className="mt-2 pl-2 space-y-2">
+          {categories.map((category, index) => {
+            // Skip rendering if category or category.id is undefined
+            if (!category || category.id === undefined) return null;
 
-          {categories.map((category) => (
-            <div
-              key={category.id}
-              className={`flex items-center cursor-pointer ${
-                activeCategory === category.id.toString() ? "font-semibold" : ""
-              }`}
-              onClick={() => onFilterChange(category.id.toString())}
-            >
-              <span className="w-4 h-4 inline-block border border-gray-400 rounded mr-2 flex-shrink-0">
-                {activeCategory === category.id.toString() && (
-                  <span className="block w-full h-full bg-black rounded-sm"></span>
-                )}
-              </span>
-              <span>{category.name}</span>
-            </div>
-          ))}
+            return (
+              <div
+                key={category.id || index}
+                className={`flex items-center cursor-pointer ${
+                  activeCategory === category.id.toString()
+                    ? "font-semibold text-blue-600"
+                    : ""
+                }`}
+                onClick={() => onFilterChange(category.id.toString())}
+              >
+                <span
+                  className={`w-4 h-4 border rounded mr-2 flex items-center justify-center ${
+                    activeCategory === category.id.toString()
+                      ? "border-blue-600"
+                      : "border-gray-300"
+                  }`}
+                >
+                  {activeCategory === category.id.toString() && (
+                    <span className="block w-2 h-2 bg-blue-600 rounded-sm"></span>
+                  )}
+                </span>
+                {category.name}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

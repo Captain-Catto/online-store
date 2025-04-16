@@ -13,6 +13,7 @@ import Voucher from "./Voucher";
 import PaymentMethod from "./PaymentMethod";
 import PaymentStatus from "./PaymentStatus";
 import RefreshToken from "./RefreshToken";
+import Subtype from "./Subtype";
 
 export default function initAssociations() {
   // Product - ProductDetail relationship
@@ -107,4 +108,10 @@ export default function initAssociations() {
   // User - UserAddress relationship
   Users.hasMany(UserAddress, { foreignKey: "userId", as: "addresses" });
   UserAddress.belongsTo(Users, { foreignKey: "userId", as: "user" });
+
+  Product.belongsTo(Subtype, { foreignKey: "subtypeId" });
+  Subtype.hasMany(Product, { foreignKey: "subtypeId" });
+
+  Subtype.belongsTo(Category, { as: "category", foreignKey: "categoryId" });
+  Category.hasMany(Subtype, { as: "subtypes", foreignKey: "categoryId" });
 }

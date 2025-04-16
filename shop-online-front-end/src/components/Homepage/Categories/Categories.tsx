@@ -9,7 +9,6 @@ import aoKhoac from "../../../assets/imgs/categories/ao-khoac-cate_16.webp";
 import quanDai from "../../../assets/imgs/categories/quan-dai-cate_24.webp";
 import quanShort from "../../../assets/imgs/categories/quan-short-cate_36.webp";
 import { CategoryGroup } from "@/types/category";
-import { API_BASE_URL } from "@/config/apiConfig";
 
 const Categories: React.FC = () => {
   // Dữ liệu danh mục
@@ -20,31 +19,31 @@ const Categories: React.FC = () => {
         {
           id: "ao-thun-nam",
           label: "ÁO THUN",
-          href: API_BASE_URL + "/products/category/1?subtype=t-shirt",
+          href: "/category/1?subtype=1",
           image: aoThun,
         },
         {
           id: "ao-so-mi-nam",
           label: "SƠ MI",
-          href: "/products/ao-so-mi-nam",
+          href: "/category/1?subtype=5",
           image: aoSoMi,
         },
         {
           id: "ao-khoac-nam",
           label: "ÁO KHOÁC",
-          href: "/products/ao-khoac-nam",
+          href: "/category/1?subtype=4",
           image: aoKhoac,
         },
         {
           id: "quan-dai-nam",
           label: "QUẦN DÀI",
-          href: "/products/quan-dai-nam",
+          href: "/category/2?subtype=14",
           image: quanDai,
         },
         {
           id: "quan-short-nam",
           label: "QUẦN SHORT",
-          href: "/products/quan-short-nam",
+          href: "/category/2?subtype=12",
           image: quanShort,
         },
       ],
