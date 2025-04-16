@@ -30,6 +30,7 @@ export default function AdminDashboardPage() {
     totalPages: 1,
     totalItems: 0,
   });
+  const [totalUsers, setTotalUsers] = useState(0);
 
   // Kiểm tra quyền admin
   useEffect(() => {
@@ -48,13 +49,16 @@ export default function AdminDashboardPage() {
 
         // setPagination để hiển thị cho stat card
         setPagination({
-          currentPage: orders.currentPage || 1,
-          totalPages: orders.totalPages || 1,
-          totalItems: orders.totalItems || 0,
+          currentPage: orders.pagination?.currentPage || 1,
+          totalPages: orders.pagination?.totalPages || 1,
+          totalItems: orders.pagination?.total || 0,
         });
 
+        // setTotalUsers để hiển thị cho stat card
+        setTotalUsers(orders.pagination?.total || 0);
+
         // Xử lý và định dạng dữ liệu cho component RecentOrdersTable
-        const formattedOrders = orders.items.slice(0, 10).map((order) => {
+        const formattedOrders = orders.orders.slice(0, 10).map((order) => {
           // Map trạng thái đơn hàng sang class tương ứng
           const getStatusClass = (status: string): string => {
             const statusMap: Record<string, string> = {

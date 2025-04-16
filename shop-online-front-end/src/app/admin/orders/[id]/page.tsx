@@ -611,7 +611,12 @@ export default function OrderDetailPage() {
                               />
                             </div>
                             <span className="text-sm text-gray-800">
-                              {item.product?.name}
+                              <Link
+                                href={`/admin/products/${item.productId}`}
+                                className="text-blue-500 hover:underline"
+                              >
+                                {item.product?.name}
+                              </Link>
                               <br />
                               <span className="text-xs text-gray-500">
                                 {item.color}, {item.size}

@@ -734,6 +734,7 @@ export const getProductsByCategory = async (
   res: Response
 ): Promise<void> => {
   try {
+    console.log("Fetching products by category ID");
     const { categoryId } = req.params;
 
     // Pagination parameters

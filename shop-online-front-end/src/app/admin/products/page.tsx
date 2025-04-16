@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import Images from "next/image";
+import Image from "next/image";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
+import { ProductService } from "@/services/ProductService";
 
 export default function ProductsPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -12,6 +13,16 @@ export default function ProductsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const productsPerPage = 10;
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [products, setProducts] = useState<any[]>([]);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    limit: 10,
+  });
 
   // Mock product categories
   const categories = [
@@ -29,122 +40,48 @@ export default function ProductsPage() {
     { value: "outofstock", label: "Hết hàng", class: "bg-danger" },
     { value: "draft", label: "Sản phẩm ảo", class: "bg-secondary" },
   ];
+  // lấy data về
+  const fetchProducts = useCallback(async () => {
+    try {
+      const response = await ProductService.getProducts(
+        currentPage,
+        productsPerPage,
+        {
+          searchTerm,
+          categoryFilter,
+          statusFilter,
+        }
+      );
+      // Chuyển đổi dữ liệu từ API sang định dạng hiển thị
+      const formattedProducts = (response.products || []).map((product) => {
+        // Tạo categoryLabel từ mảng categories
+        const categoryLabel =
+          product.categories?.map((cat) => cat.name).join(", ") || "";
 
-  // Mock product data
-  const products = [
-    {
-      id: "P001",
-      name: "Áo thun cotton basic",
-      sku: "AT-NAM-001",
-      category: "shirts",
-      categoryLabel: "Áo",
-      price: "299.000đ",
-      originalPrice: "350.000đ",
-      stock: 150,
-      status: "active",
-      statusLabel: "Đang bán",
-      statusClass: "bg-success",
-      image:
-        "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/ao-thun-nam-cotton/AT.220.xd.12.webp",
-      createdAt: "15/01/2025",
-    },
-    {
-      id: "P002",
-      name: "Quần jean nam slim fit",
-      sku: "QJ-NAM-002",
-      category: "pants",
-      categoryLabel: "Quần",
-      price: "499.000đ",
-      originalPrice: "599.000đ",
-      stock: 80,
-      status: "active",
-      statusLabel: "Đang bán",
-      statusClass: "bg-success",
-      image:
-        "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/ao-thun-nam-cotton/AT.220.xd.12.webp",
-      createdAt: "20/01/2025",
-    },
-    {
-      id: "P003",
-      name: "Áo khoác dù unisex",
-      sku: "AK-UNI-003",
-      category: "jackets",
-      categoryLabel: "Áo khoác",
-      price: "1.200.000đ",
-      originalPrice: "1.500.000đ",
-      stock: 0,
-      status: "outofstock",
-      statusLabel: "Hết hàng",
-      statusClass: "bg-danger",
-      image:
-        "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/ao-thun-nam-cotton/AT.220.xd.12.webp",
-      createdAt: "25/01/2025",
-    },
-    {
-      id: "P004",
-      name: "Áo sơ mi nam dài tay",
-      sku: "ASM-NAM-004",
-      category: "shirts",
-      categoryLabel: "Áo",
-      price: "450.000đ",
-      originalPrice: "550.000đ",
-      stock: 120,
-      status: "active",
-      statusLabel: "Đang bán",
-      statusClass: "bg-success",
-      image:
-        "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/ao-thun-nam-cotton/AT.220.xd.12.webp",
-      createdAt: "01/02/2025",
-    },
-    {
-      id: "P005",
-      name: "Quần kaki nam",
-      sku: "QK-NAM-005",
-      category: "pants",
-      categoryLabel: "Quần",
-      price: "399.000đ",
-      originalPrice: "499.000đ",
-      stock: 5,
-      status: "active",
-      statusLabel: "Đang bán",
-      statusClass: "bg-success",
-      image:
-        "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/ao-thun-nam-cotton/AT.220.xd.12.webp",
-      createdAt: "05/02/2025",
-    },
-    {
-      id: "P006",
-      name: "Vớ nam cổ ngắn",
-      sku: "VO-NAM-006",
-      category: "accessories",
-      categoryLabel: "Phụ kiện",
-      price: "59.000đ",
-      originalPrice: "79.000đ",
-      stock: 250,
-      status: "active",
-      statusLabel: "Đang bán",
-      statusClass: "bg-success",
-      image:
-        "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/ao-thun-nam-cotton/AT.220.xd.12.webp",
-      createdAt: "10/02/2025",
-    },
-    {
-      id: "P007",
-      name: "Áo thun oversize",
-      sku: "AT-NAM-007",
-      category: "shirts",
-      categoryLabel: "Áo",
-      price: "289.000đ",
-      originalPrice: "339.000đ",
-      stock: 0,
-      status: "draft",
-      statusLabel: "Sản phẩm ảo",
-      statusClass: "bg-secondary",
-      image:
-        "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/ao-thun-nam-cotton/AT.220.xd.12.webp",
-      createdAt: "15/02/2025",
-    },
-  ];
+        return {
+          ...product, // giữ lại tất cả thuộc tính gốc
+          categoryLabel, // thêm label để hiển thị trên UI
+        };
+      });
+
+      setProducts(formattedProducts || []);
+      setPagination({
+        currentPage: response.pagination.currentPage,
+        totalPages: response.pagination.totalPages,
+        totalItems: response.pagination.total,
+        limit: productsPerPage,
+      });
+      console.log("Products:", response.products);
+    } catch (error) {
+      console.error("Error fetching products:", error);
+      return [];
+    }
+  }, [currentPage, productsPerPage, searchTerm, categoryFilter, statusFilter]);
+
+  // Lấy dữ liệu khi component mount hoặc khi các filter thay đổi
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
 
   // Filter products based on search, category and status
   const filteredProducts = products.filter((product) => {
@@ -180,6 +117,28 @@ export default function ProductsPage() {
     { label: "Quản lý sản phẩm", active: true },
   ];
 
+  const getProductImageUrl = (product) => {
+    console.log("Product:", product);
+    // Nếu không có variants, trả về ảnh mặc định
+    if (!product.variants || Object.keys(product.variants).length === 0) {
+      return "https://via.placeholder.com/50";
+    }
+
+    // Lấy màu đầu tiên
+    const firstColorKey = Object.keys(product.variants)[0];
+    const variant = product.variants[firstColorKey];
+
+    // Tìm ảnh chính (isMain = true)
+    const mainImage = variant.images.find((img) => img.isMain);
+
+    // Nếu có ảnh chính, trả về URL của nó
+    // Nếu không, trả về ảnh đầu tiên hoặc ảnh mặc định
+    return (
+      mainImage?.url ||
+      variant.Image[0]?.url ||
+      "https://via.placeholder.com/50"
+    );
+  };
   return (
     <AdminLayout title="Quản lý sản phẩm">
       {/* Content Header */}
@@ -330,8 +289,8 @@ export default function ProductsPage() {
                     currentProducts.map((product) => (
                       <tr key={product.id}>
                         <td>
-                          <Images
-                            src={product.image}
+                          <Image
+                            src={getProductImageUrl(product)}
                             alt={product.name}
                             width="50"
                             height="50"
@@ -350,12 +309,12 @@ export default function ProductsPage() {
                         <td>
                           <span
                             className={
-                              product.stock <= 10
+                              product.stock?.total <= 10
                                 ? "text-danger font-weight-bold"
                                 : ""
                             }
                           >
-                            {product.stock}
+                            {product.stock?.total || 0}
                           </span>
                         </td>
                         <td>

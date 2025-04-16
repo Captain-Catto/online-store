@@ -315,10 +315,13 @@ export const getAllOrders = async (
     });
 
     res.status(200).json({
-      totalItems: count,
-      totalPages: Math.ceil(count / Number(limit)),
-      currentPage: Number(page),
-      items: orders,
+      orders,
+      pagination: {
+        total: count,
+        currentPage: Number(page),
+        totalPages: Math.ceil(count / Number(limit)),
+        perPage: Number(limit),
+      },
     });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

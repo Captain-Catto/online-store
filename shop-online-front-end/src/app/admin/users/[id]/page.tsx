@@ -6,7 +6,7 @@ import Link from "next/link";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
 
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import { AuthClient } from "@/services/AuthClient";
 import { API_BASE_URL } from "@/config/apiConfig";
 import { Order } from "@/types/order";
@@ -34,6 +34,10 @@ export default function UserDetailPage() {
   });
   const [orderStatus, setOrderStatus] = useState("all");
 
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [isStatusLoading, setIsStatusLoading] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+
   // Danh sách các trạng thái đơn hàng
   const orderStatuses = [
     { value: "all", label: "Tất cả" },
@@ -44,39 +48,42 @@ export default function UserDetailPage() {
     { value: "cancelled", label: "Đã hủy" },
   ];
 
-  const fetchUserOrders = async (page = currentPage, status = orderStatus) => {
-    try {
-      setOrdersLoading(true);
-      setOrdersError(null);
+  const fetchUserOrders = useCallback(
+    async (page = currentPage, status = orderStatus) => {
+      try {
+        setOrdersLoading(true);
+        setOrdersError(null);
 
-      let url = `${API_BASE_URL}/orders/user/${id}?page=${page}&limit=${pagination.perPage}`;
-      if (status !== "all") {
-        url += `&status=${status}`;
+        let url = `${API_BASE_URL}/orders/user/${id}?page=${page}&limit=${pagination.perPage}`;
+        if (status !== "all") {
+          url += `&status=${status}`;
+        }
+
+        console.log("Fetching user orders from:", url);
+        const response = await AuthClient.fetchWithAuth(url);
+
+        if (!response.ok) {
+          throw new Error(`Error fetching orders: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("User orders data:", data);
+
+        setUserOrders(data.orders);
+        setPagination(data.pagination);
+      } catch (error) {
+        console.error("Failed to fetch user orders:", error);
+        setOrdersError(
+          error instanceof Error
+            ? error.message
+            : "Không thể tải dữ liệu đơn hàng"
+        );
+      } finally {
+        setOrdersLoading(false);
       }
-
-      console.log("Fetching user orders from:", url);
-      const response = await AuthClient.fetchWithAuth(url);
-
-      if (!response.ok) {
-        throw new Error(`Error fetching orders: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log("User orders data:", data);
-
-      setUserOrders(data.orders);
-      setPagination(data.pagination);
-    } catch (error) {
-      console.error("Failed to fetch user orders:", error);
-      setOrdersError(
-        error instanceof Error
-          ? error.message
-          : "Không thể tải dữ liệu đơn hàng"
-      );
-    } finally {
-      setOrdersLoading(false);
-    }
-  };
+    },
+    [id, currentPage, orderStatus, pagination.perPage]
+  );
 
   const fetchUserData = async () => {
     try {
@@ -117,7 +124,7 @@ export default function UserDetailPage() {
     if (activeTab === "orders") {
       fetchUserOrders(currentPage, orderStatus);
     }
-  }, [activeTab, id, currentPage, orderStatus]);
+  }, [activeTab, id, currentPage, orderStatus, fetchUserOrders]);
 
   // Breadcrumb items
   const breadcrumbItems = [
@@ -190,7 +197,7 @@ export default function UserDetailPage() {
         <div className="flex items-center">
           <label
             htmlFor="status-filter"
-            className="mr-2 text-sm font-medium text-gray-700"
+            className="mr-2 mb-0 text-sm font-medium text-gray-700"
           >
             Lọc theo trạng thái:
           </label>
@@ -219,6 +226,49 @@ export default function UserDetailPage() {
       </div>
     </div>
   );
+
+  const handleToggleStatusClick = () => {
+    setShowStatusModal(true);
+    setStatusError(null);
+  };
+
+  const handleToggleStatus = async () => {
+    try {
+      setIsStatusLoading(true);
+      setStatusError(null);
+
+      const response = await AuthClient.fetchWithAuth(
+        `${API_BASE_URL}/users/${id}/toggle-status`,
+        {
+          method: "PATCH",
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `Không thể thay đổi trạng thái tài khoản`
+        );
+      }
+
+      const updatedUser = await response.json();
+
+      // Cập nhật dữ liệu người dùng trong state
+      setUser((prev) => (prev ? { ...prev, isActive: !prev.isActive } : null));
+
+      // Đóng modal sau khi thành công
+      setShowStatusModal(false);
+    } catch (error) {
+      console.error("Failed to toggle user status:", error);
+      setStatusError(
+        error instanceof Error
+          ? error.message
+          : "Đã xảy ra lỗi khi thay đổi trạng thái tài khoản"
+      );
+    } finally {
+      setIsStatusLoading(false);
+    }
+  };
 
   return (
     <AdminLayout title={`Thông tin khách hàng ${id}`}>
@@ -257,11 +307,17 @@ export default function UserDetailPage() {
                 <i className="fas fa-edit mr-2"></i> Chỉnh sửa
               </button>
               {user?.isActive ? (
-                <button className="inline-flex items-center px-4 py-2 bg-danger border border-transparent rounded-md font-semibold text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition">
+                <button
+                  onClick={handleToggleStatusClick}
+                  className="inline-flex items-center px-4 py-2 bg-danger border border-transparent rounded-md font-semibold text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition"
+                >
                   <i className="fas fa-ban mr-2"></i> Vô hiệu hóa
                 </button>
               ) : (
-                <button className="inline-flex items-center px-4 py-2 bg-success border border-transparent rounded-md font-semibold text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition">
+                <button
+                  onClick={handleToggleStatusClick}
+                  className="inline-flex items-center px-4 py-2 bg-success border border-transparent rounded-md font-semibold text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition"
+                >
                   <i className="fas fa-check-circle mr-2"></i> Kích hoạt
                 </button>
               )}
@@ -455,7 +511,8 @@ export default function UserDetailPage() {
                               Ngày sinh
                             </td>
                             <td className="py-3 text-sm text-gray-900">
-                              {user?.dateOfBirth || "Chưa cung cấp"}
+                              {formatDateDisplay(user?.dateOfBirth || "") ||
+                                "Chưa cung cấp"}
                             </td>
                           </tr>
                         </tbody>
@@ -645,36 +702,62 @@ export default function UserDetailPage() {
                     <h3 className="font-medium text-gray-900 mb-3">
                       Danh sách địa chỉ
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {userOrders.addresses.map((address) => (
+
+                    {userLoading ? (
+                      <div className="text-center py-4">
                         <div
-                          key={address.id}
-                          className={`border rounded-lg p-4 ${
-                            address.isDefault
-                              ? "border-blue-500 bg-blue-50"
-                              : "border-gray-200"
-                          }`}
+                          className="spinner-border text-primary"
+                          role="status"
                         >
-                          <div className="flex justify-between items-start mb-2">
-                            <h4 className="font-medium text-gray-900">
-                              {address.name}
-                              {address.isDefault && (
-                                <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
-                                  Mặc định
-                                </span>
-                              )}
-                            </h4>
-                          </div>
-                          <p className="text-gray-600 mb-1">
-                            {address.address}
-                          </p>
-                          <p className="text-gray-600 mb-1">{address.city}</p>
-                          <p className="text-gray-600">
-                            Điện thoại: {address.phone}
-                          </p>
+                          <span className="sr-only">Đang tải...</span>
                         </div>
-                      ))}
-                    </div>
+                        <p className="mt-2">Đang tải dữ liệu địa chỉ...</p>
+                      </div>
+                    ) : userError ? (
+                      <div className="alert alert-danger">
+                        <i className="fas fa-exclamation-circle mr-2"></i>{" "}
+                        {userError}
+                      </div>
+                    ) : user?.addresses && user.addresses.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {user.addresses.map((address) => (
+                          <div
+                            key={address.id}
+                            className={`border rounded-lg p-4 ${
+                              address.isDefault
+                                ? "border-blue-500 bg-blue-50"
+                                : "border-gray-200"
+                            }`}
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <h4 className="font-medium text-gray-900">
+                                {address.fullName || "Địa chỉ"}
+                                {address.isDefault && (
+                                  <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
+                                    Mặc định
+                                  </span>
+                                )}
+                              </h4>
+                            </div>
+                            <p className="text-gray-600 mb-1">
+                              {address.streetAddress}
+                            </p>
+                            <p className="text-gray-600 mb-1">
+                              {address.ward}, {address.district}, {address.city}
+                            </p>
+                            <p className="text-gray-600">
+                              Điện thoại: {address.phoneNumber}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 bg-gray-50 rounded-lg">
+                        <p className="text-gray-500">
+                          Người dùng chưa có địa chỉ nào
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -685,7 +768,9 @@ export default function UserDetailPage() {
                       Ghi chú về khách hàng
                     </h3>
                     <div className="bg-gray-50 p-4 rounded-lg">
-                      <p className="text-gray-700">{userOrders.notes}</p>
+                      <p className="text-gray-700">
+                        {user?.notes || "Chưa có ghi chú nào về khách hàng này"}
+                      </p>
                     </div>
                     <div className="mt-4">
                       <label
@@ -714,6 +799,63 @@ export default function UserDetailPage() {
           </div>
         </div>
       </section>
+      {/* Modal xác nhận thay đổi trạng thái */}
+      {showStatusModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-xl font-bold mb-4">
+              {user?.isActive
+                ? "Vô hiệu hóa tài khoản?"
+                : "Kích hoạt tài khoản?"}
+            </h3>
+            <p className="mb-6">
+              {user?.isActive
+                ? "Bạn có chắc chắn muốn vô hiệu hóa tài khoản này? Người dùng sẽ không thể đăng nhập vào hệ thống."
+                : "Bạn có chắc chắn muốn kích hoạt tài khoản này? Người dùng sẽ có thể đăng nhập và sử dụng hệ thống."}
+            </p>
+
+            {statusError && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                {statusError}
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-3 gap-1">
+              <button
+                onClick={() => setShowStatusModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                disabled={isStatusLoading}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleToggleStatus}
+                className={`px-4 py-2 rounded-md text-white ${
+                  user?.isActive
+                    ? "bg-red-600 hover:bg-red-700"
+                    : "bg-green-600 hover:bg-green-700"
+                }`}
+                disabled={isStatusLoading}
+              >
+                {isStatusLoading ? (
+                  <>
+                    <span
+                      className="spinner-border spinner-border-sm mr-2"
+                      role="status"
+                      aria-hidden="true"
+                    ></span>
+                    Đang xử lý...
+                  </>
+                ) : user?.isActive ? (
+                  "Vô hiệu hóa"
+                ) : (
+                  "Kích hoạt"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }

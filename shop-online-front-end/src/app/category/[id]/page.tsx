@@ -14,6 +14,7 @@ import ProductGrid from "@/components/Category/ProductGrid";
 import Pagination from "@/components/Category/Pagination";
 import { ProductService } from "@/services/ProductService";
 import { Product } from "@/types/product";
+import { CategoryWithSubtypes } from "@/types/category";
 
 export default function CategoryDetailPage() {
   const params = useParams();
@@ -21,6 +22,9 @@ export default function CategoryDetailPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const categoryId = params.id as string;
+  const [productGroups, setProductGroups] = useState<CategoryWithSubtypes[]>(
+    []
+  );
 
   // States
   const [products, setProducts] = useState<Product[]>([]);
@@ -50,6 +54,8 @@ export default function CategoryDetailPage() {
     suitability: false,
     size: false,
     color: false,
+    category: false,
+    productGroups: true,
   });
 
   // Khởi tạo filter từ URL params
@@ -63,6 +69,7 @@ export default function CategoryDetailPage() {
         : [],
       color: searchParams.get("color") || "",
       category: categoryId,
+      subtype: searchParams.get("subtype") || "",
     };
   });
 
@@ -321,6 +328,10 @@ export default function CategoryDetailPage() {
             handleSuitabilityFilter={handleSuitabilityFilter}
             handleSizeFilter={handleSizeFilter}
             handleColorFilter={handleColorFilter}
+            handleCategoryFilter={(category: string) =>
+              setFilters((prev) => ({ ...prev, category }))
+            }
+            categories={availableSuitability}
             availableSuitability={availableSuitability}
           />
 
