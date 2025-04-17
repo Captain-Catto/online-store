@@ -12,7 +12,9 @@ import { Op, FindOptions } from "sequelize";
 interface ExtendedFindOptions extends FindOptions {
   distinct?: boolean;
 }
-
+interface S3File extends Express.Multer.File {
+  location: string;
+}
 /**
  * Create a product with details and inventory
  */
@@ -20,9 +22,10 @@ export const createProductWithDetails = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  // bắt đầu transaction để đảm bảo tính toàn vẹn dữ liệu
   const t = await sequelize.transaction();
 
+  // Get uploaded files
+  const files = req.files as S3File[];
   try {
     const {
       name,
@@ -34,10 +37,19 @@ export const createProductWithDetails = async (
       status,
       tags,
       suitability,
-      details,
       categories,
     } = req.body;
 
+    // Parse JSON data sent as strings from form-data
+    const details = JSON.parse(req.body.details || "[]");
+    const categoriesData = JSON.parse(req.body.categories || "[]");
+    const imageIsMain = JSON.parse(req.body.imageIsMain || "{}");
+
+    if (!name || !sku) {
+      await t.rollback();
+      res.status(400).json({ message: "Thiếu thông tin tên và mã sản phẩm" });
+      return;
+    }
     // Check if product with same SKU already exists
     if (sku) {
       const existingProduct = await Product.findOne({
@@ -60,13 +72,38 @@ export const createProductWithDetails = async (
         description,
         brand,
         material,
-        featured: featured || false,
+        featured: featured === "true" || featured === true,
         status: status || "draft",
-        tags,
-        suitability,
+        tags: typeof tags === "string" ? JSON.parse(tags) : tags,
+        suitability:
+          typeof suitability === "string"
+            ? JSON.parse(suitability)
+            : suitability,
       },
       { transaction: t }
     );
+
+    // Map to track which images belong to which color
+    const colorImageMap = new Map();
+
+    // Process uploaded files if any - group by color
+    if (files && files.length > 0) {
+      // Extract color information from the form
+      const imageColors = JSON.parse(req.body.imageColors || "{}");
+
+      // Group images by color
+      files.forEach((file, index) => {
+        const color = imageColors[index] || "default";
+        if (!colorImageMap.has(color)) {
+          colorImageMap.set(color, []);
+        }
+        colorImageMap.get(color).push({
+          url: file.location,
+          isMain: imageIsMain[index] === true || imageIsMain[index] === "true",
+          displayOrder: colorImageMap.get(color).length,
+        });
+      });
+    }
 
     // Create product details with their respective inventories and prices
     for (const detail of details) {
@@ -86,7 +123,7 @@ export const createProductWithDetails = async (
         for (const sizeInfo of detail.sizes) {
           await ProductInventory.create(
             {
-              productDetailId: (productDetail as any).id,
+              productDetailId: productDetail.id,
               size: sizeInfo.size,
               stock: sizeInfo.stock || 0,
             },
@@ -94,11 +131,25 @@ export const createProductWithDetails = async (
           );
         }
       }
+
+      // Add images for this detail if they exist in the map
+      const colorImages = colorImageMap.get(detail.color) || [];
+      for (const imageInfo of colorImages) {
+        await ProductImage.create(
+          {
+            productDetailId: productDetail.id,
+            url: imageInfo.url,
+            isMain: imageInfo.isMain,
+            displayOrder: imageInfo.displayOrder,
+          },
+          { transaction: t }
+        );
+      }
     }
 
     // Add product to categories if specified
-    if (categories && categories.length > 0) {
-      const categoryEntries = categories.map((categoryId: number) => ({
+    if (categoriesData && categoriesData.length > 0) {
+      const categoryEntries = categoriesData.map((categoryId: number) => ({
         productId: newProduct.id,
         categoryId,
       }));
@@ -115,6 +166,21 @@ export const createProductWithDetails = async (
     });
   } catch (error: any) {
     await t.rollback();
+    // Xóa các file đã upload lên S3 nếu có lỗi
+    if (files && files.length > 0) {
+      try {
+        console.log("Cleaning up uploaded files from S3");
+        await Promise.all(
+          files.map((file) => {
+            const key = file.location.split("/").pop(); // Lấy key từ URL
+            return deleteFile(file.location);
+          })
+        );
+      } catch (cleanupError) {
+        console.error("Error cleaning up S3 files:", cleanupError);
+        // Vẫn tiếp tục xử lý lỗi chính
+      }
+    }
     res.status(500).json({
       message: "Lỗi khi tạo sản phẩm",
       error: error.message,
@@ -613,89 +679,6 @@ export const getProductById = async (
 };
 
 /**
- * Update a product
- */
-export const updateProduct = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  const t = await sequelize.transaction();
-
-  try {
-    const { id } = req.params;
-    const {
-      name,
-      sku,
-      description,
-      brand,
-      material,
-      featured,
-      status,
-      tags,
-      suitability,
-      categories,
-    } = req.body;
-
-    // Find product
-    const product = await Product.findByPk(id, { transaction: t });
-
-    if (!product) {
-      await t.rollback();
-      res.status(404).json({ message: "Sản phẩm không tồn tại" });
-      return;
-    }
-
-    // Update product basic information
-    await product.update(
-      {
-        name,
-        sku,
-        description,
-        brand,
-        material,
-        featured,
-        status,
-        tags,
-        suitability,
-      },
-      { transaction: t }
-    );
-
-    // Update categories if provided
-    if (categories) {
-      // Remove existing categories
-      await ProductCategory.destroy({
-        where: { productId: id },
-        transaction: t,
-      });
-
-      // Add new categories
-      if (categories.length > 0) {
-        const categoryEntries = categories.map((categoryId: number) => ({
-          productId: Number(id),
-          categoryId,
-        }));
-
-        await ProductCategory.bulkCreate(categoryEntries, { transaction: t });
-      }
-    }
-
-    await t.commit();
-
-    res.status(200).json({
-      message: "Cập nhật sản phẩm thành công",
-      productId: id,
-    });
-  } catch (error: any) {
-    await t.rollback();
-    res.status(500).json({
-      message: "Lỗi khi cập nhật sản phẩm",
-      error: error.message,
-    });
-  }
-};
-
-/**
  * Delete a product and all associated details and inventory
  */
 export const deleteProduct = async (
@@ -1137,5 +1120,743 @@ export const getProductVariantsById = async (
     res.status(200).json(product);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * Update basic product information
+ */
+export const updateProductBasicInfo = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const t = await sequelize.transaction();
+
+  try {
+    const { id } = req.params;
+    const {
+      name,
+      sku,
+      description,
+      brand,
+      material,
+      featured,
+      status,
+      tags,
+      suitability,
+      categories,
+    } = req.body;
+
+    // Check if product exists
+    const product = await Product.findByPk(id, { transaction: t });
+    if (!product) {
+      await t.rollback();
+      res.status(404).json({ message: "Sản phẩm không tồn tại" });
+      return;
+    }
+
+    // Update basic product information
+    await product.update(
+      {
+        name,
+        sku,
+        description,
+        brand,
+        material,
+        featured: featured === "true" || featured === true,
+        status: status || "draft",
+        tags: typeof tags === "string" ? JSON.parse(tags) : tags,
+        suitability:
+          typeof suitability === "string"
+            ? JSON.parse(suitability)
+            : suitability,
+      },
+      { transaction: t }
+    );
+
+    // Update categories if provided
+    if (categories && categories.length > 0) {
+      // Remove existing categories
+      await ProductCategory.destroy({
+        where: { productId: id },
+        transaction: t,
+      });
+
+      // Add new categories
+      const categoryEntries = categories.map((categoryId: number) => ({
+        productId: Number(id),
+        categoryId,
+      }));
+
+      await ProductCategory.bulkCreate(categoryEntries, { transaction: t });
+    }
+
+    await t.commit();
+    res.status(200).json({
+      message: "Cập nhật thông tin cơ bản sản phẩm thành công",
+      productId: id,
+    });
+  } catch (error: any) {
+    await t.rollback();
+    console.error("UPDATE BASIC PRODUCT INFO ERROR:", {
+      message: error.message,
+      stack: error.stack,
+      requestId: req.params.id,
+    });
+
+    res.status(500).json({
+      message: "Lỗi khi cập nhật thông tin cơ bản sản phẩm",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Update product inventory
+ */
+export const updateProductInventory = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const t = await sequelize.transaction();
+
+  try {
+    const { id } = req.params;
+    const { details } = req.body;
+
+    // Check if product exists
+    const product = await Product.findByPk(id, { transaction: t });
+    if (!product) {
+      await t.rollback();
+      res.status(404).json({ message: "Sản phẩm không tồn tại" });
+      return;
+    }
+
+    // Process each detail
+    for (const detail of details) {
+      if (detail.id) {
+        // Existing detail
+        const productDetail = await ProductDetail.findByPk(detail.id, {
+          transaction: t,
+          include: [{ model: ProductInventory, as: "inventories" }],
+        });
+
+        if (productDetail) {
+          // Update price information
+          if (
+            detail.price !== undefined ||
+            detail.originalPrice !== undefined
+          ) {
+            await productDetail.update(
+              {
+                price: detail.price || productDetail.getDataValue("price"),
+                originalPrice:
+                  detail.originalPrice ||
+                  detail.price ||
+                  productDetail.getDataValue("originalPrice"),
+              },
+              { transaction: t }
+            );
+          }
+
+          // Update inventories
+          if (detail.sizes && Array.isArray(detail.sizes)) {
+            // Get existing inventories
+            const existingInventories =
+              (productDetail as any).inventories || [];
+
+            // Create map for quick lookup
+            const inventoryMap = new Map();
+            existingInventories.forEach((inv: any) => {
+              inventoryMap.set(inv.size, inv);
+            });
+
+            // Update or create inventory items
+            for (const sizeInfo of detail.sizes) {
+              const existing = inventoryMap.get(sizeInfo.size);
+
+              if (existing) {
+                // Update existing inventory
+                await existing.update(
+                  {
+                    stock: sizeInfo.stock,
+                  },
+                  { transaction: t }
+                );
+              } else {
+                // Create new inventory
+                await ProductInventory.create(
+                  {
+                    productDetailId: detail.id,
+                    size: sizeInfo.size,
+                    stock: sizeInfo.stock || 0,
+                  },
+                  { transaction: t }
+                );
+              }
+            }
+
+            // Delete sizes that are not in the update
+            const updatedSizes: string[] = detail.sizes.map(
+              (s: { size: string }) => s.size
+            );
+            for (const inv of existingInventories) {
+              if (!updatedSizes.includes(inv.size)) {
+                await inv.destroy({ transaction: t });
+              }
+            }
+          }
+        }
+      } else if (detail.color) {
+        // New detail - first check if color already exists
+        const existingDetail = await ProductDetail.findOne({
+          where: {
+            productId: id,
+            color: detail.color,
+          },
+          transaction: t,
+        });
+
+        if (existingDetail) {
+          // Color already exists, update it
+          await existingDetail.update(
+            {
+              price: detail.price || 0,
+              originalPrice: detail.originalPrice || detail.price || 0,
+            },
+            { transaction: t }
+          );
+
+          if (detail.sizes && Array.isArray(detail.sizes)) {
+            for (const sizeInfo of detail.sizes) {
+              // Check if inventory for this size exists
+              const existingInventory = await ProductInventory.findOne({
+                where: {
+                  productDetailId: existingDetail.id,
+                  size: sizeInfo.size,
+                },
+                transaction: t,
+              });
+
+              if (existingInventory) {
+                await existingInventory.update(
+                  {
+                    stock: sizeInfo.stock || 0,
+                  },
+                  { transaction: t }
+                );
+              } else {
+                await ProductInventory.create(
+                  {
+                    productDetailId: existingDetail.id,
+                    size: sizeInfo.size,
+                    stock: sizeInfo.stock || 0,
+                  },
+                  { transaction: t }
+                );
+              }
+            }
+          }
+        } else {
+          // Create new detail
+          const newDetail = await ProductDetail.create(
+            {
+              productId: id,
+              color: detail.color,
+              price: detail.price || 0,
+              originalPrice: detail.originalPrice || detail.price || 0,
+            },
+            { transaction: t }
+          );
+
+          if (detail.sizes && Array.isArray(detail.sizes)) {
+            for (const sizeInfo of detail.sizes) {
+              await ProductInventory.create(
+                {
+                  productDetailId: newDetail.id,
+                  size: sizeInfo.size,
+                  stock: sizeInfo.stock || 0,
+                },
+                { transaction: t }
+              );
+            }
+          }
+        }
+      }
+    }
+
+    await t.commit();
+    res.status(200).json({
+      message: "Cập nhật tồn kho sản phẩm thành công",
+      productId: id,
+    });
+  } catch (error: any) {
+    await t.rollback();
+    console.error("UPDATE PRODUCT INVENTORY ERROR:", {
+      message: error.message,
+      stack: error.stack,
+      requestId: req.params.id,
+    });
+
+    res.status(500).json({
+      message: "Lỗi khi cập nhật tồn kho sản phẩm",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Add images to product
+ */
+export const addProductImages = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const t = await sequelize.transaction();
+
+  // Get uploaded files
+  const files = req.files as S3File[];
+  try {
+    const { id } = req.params;
+
+    // Check if product exists
+    const product = await Product.findByPk(id, {
+      include: [{ model: ProductDetail, as: "details" }],
+      transaction: t,
+    });
+
+    if (!product) {
+      await t.rollback();
+      res.status(404).json({ message: "Sản phẩm không tồn tại" });
+      return;
+    }
+
+    // Extract metadata
+    let imageColors: Record<string, string> = {};
+    let imageIsMain: Record<string, boolean | string> = {};
+
+    try {
+      imageColors = JSON.parse(req.body.imageColors || "{}");
+      imageIsMain = JSON.parse(req.body.imageIsMain || "{}");
+    } catch (e) {
+      await t.rollback();
+      res.status(400).json({ message: "Dữ liệu hình ảnh không hợp lệ" });
+      return;
+    }
+
+    // Map to track which images belong to which color
+    const colorImageMap = new Map();
+
+    // Process uploaded files
+    if (!files || files.length === 0) {
+      await t.rollback();
+      res.status(400).json({ message: "Không có hình ảnh được tải lên" });
+      return;
+    }
+
+    // Group images by color
+    files.forEach((file, index) => {
+      const indexKey = index.toString();
+      const color = imageColors[indexKey] || "default";
+
+      if (!colorImageMap.has(color)) {
+        colorImageMap.set(color, []);
+      }
+
+      colorImageMap.get(color).push({
+        url: file.location,
+        isMain:
+          imageIsMain[indexKey] === true || imageIsMain[indexKey] === "true",
+        displayOrder: colorImageMap.get(color).length,
+      });
+    });
+
+    // Process each color's images
+    for (const [color, images] of colorImageMap.entries()) {
+      // Find product detail for this color
+      let productDetail = (product as any).details.find(
+        (detail: any) => detail.color === color
+      );
+
+      // If detail doesn't exist for this color, create one
+      if (!productDetail) {
+        productDetail = await ProductDetail.create(
+          {
+            productId: product.id,
+            color: color,
+            price: 0, // Default price
+            originalPrice: 0,
+          },
+          { transaction: t }
+        );
+      }
+
+      // Add images to this detail
+      for (const imageInfo of images) {
+        // If this is set as main, remove main flag from other images
+        if (imageInfo.isMain) {
+          await ProductImage.update(
+            { isMain: false },
+            {
+              where: {
+                productDetailId: productDetail.id,
+                isMain: true,
+              },
+              transaction: t,
+            }
+          );
+        }
+
+        // Create the new image
+        await ProductImage.create(
+          {
+            productDetailId: productDetail.id,
+            url: imageInfo.url,
+            isMain: imageInfo.isMain,
+            displayOrder: imageInfo.displayOrder,
+          },
+          { transaction: t }
+        );
+      }
+    }
+
+    await t.commit();
+    res.status(200).json({
+      message: "Thêm hình ảnh sản phẩm thành công",
+      productId: id,
+    });
+  } catch (error: any) {
+    await t.rollback();
+
+    // Clean up uploaded files on error
+    if (files && files.length > 0) {
+      try {
+        await Promise.all(files.map((file) => deleteFile(file.location)));
+      } catch (cleanupError) {
+        console.error("Error cleaning up S3 files:", cleanupError);
+      }
+    }
+
+    console.error("ADD PRODUCT IMAGES ERROR:", {
+      message: error.message,
+      stack: error.stack,
+      requestId: req.params.id,
+    });
+
+    res.status(500).json({
+      message: "Lỗi khi thêm hình ảnh sản phẩm",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Remove images from product
+ */
+export const removeProductImages = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const t = await sequelize.transaction();
+
+  try {
+    const { id } = req.params;
+    const { imageIds } = req.body;
+
+    if (!Array.isArray(imageIds) || imageIds.length === 0) {
+      await t.rollback();
+      res.status(400).json({ message: "Danh sách hình ảnh không hợp lệ" });
+      return;
+    }
+
+    // Check if product exists
+    const product = await Product.findByPk(id, { transaction: t });
+    if (!product) {
+      await t.rollback();
+      res.status(404).json({ message: "Sản phẩm không tồn tại" });
+      return;
+    }
+
+    // Find all images that belong to this product's details
+    const images = await ProductImage.findAll({
+      where: { id: { [Op.in]: imageIds } },
+      include: [
+        {
+          model: ProductDetail,
+          as: "productDetail",
+          where: { productId: id },
+          required: true,
+        },
+      ],
+      transaction: t,
+    });
+
+    if (images.length === 0) {
+      await t.rollback();
+      res
+        .status(404)
+        .json({ message: "Không tìm thấy hình ảnh nào thuộc sản phẩm này" });
+      return;
+    }
+
+    // Delete images and their S3 files
+    for (const image of images) {
+      const imageUrl = image.getDataValue("url");
+      const isMain = image.getDataValue("isMain");
+      const productDetailId = image.getDataValue("productDetailId");
+
+      // Delete image from database
+      await image.destroy({ transaction: t });
+
+      // Delete file from S3
+      await deleteFile(imageUrl);
+
+      // If this was a main image, set another image as main
+      if (isMain) {
+        const anotherImage = await ProductImage.findOne({
+          where: { productDetailId },
+          transaction: t,
+        });
+
+        if (anotherImage) {
+          await anotherImage.update({ isMain: true }, { transaction: t });
+        }
+      }
+    }
+
+    await t.commit();
+    res.status(200).json({
+      message: "Xóa hình ảnh sản phẩm thành công",
+      productId: id,
+      removedCount: images.length,
+    });
+  } catch (error: any) {
+    await t.rollback();
+    console.error("REMOVE PRODUCT IMAGES ERROR:", {
+      message: error.message,
+      stack: error.stack,
+      requestId: req.params.id,
+    });
+
+    res.status(500).json({
+      message: "Lỗi khi xóa hình ảnh sản phẩm",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Set image as main for product
+ */
+export const setMainProductImage = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const t = await sequelize.transaction();
+
+  try {
+    const { id, imageId } = req.params;
+
+    // Check if product exists
+    const product = await Product.findByPk(id, { transaction: t });
+    if (!product) {
+      await t.rollback();
+      res.status(404).json({ message: "Sản phẩm không tồn tại" });
+      return;
+    }
+
+    // Find image and verify it belongs to this product
+    const image = await ProductImage.findOne({
+      where: { id: imageId },
+      include: [
+        {
+          model: ProductDetail,
+          as: "productDetail",
+          where: { productId: id },
+          required: true,
+        },
+      ],
+      transaction: t,
+    });
+
+    if (!image) {
+      await t.rollback();
+      res
+        .status(404)
+        .json({ message: "Không tìm thấy hình ảnh thuộc sản phẩm này" });
+      return;
+    }
+
+    const productDetailId = image.getDataValue("productDetailId");
+
+    // Reset all images for this color to not be main
+    await ProductImage.update(
+      { isMain: false },
+      {
+        where: { productDetailId },
+        transaction: t,
+      }
+    );
+
+    // Set this image as main
+    await image.update({ isMain: true }, { transaction: t });
+
+    await t.commit();
+    res.status(200).json({
+      message: "Đặt ảnh chính thành công",
+      productId: id,
+      imageId,
+    });
+  } catch (error: any) {
+    await t.rollback();
+    console.error("SET MAIN PRODUCT IMAGE ERROR:", {
+      message: error.message,
+      stack: error.stack,
+      requestId: req.params.id,
+    });
+
+    res.status(500).json({
+      message: "Lỗi khi đặt ảnh chính",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Update product variants
+ */
+export const updateProductVariants = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const t = await sequelize.transaction();
+
+  try {
+    const { id } = req.params;
+    const { variants } = req.body;
+
+    // Check if product exists
+    const product = await Product.findByPk(id, { transaction: t });
+    if (!product) {
+      await t.rollback();
+      res.status(404).json({ message: "Sản phẩm không tồn tại" });
+      return;
+    }
+
+    // Process each variant
+    for (const variant of variants) {
+      if (variant.id) {
+        // Update existing variant
+        const productDetail = await ProductDetail.findByPk(variant.id, {
+          transaction: t,
+          include: [{ model: ProductInventory, as: "inventories" }],
+        });
+
+        if (productDetail) {
+          // Update variant information
+          await productDetail.update(
+            {
+              color: variant.color,
+              price: variant.price || productDetail.getDataValue("price"),
+              originalPrice:
+                variant.originalPrice ||
+                variant.price ||
+                productDetail.getDataValue("originalPrice"),
+            },
+            { transaction: t }
+          );
+
+          // Update sizes/inventory if provided
+          // Update sizes/inventory if provided
+          if (variant.sizes && Array.isArray(variant.sizes)) {
+            // Get existing inventories
+            const existingInventories =
+              (productDetail as any).inventories || [];
+
+            // Create map for quick lookup
+            const inventoryMap = new Map();
+            existingInventories.forEach((inv: any) => {
+              inventoryMap.set(inv.size, inv);
+            });
+
+            // Update or create inventory items
+            for (const sizeInfo of variant.sizes) {
+              const existing = inventoryMap.get(sizeInfo.size);
+
+              if (existing) {
+                // Update existing inventory
+                await existing.update(
+                  {
+                    stock: sizeInfo.stock,
+                  },
+                  { transaction: t }
+                );
+              } else {
+                // Create new inventory
+                await ProductInventory.create(
+                  {
+                    productDetailId: variant.id,
+                    size: sizeInfo.size,
+                    stock: sizeInfo.stock || 0,
+                  },
+                  { transaction: t }
+                );
+              }
+            }
+
+            // Delete sizes that are not in the update
+            const updatedSizes = variant.sizes.map((s: any) => s.size);
+            for (const inv of existingInventories) {
+              if (!updatedSizes.includes(inv.size)) {
+                await inv.destroy({ transaction: t });
+              }
+            }
+          }
+        }
+      } else {
+        // Create new variant
+        const newVariant = await ProductDetail.create(
+          {
+            productId: Number(id),
+            color: variant.color,
+            price: variant.price || 0,
+            originalPrice: variant.originalPrice || variant.price || 0,
+          },
+          { transaction: t }
+        );
+
+        // Add sizes if provided
+        if (variant.sizes && Array.isArray(variant.sizes)) {
+          for (const size of variant.sizes) {
+            await ProductInventory.create(
+              {
+                productDetailId: newVariant.id,
+                size: size.size,
+                stock: size.stock || 0,
+              },
+              { transaction: t }
+            );
+          }
+        }
+      }
+    }
+
+    await t.commit();
+    res.status(200).json({
+      message: "Cập nhật biến thể sản phẩm thành công",
+      productId: id,
+    });
+  } catch (error: any) {
+    await t.rollback();
+    console.error("UPDATE VARIANTS ERROR:", {
+      message: error.message,
+      stack: error.stack,
+      productId: req.params.id,
+    });
+
+    res.status(500).json({
+      message: "Lỗi khi cập nhật biến thể sản phẩm",
+      error: error.message,
+    });
   }
 };

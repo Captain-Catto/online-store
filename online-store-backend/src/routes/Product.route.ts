@@ -3,15 +3,21 @@ import {
   getProductsWithVariants,
   getProductById,
   createProductWithDetails,
-  updateProduct,
   deleteProduct,
   getProductsByCategory,
   getSuitabilities,
   getSubtypes,
   getProductVariantsById,
+  updateProductBasicInfo,
+  updateProductInventory,
+  addProductImages,
+  removeProductImages,
+  setMainProductImage,
+  updateProductVariants,
 } from "../controllers/Product.controller";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { roleMiddleware } from "../middlewares/roleMiddleware";
+import { upload } from "../services/imageUpload";
 
 const router = Router();
 
@@ -26,8 +32,61 @@ router.get("/subtypes", getSubtypes);
 router.get("/:id", getProductById);
 
 // Protected routes
-router.post("/", authMiddleware, roleMiddleware([1]), createProductWithDetails);
-router.put("/:id", authMiddleware, roleMiddleware([1]), updateProduct);
+router.post(
+  "/",
+  authMiddleware,
+  roleMiddleware([1]),
+  upload.array("images", 50),
+  createProductWithDetails
+);
+// Thêm các route mới cho update sản phẩm theo từng phần
+// Basic info
+router.patch(
+  "/:id/basic-info",
+  authMiddleware,
+  roleMiddleware([1]),
+  updateProductBasicInfo
+);
+
+// Inventory
+router.patch(
+  "/:id/inventory",
+  authMiddleware,
+  roleMiddleware([1]),
+  updateProductInventory
+);
+
+// Add images
+router.post(
+  "/:id/images",
+  authMiddleware,
+  roleMiddleware([1]),
+  upload.array("images", 20),
+  addProductImages
+);
+
+// Remove images
+router.delete(
+  "/:id/images",
+  authMiddleware,
+  roleMiddleware([1]),
+  removeProductImages
+);
+
+// Set main image
+router.patch(
+  "/:id/images/:imageId/main",
+  authMiddleware,
+  roleMiddleware([1]),
+  setMainProductImage
+);
+
+router.patch(
+  "/:id/variants",
+  authMiddleware,
+  roleMiddleware([1]),
+  updateProductVariants
+);
 router.delete("/:id", authMiddleware, roleMiddleware([1]), deleteProduct);
 
 export default router;

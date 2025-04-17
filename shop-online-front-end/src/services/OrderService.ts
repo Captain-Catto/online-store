@@ -78,7 +78,7 @@ export const OrderService = {
           if (errorData && errorData.message) {
             errorMessage = errorData.message;
           }
-        } catch (e) {
+        } catch {
           // Nếu không phải JSON, dùng text gốc
           errorMessage = responseText || response.statusText;
         }

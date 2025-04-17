@@ -1,5 +1,9 @@
-// src/util/orderUtils.ts
-import { OrderItem } from "@/services/OrderService";
+type OrderItem = {
+  productId: number;
+  color: string;
+  size: string;
+  quantity: number;
+};
 import { CartItem } from "./cartUtils";
 
 export const mapCartItemsToOrderItems = (

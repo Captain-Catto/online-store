@@ -7,12 +7,16 @@ import AdminLayout from "@/components/admin/layout/AdminLayout";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
 import { ProductService } from "@/services/ProductService";
 import { Product } from "@/types/product";
+import { useToast } from "@/utils/useToast";
 
 export default function ProductsPage() {
   const [search, setSearchTerm] = useState("");
   const [category, setCategoryFilter] = useState("");
   const [status, setStatusFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<any>(null);
+  const { showToast, Toast } = useToast();
   const productsPerPage = 10;
 
   const [loading, setLoading] = useState(false);
@@ -92,6 +96,30 @@ export default function ProductsPage() {
   // Pagination logic
   const currentProducts = products;
   const totalPages = pagination.totalPages;
+
+  // Thêm sau hàm fetchProducts
+  const handleDeleteProduct = (product: any) => {
+    setProductToDelete(product);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!productToDelete) return;
+
+    try {
+      await ProductService.deleteProduct(String(productToDelete.id));
+      setShowDeleteModal(false);
+
+      // Hiển thị thông báo thành công
+      showToast("Đã xóa sản phẩm thành công!", { type: "success" });
+
+      // Cập nhật lại danh sách sản phẩm
+      fetchProducts();
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      showToast("Không thể xóa sản phẩm này.", { type: "error" });
+    }
+  };
 
   // Breadcrumb items
   const breadcrumbItems = [
@@ -307,25 +335,11 @@ export default function ProductsPage() {
                             >
                               <i className="fas fa-eye"></i>
                             </Link>
-                            <Link
-                              href={`/admin/products/${product.id}/edit`}
-                              className="btn btn-sm btn-primary mr-1"
-                              title="Chỉnh sửa"
-                            >
-                              <i className="fas fa-edit"></i>
-                            </Link>
+
                             <button
                               className="btn btn-sm btn-danger"
                               title="Xóa"
-                              onClick={() => {
-                                if (
-                                  window.confirm(
-                                    "Bạn có chắc chắn muốn xóa sản phẩm này?"
-                                  )
-                                ) {
-                                  console.log(`Delete product ${product.id}`);
-                                }
-                              }}
+                              onClick={() => handleDeleteProduct(product)}
                             >
                               <i className="fas fa-trash"></i>
                             </button>
@@ -414,6 +428,69 @@ export default function ProductsPage() {
           </div>
         </div>
       </section>
+      {/* modal delete */}
+      {productToDelete && (
+        <div
+          className={`modal fade ${showDeleteModal ? "show" : ""}`}
+          style={{
+            display: showDeleteModal ? "block" : "none",
+            backgroundColor: "rgba(0,0,0,0.5)",
+          }}
+          tabIndex={-1}
+          role="dialog"
+          aria-labelledby="deleteModalLabel"
+          aria-hidden="true"
+        >
+          <div className="modal-dialog" role="document">
+            <div className="modal-content">
+              <div className="modal-header bg-danger">
+                <h5 className="modal-title text-white" id="deleteModalLabel">
+                  <i className="fas fa-exclamation-triangle mr-2"></i>
+                  Xác nhận xóa sản phẩm
+                </h5>
+                <button
+                  type="button"
+                  className="close text-white"
+                  onClick={() => setShowDeleteModal(false)}
+                  aria-label="Close"
+                >
+                  <span aria-hidden="true">&times;</span>
+                </button>
+              </div>
+              <div className="modal-body">
+                <p>
+                  Bạn có chắc chắn muốn xóa sản phẩm{" "}
+                  <strong>&quot;{productToDelete.name}&quot;</strong>?
+                </p>
+                <p className="mb-0 text-danger">
+                  <i className="fas fa-info-circle mr-1"></i>
+                  Hành động này không thể hoàn tác. Tất cả dữ liệu liên quan đến
+                  sản phẩm này sẽ bị xóa vĩnh viễn.
+                </p>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowDeleteModal(false)}
+                >
+                  <i className="fas fa-times mr-1"></i>
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={confirmDelete}
+                >
+                  <i className="fas fa-trash mr-1"></i>
+                  Xóa sản phẩm
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {Toast}
     </AdminLayout>
   );
 }

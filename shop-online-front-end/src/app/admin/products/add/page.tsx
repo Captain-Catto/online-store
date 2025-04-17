@@ -28,6 +28,7 @@ export default function AddProductPage() {
   const [activeTab, setActiveTab] = useState("info");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedColor, setSelectedColor] = useState<string>("");
+  const [tagInput, setTagInput] = useState("");
 
   // State cho sản phẩm mới
   const [product, setProduct] = useState({
@@ -75,13 +76,13 @@ export default function AddProductPage() {
 
   // Danh sách màu sắc và kích thước mẫu
   const availableColors = [
-    "Đen",
-    "Trắng",
-    "Xanh dương",
-    "Xanh lá",
-    "Đỏ",
-    "Vàng",
-    "Xám",
+    { key: "black", label: "Đen" },
+    { key: "white", label: "Trắng" },
+    { key: "red", label: "Đỏ" },
+    { key: "blue", label: "Xanh dương" },
+    { key: "green", label: "Xanh lá" },
+    { key: "yellow", label: "Vàng" },
+    { key: "grey", label: "Xám" },
   ];
   const availableSizes = ["S", "M", "L", "XL", "XXL"];
 
@@ -304,16 +305,31 @@ export default function AddProductPage() {
   };
 
   // Hàm xử lý thay đổi tags
+  // Cập nhật hàm handleTagsChange
   const handleTagsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const tagsString = e.target.value;
-    const tagsArray = tagsString
-      .split(",")
-      .map((tag) => tag.trim())
-      .filter((tag) => tag);
+    setTagInput(e.target.value);
+  };
 
+  const handleTagsKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Xử lý khi nhấn Enter hoặc Tab hoặc dấu phẩy
+    if (e.key === "Enter" || e.key === "Tab" || e.key === ",") {
+      e.preventDefault();
+
+      const value = tagInput.trim();
+      if (value && !product.tags.includes(value)) {
+        setProduct({
+          ...product,
+          tags: [...product.tags, value],
+        });
+        setTagInput("");
+      }
+    }
+  };
+
+  const removeTag = (indexToRemove: number) => {
     setProduct({
       ...product,
-      tags: tagsArray,
+      tags: product.tags.filter((_, index) => index !== indexToRemove),
     });
   };
 
@@ -405,32 +421,11 @@ export default function AddProductPage() {
   // Hàm xử lý lưu sản phẩm
   const handleSaveProduct = async () => {
     if (!validateProductData()) return;
-
     setIsSubmitting(true);
 
     try {
-      // Chuyển đổi dữ liệu từ form thành định dạng API yêu cầu
-      interface ProductCreate {
-        name: string;
-        sku: string;
-        description: string;
-        brand: string;
-        material: string;
-        featured: boolean;
-        status: string;
-        tags: string[];
-        suitability: string[];
-        subtype: string;
-        categories: number[];
-        details: Array<{
-          color: string;
-          price: number;
-          originalPrice: number;
-          sizes: Array<{ size: string; stock: number }>;
-        }>;
-      }
-
-      const productData: ProductCreate = {
+      // Chuyển đổi dữ liệu từ form
+      const productData = {
         name: product.name,
         sku: product.sku,
         description: product.description,
@@ -439,14 +434,27 @@ export default function AddProductPage() {
         featured: product.featured,
         status: product.status,
         tags: product.tags,
-        suitability: ["casual", "daily"], // Thêm vào form nếu cần
-        subtype: product.category === "shirts" ? "T-SHIRT" : "", // Cần xử lý theo nghiệp vụ
+        suitability: product.suitability,
         categories: [parseInt(product.category) || 1],
-        details: [],
+        details: [] as Array<{
+          color: string;
+          price: number;
+          originalPrice: number;
+          sizes: Array<{ size: string; stock: number }>;
+        }>,
       };
 
       // Nhóm variants theo màu sắc
-      const colorGroups: Record<string, any> = {};
+      const colorGroups: Record<
+        string,
+        {
+          color: string;
+          price: number;
+          originalPrice: number;
+          sizes: Array<{ size: string; stock: number }>;
+        }
+      > = {};
+
       product.stock.variants.forEach((variant) => {
         if (!colorGroups[variant.color]) {
           colorGroups[variant.color] = {
@@ -466,49 +474,40 @@ export default function AddProductPage() {
       // Chuyển đổi thành mảng details
       productData.details = Object.values(colorGroups);
 
-      console.log("Sending product data:", productData);
+      // Chuẩn bị đối tượng lưu trữ file hình ảnh theo màu
+      const imageFiles: File[] = [];
+      const imageColorMapping: Record<number, string> = {};
 
-      // Gửi API tạo sản phẩm
-      const createdProduct = await ProductService.createProduct(productData);
-      console.log("Created product:", createdProduct);
+      // Chuyển từ state colorImages sang mảng
+      let fileIndex = 0;
+      const imageMainMapping: Record<number, boolean> = {};
 
-      // gọi hàm getProductVariants để lấy danh sách các biến thể
-      const productVariants = await ProductService.getProductVariants(
-        createdProduct.productId
+      Object.entries(colorImages).forEach(([color, images]) => {
+        images.forEach((img) => {
+          imageFiles.push(img.file);
+          imageColorMapping[fileIndex] = color;
+          imageMainMapping[fileIndex] = img.isMain;
+          fileIndex++;
+        });
+      });
+
+      // Gọi API tạo sản phẩm kèm ảnh
+      const result = await ProductService.createProductWithImages(
+        productData,
+        imageFiles,
+        imageColorMapping,
+        imageMainMapping
       );
 
-      console.log("Product variants:", productVariants);
-
-      // Upload hình ảnh cho từng màu (nếu có)
-      if (createdProduct && productVariants.details) {
-        for (const detail of productVariants.details) {
-          const color = detail.color;
-          const detailId = detail.id;
-
-          // Nếu có hình ảnh cho màu này
-          if (colorImages[color] && colorImages[color].length > 0) {
-            const formData = new FormData();
-
-            // Thêm thông tin isMain cho mỗi hình
-            colorImages[color].forEach((img, index) => {
-              formData.append(`images`, img.file);
-              formData.append(`isMain${index}`, img.isMain.toString());
-            });
-
-            await ProductService.uploadProductImages(detailId, formData);
-          }
-        }
-      } else {
-        console.error(
-          "Không tìm thấy thông tin chi tiết sản phẩm sau khi tạo!"
-        );
-      }
-
       alert("Thêm sản phẩm thành công!");
-      router.push("/admin/products");
+      router.push(`/admin/products/${result.productId}`);
     } catch (error) {
       console.error("Lỗi khi thêm sản phẩm:", error);
-      alert("Có lỗi xảy ra khi thêm sản phẩm. Vui lòng thử lại sau!");
+      alert(
+        `Có lỗi xảy ra: ${
+          error instanceof Error ? error.message : "Vui lòng thử lại"
+        }`
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -552,23 +551,6 @@ export default function AddProductPage() {
                   <i className="fas fa-save mr-1"></i> Lưu sản phẩm
                 </>
               )}
-            </button>
-            <button
-              className="btn btn-info mr-2"
-              onClick={() => {
-                if (window.confirm("Lưu làm bản nháp?")) {
-                  setProduct({
-                    ...product,
-                    status: "draft",
-                    statusLabel: "Nháp",
-                    statusClass: "bg-secondary",
-                  });
-                  handleSaveProduct();
-                }
-              }}
-              disabled={isSubmitting}
-            >
-              <i className="far fa-save mr-1"></i> Lưu nháp
             </button>
           </div>
 
@@ -854,8 +836,8 @@ export default function AddProductPage() {
                           onChange={handleColorsChange}
                         >
                           {availableColors.map((color) => (
-                            <option key={color} value={color}>
-                              {color}
+                            <option key={color.key} value={color.key}>
+                              {color.label}
                             </option>
                           ))}
                         </select>
@@ -905,10 +887,8 @@ export default function AddProductPage() {
                         }}
                       >
                         <option value="casual">Thường ngày</option>
-                        <option value="sport">Thể thao</option>
-                        <option value="party">Dự tiệc</option>
-                        <option value="formal">Trang trọng</option>
                         <option value="daily">Hàng ngày</option>
+                        <option value="sport">Thể thao</option>
                       </select>
                       <small className="form-text text-muted">
                         Giữ Ctrl để chọn nhiều mục
@@ -918,13 +898,59 @@ export default function AddProductPage() {
 
                   <div className="form-group">
                     <label>Tags</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Nhập tags, phân cách bằng dấu phẩy (VD: áo thun, cotton, casual)"
-                      value={product.tags.join(", ")}
-                      onChange={handleTagsChange}
-                    />
+                    <div className="input-group">
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Nhập tag và nhấn Enter hoặc dấu phẩy để thêm"
+                        value={tagInput}
+                        onChange={handleTagsChange}
+                        onKeyDown={handleTagsKeyDown}
+                        onBlur={() => {
+                          if (tagInput.trim()) {
+                            handleTagsKeyDown({
+                              key: "Enter",
+                              preventDefault: () => {},
+                            } as React.KeyboardEvent<HTMLInputElement>);
+                          }
+                        }}
+                      />
+                      <div className="input-group-append">
+                        <button
+                          className="btn btn-outline-secondary"
+                          type="button"
+                          onClick={() => {
+                            if (tagInput.trim()) {
+                              handleTagsKeyDown({
+                                key: "Enter",
+                                preventDefault: () => {},
+                              } as React.KeyboardEvent<HTMLInputElement>);
+                            }
+                          }}
+                        >
+                          <i className="fas fa-plus"></i> Thêm
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-2 d-flex flex-wrap gap-2">
+                      {product.tags.map((tag, index) => (
+                        <span
+                          key={index}
+                          className="badge badge-primary p-2 mr-1 mb-2 d-inline-flex align-items-center"
+                        >
+                          {tag}
+                          <button
+                            type="button"
+                            className="btn-close btn-close-white ml-2 border-0 bg-transparent"
+                            onClick={() => removeTag(index)}
+                            aria-label="Xóa"
+                          >
+                            &times;
+                          </button>
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
