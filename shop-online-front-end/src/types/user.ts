@@ -88,3 +88,31 @@ export interface UserProfileUpdate {
   phoneNumber?: string;
   dateOfBirth?: string;
 }
+
+// Kiểu dữ liệu cho một ghi chú
+export interface UserNote {
+  id: number;
+  userId: number;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Kiểu dữ liệu trả về của getUserNotes
+export interface UserNotes {
+  userId: string | number;
+  username: string;
+  notes: UserNote[];
+}
+
+// Kiểu dữ liệu trả về của addUserNote và updateUserNote
+export interface UserNoteResponse {
+  message: string;
+  note: UserNote;
+}
+
+// Kiểu dữ liệu trả về của deleteUserNote
+export interface UserNoteDeleteResponse {
+  message: string;
+  noteId: number;
+}

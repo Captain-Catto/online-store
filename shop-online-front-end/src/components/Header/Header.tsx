@@ -4,7 +4,8 @@ import React, { useEffect, useState } from "react";
 import IconNavBar from "./IconNavBar";
 import Logo from "./Logo";
 import MenuToggle from "./MenuToggle";
-import MegaMenu from "./MegaMenu";
+// import MegaMenu from "./MegaMenu";
+import NavbarCategory from "./NavbarCategory";
 
 const Header: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState<boolean>(false);
@@ -40,7 +41,8 @@ const Header: React.FC = () => {
 
           {/* Desktop Navigation with MegaMenu */}
           <div className="hidden md:block">
-            <MegaMenu />
+            {/* <MegaMenu /> */}
+            <NavbarCategory />
           </div>
 
           {/* User Icons (cart, account, etc) */}

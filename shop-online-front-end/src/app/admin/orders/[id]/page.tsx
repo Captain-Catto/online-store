@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
@@ -9,6 +9,7 @@ import { AuthClient } from "@/services/AuthClient";
 import { API_BASE_URL } from "@/config/apiConfig";
 import { formatDateDisplay } from "@/utils/dateUtils";
 import { Order } from "@/types/order";
+import CancelOrderModal from "@/components/admin/dashboard/CancelOrderModal";
 
 export default function OrderDetailPage() {
   const { id } = useParams() as { id: string };
@@ -20,6 +21,21 @@ export default function OrderDetailPage() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [toast, setToast] = useState({ show: false, message: "", type: "" });
 
+  const [selectedCancelReason, setSelectedCancelReason] = useState("");
+  const [customCancelReason, setCustomCancelReason] = useState("");
+
+  const cancelReasons = useMemo(
+    () => [
+      "Khách hàng yêu cầu hủy đơn",
+      "Hết hàng",
+      "Không liên lạc được với khách hàng",
+      "Địa chỉ giao hàng không hợp lệ",
+      "Đơn hàng trùng lặp",
+      "Khác",
+    ],
+    []
+  );
+
   // Danh sách trạng thái và màu sắc tương ứng
   const availableStatuses = [
     { value: "pending", label: "Chờ xác nhận", color: "bg-gray-500" },
@@ -28,6 +44,20 @@ export default function OrderDetailPage() {
     { value: "delivered", label: "Đã giao", color: "bg-green-500" },
     { value: "cancelled", label: "Đã hủy", color: "bg-red-500" },
   ];
+
+  const handleClose = useCallback(() => {
+    setShowCancelModal(false);
+    setSelectedCancelReason("");
+    setCustomCancelReason("");
+  }, []);
+
+  const handleReasonChange = useCallback((reason: string) => {
+    setSelectedCancelReason(reason);
+  }, []);
+
+  const handleCustomReasonChange = useCallback((reason: string) => {
+    setCustomCancelReason(reason);
+  }, []);
 
   // Fetch order data
   useEffect(() => {
@@ -161,19 +191,48 @@ export default function OrderDetailPage() {
   };
 
   // Thêm hàm xác nhận hủy đơn hàng
-  const confirmCancelOrder = async () => {
+  const confirmCancelOrder = useCallback(async () => {
+    // Validate that a reason is selected
+    if (!selectedCancelReason) {
+      setToast({
+        show: true,
+        message: "Vui lòng chọn lý do hủy đơn hàng",
+        type: "error",
+      });
+      return;
+    }
+
+    // If "Khác" is selected, ensure a custom reason is provided
+    if (selectedCancelReason === "Khác" && !customCancelReason.trim()) {
+      setToast({
+        show: true,
+        message: "Vui lòng nhập lý do hủy đơn hàng",
+        type: "error",
+      });
+      return;
+    }
+
     try {
       setUpdating(true);
 
-      // Call API to cancel order
+      // Prepare the cancellation note
+      const cancelNote =
+        selectedCancelReason === "Khác"
+          ? customCancelReason.trim()
+          : selectedCancelReason;
+
+      // Call API to cancel order with the note
       const response = await AuthClient.fetchWithAuth(
-        `${API_BASE_URL}/orders/${id}/status`,
+        `${API_BASE_URL}/orders/${id}/cancel`,
         {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ status: "cancelled" }),
+          body: JSON.stringify({
+            status: "cancelled",
+            cancelNote: cancelNote,
+          }),
         }
       );
 
@@ -184,24 +243,23 @@ export default function OrderDetailPage() {
       const data = await response.json();
       console.log("Cancel response data:", data);
 
-      // Update order data directly from API response
       if (data.order) {
         setOrder(data.order);
         setOrderStatus(data.order.status);
       }
 
-      // Hiển thị toast thành công
       setToast({
         show: true,
         message: data.message || "Đơn hàng đã được hủy thành công",
         type: "success",
       });
 
-      // Đóng modal sau khi xử lý thành công
+      // Reset fields when closing modal
+      setSelectedCancelReason("");
+      setCustomCancelReason("");
       setShowCancelModal(false);
     } catch (error) {
       console.error("Error cancelling order:", error);
-      // Hiển thị toast lỗi
       setToast({
         show: true,
         message:
@@ -213,7 +271,11 @@ export default function OrderDetailPage() {
     } finally {
       setUpdating(false);
     }
-  };
+  }, [id, selectedCancelReason, customCancelReason]);
+
+  const handleConfirm = useCallback(() => {
+    confirmCancelOrder();
+  }, [confirmCancelOrder]);
 
   if (loading) {
     return (
@@ -258,113 +320,6 @@ export default function OrderDetailPage() {
   }
 
   if (!order) return null;
-
-  const CancelOrderModal = () => {
-    if (!showCancelModal) return null;
-
-    return (
-      <div
-        className="fixed inset-0 z-50 overflow-y-auto"
-        aria-labelledby="modal-title"
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-          {/* Overlay */}
-          <div
-            className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-            aria-hidden="true"
-            onClick={() => !updating && setShowCancelModal(false)}
-          ></div>
-
-          {/* Modal */}
-          <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full">
-            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-              <div className="sm:flex flex-col sm:items-start">
-                <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
-                  <svg
-                    className="h-6 w-6 text-red-600"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                    />
-                  </svg>
-                </div>
-                <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                  <h3
-                    className="text-lg leading-6 font-medium text-gray-900"
-                    id="modal-title"
-                  >
-                    Xác nhận hủy đơn hàng
-                  </h3>
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-500">
-                      Bạn có chắc chắn muốn hủy đơn hàng này? Hành động này
-                      không thể hoàn tác. Số sản phẩm trong đơn hàng sẽ được
-                      hoàn lại vô kho.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse flex gap-2">
-              <button
-                type="button"
-                className={`w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm ${
-                  updating ? "opacity-75 cursor-not-allowed" : ""
-                }`}
-                onClick={confirmCancelOrder}
-                disabled={updating}
-              >
-                {updating ? (
-                  <>
-                    <svg
-                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Đang xử lý...
-                  </>
-                ) : (
-                  "Xác nhận hủy"
-                )}
-              </button>
-              <button
-                type="button"
-                className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                onClick={() => setShowCancelModal(false)}
-                disabled={updating}
-              >
-                Quay lại
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   const Toast = () => {
     useEffect(() => {
@@ -509,6 +464,36 @@ export default function OrderDetailPage() {
                           </span>
                         </td>
                       </tr>
+                      {order.status === "cancelled" && (
+                        <>
+                          <tr>
+                            <th className="text-left py-2 w-2/5 text-gray-600 font-medium">
+                              Lý do hủy đơn
+                            </th>
+                            <td className="py-2 text-gray-800">
+                              {order.cancelNote || "Không có"}
+                            </td>
+                          </tr>
+                          <tr>
+                            <th className="text-left py-2 w-2/5 text-gray-600 font-medium">
+                              Ngày hủy đơn
+                            </th>
+                            <td className="py-2 text-gray-800">
+                              {formatDateDisplay(order.updatedAt)}
+                            </td>
+                          </tr>
+                        </>
+                      )}
+                      {order.paymentStatusId === 4 && (
+                        <tr>
+                          <th className="text-left py-2 w-2/5 text-gray-600 font-medium">
+                            Số tiền hoàn
+                          </th>
+                          <td className="py-2 text-gray-800">
+                            {formatCurrency(order.refundAmount || 0)}
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -528,7 +513,7 @@ export default function OrderDetailPage() {
                           Tên khách hàng
                         </th>
                         <td className="py-2 text-gray-800">
-                          {order.user?.name || "Khách hàng"}
+                          {order.user?.name || "Chưa cung cấp"}
                         </td>
                       </tr>
                       <tr>
@@ -802,7 +787,17 @@ export default function OrderDetailPage() {
           </div>
         </div>
       </section>
-      <CancelOrderModal />
+      <CancelOrderModal
+        show={showCancelModal}
+        updating={updating}
+        cancelReasons={cancelReasons}
+        selectedCancelReason={selectedCancelReason}
+        customCancelReason={customCancelReason}
+        onClose={handleClose}
+        onConfirm={handleConfirm}
+        onReasonChange={handleReasonChange}
+        onCustomReasonChange={handleCustomReasonChange}
+      />
       {/* Toast Notification */}
       <Toast />
     </AdminLayout>

@@ -96,6 +96,7 @@ export interface OrderFullResponse {
     name: string;
     email: string;
   };
+  orderId?: number;
 }
 
 // Interface để tạo đơn hàng

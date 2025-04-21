@@ -13,6 +13,7 @@ import imgBanking from "../../assets/imgs/payment/internetbanking.png";
 import imgCod from "../../assets/imgs/payment/cod.png";
 import { AuthService } from "@/services/AuthService";
 import { UserService } from "@/services/UserService";
+import { Address } from "@/types/address";
 import { OrderService } from "@/services/OrderService";
 import { clearCart } from "@/utils/cartUtils";
 
@@ -22,21 +23,6 @@ type LocationsType = {
     [district: string]: string[];
   };
 };
-
-// Định nghĩa kiểu dữ liệu Address
-interface Address {
-  id: number;
-  userId: number;
-  fullName: string;
-  phoneNumber: string;
-  streetAddress: string;
-  ward: string;
-  district: string;
-  city: string;
-  isDefault: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
 
 // Map cart items to order items format
 interface CartItem {
@@ -163,7 +149,7 @@ export default function CheckoutPage() {
         // Tự động chọn địa chỉ mặc định nếu có
         const defaultAddress = addressData.find((addr) => addr.isDefault);
         if (defaultAddress) {
-          setSelectedAddressId(defaultAddress.id);
+          setSelectedAddressId(Number(defaultAddress.id));
           populateShippingInfo(defaultAddress);
         }
       } catch (error) {
@@ -438,10 +424,9 @@ export default function CheckoutPage() {
 
       // Call API to create order
       const response = await OrderService.placeOrder(orderPayload);
-      console.log("API response:", response);
 
       // Lưu ID đơn hàng vào sessionStorage
-      sessionStorage.setItem("recentOrderId", String(response.id || ""));
+      sessionStorage.setItem("recentOrderId", String(response.orderId || ""));
 
       // Clear cart
       clearCart();
@@ -600,7 +585,7 @@ export default function CheckoutPage() {
                         <div
                           key={address.id}
                           className={`border rounded-lg p-4 ${
-                            selectedAddressId === address.id
+                            selectedAddressId === Number(address.id)
                               ? "border-blue-500 bg-blue-50"
                               : "border-gray-200"
                           }`}
@@ -631,16 +616,16 @@ export default function CheckoutPage() {
                             <button
                               type="button"
                               onClick={() => {
-                                setSelectedAddressId(address.id);
+                                setSelectedAddressId(Number(address.id));
                                 populateShippingInfo(address);
                               }}
                               className={`w-full py-2 px-4 rounded text-sm ${
-                                selectedAddressId === address.id
+                                selectedAddressId === Number(address.id)
                                   ? "bg-blue-600 text-white"
                                   : "bg-gray-100 text-gray-800 hover:bg-gray-200"
                               }`}
                             >
-                              {selectedAddressId === address.id
+                              {selectedAddressId === Number(address.id)
                                 ? "Đã chọn"
                                 : "Sử dụng địa chỉ này"}
                             </button>

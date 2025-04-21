@@ -13,7 +13,9 @@ import Voucher from "./Voucher";
 import PaymentMethod from "./PaymentMethod";
 import PaymentStatus from "./PaymentStatus";
 import RefreshToken from "./RefreshToken";
-import Subtype from "./Subtype";
+import UserNote from "./UserNotes";
+import Suitability from "./Suitability";
+import ProductSuitability from "./ProductSuitability";
 
 export default function initAssociations() {
   // Product - ProductDetail relationship
@@ -47,6 +49,7 @@ export default function initAssociations() {
     otherKey: "categoryId",
     as: "categories",
   });
+
   Category.belongsToMany(Product, {
     through: ProductCategory,
     foreignKey: "categoryId",
@@ -109,9 +112,33 @@ export default function initAssociations() {
   Users.hasMany(UserAddress, { foreignKey: "userId", as: "addresses" });
   UserAddress.belongsTo(Users, { foreignKey: "userId", as: "user" });
 
-  Product.belongsTo(Subtype, { foreignKey: "subtypeId" });
-  Subtype.hasMany(Product, { foreignKey: "subtypeId" });
+  // user - userNotes relationship
+  UserNote.belongsTo(Users, { foreignKey: "userId", as: "user" });
+  Users.hasMany(UserNote, { foreignKey: "userId", as: "notes" });
 
-  Subtype.belongsTo(Category, { as: "category", foreignKey: "categoryId" });
-  Category.hasMany(Subtype, { as: "subtypes", foreignKey: "categoryId" });
+  // Thiết lập mối quan hệ cha-con
+  Category.hasMany(Category, {
+    foreignKey: "parentId",
+    as: "children",
+  });
+
+  Category.belongsTo(Category, {
+    foreignKey: "parentId",
+    as: "parent",
+  });
+
+  // mối quan hệ many-to-many giữa Product và Suitability
+  Product.belongsToMany(Suitability, {
+    through: ProductSuitability,
+    foreignKey: "productId",
+    otherKey: "suitabilityId",
+    as: "suitabilities",
+  });
+
+  Suitability.belongsToMany(Product, {
+    through: ProductSuitability,
+    foreignKey: "suitabilityId",
+    otherKey: "productId",
+    as: "products",
+  });
 }

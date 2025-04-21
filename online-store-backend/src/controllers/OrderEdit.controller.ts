@@ -336,7 +336,7 @@ export const processRefund = async (
   res: Response
 ): Promise<void> => {
   const t = await sequelize.transaction();
-
+  console.log("processRefund called");
   try {
     const { id } = req.params;
     const { amount, reason } = req.body;

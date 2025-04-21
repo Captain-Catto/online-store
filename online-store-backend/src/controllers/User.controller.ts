@@ -291,10 +291,11 @@ export const getUserById = async (
             "totalOrders",
           ],
           [
+            // tính tổng giá trị đơn hàng đã hoàn thành thay vì tổng tất cả đơn hàng
             Sequelize.literal(`(
               SELECT COALESCE(SUM(orders.total), 0)
               FROM orders
-              WHERE orders.userId = Users.id
+              WHERE orders.userId = Users.id AND orders.status = 'delivered'
             )`),
             "totalSpent",
           ],
@@ -377,10 +378,11 @@ export const getAllUsers = async (
             "totalOrders",
           ],
           [
+            // tính tổng giá trị đơn hàng đã hoàn thành thay vì tổng tất cả đơn hàng
             Sequelize.literal(`(
               SELECT COALESCE(SUM(orders.total), 0)
               FROM orders
-              WHERE orders.userId = Users.id
+              WHERE orders.userId = Users.id AND orders.status = 'delivered'
             )`),
             "totalSpent",
           ],

@@ -3,21 +3,11 @@ import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { getColorCode } from "@/utils/colorUtils";
+import { SimpleProduct } from "@/types/product";
 
 // Interface định nghĩa props của component
 interface ProductCardProps {
-  product: {
-    id: number;
-    name: string;
-    colors: string[];
-    // do variants có nhiều thuộc tính, nên lúc đầu dùng any nhưng eslint báo lỗi
-    // nên dùng Record<string, { availableSizes: string[]; price: number; originalPrice: number }>
-    // để tránh lỗi eslint
-    variants: Record<
-      string,
-      { availableSizes: string[]; price: number; originalPrice: number }
-    >;
-  };
+  product: SimpleProduct;
   selectedColor: string;
   productImage: string;
   onColorSelect: (productId: number, color: string) => void;
@@ -29,8 +19,23 @@ const ProductCard: React.FC<ProductCardProps> = ({
   productImage,
   onColorSelect,
 }) => {
-  // Lấy thông tin variant của màu đã chọn
-  const currentVariant = product.variants[selectedColor];
+  // Lấy variant hiện tại dựa trên màu đã chọn
+  const currentVariant =
+    product.variants && selectedColor ? product.variants[selectedColor] : null;
+
+  // Nếu không có giá trong variant hoặc giá bằng 0, sử dụng giá từ product
+  const price =
+    currentVariant && currentVariant.price > 0
+      ? currentVariant.price
+      : product.priceRange?.min || product.price || 0;
+
+  // Nếu không có giá gốc hoặc giá gốc bằng 0, sử dụng giá + 10%
+  const originalPrice =
+    currentVariant && currentVariant.originalPrice > 0
+      ? currentVariant.originalPrice
+      : product.hasDiscount
+      ? price * 1.1
+      : price;
 
   return (
     <div className="product-container w-full rounded-lg flex-shrink-0 m-2 h-[500px] mx-auto flex flex-col">
@@ -45,39 +50,38 @@ const ProductCard: React.FC<ProductCardProps> = ({
             priority
           />
         </Link>
-
-        {currentVariant && currentVariant.availableSizes && (
-          <div className="absolute bottom-4 left-4 right-4">
-            <div className="flex gap-2 justify-center">
-              {currentVariant.availableSizes.map((size: string) => (
-                <span
-                  key={size}
-                  className="px-2 py-1 text-xs bg-white/80 rounded"
-                >
-                  {size}
-                </span>
-              ))}
+        {currentVariant &&
+          currentVariant.sizes &&
+          currentVariant.sizes.length > 0 && (
+            <div className="absolute bottom-4 left-4 right-4">
+              <div className="flex gap-2 justify-center">
+                {currentVariant.sizes.map((size: string) => (
+                  <span
+                    key={size}
+                    className="px-2 py-1 text-xs bg-white/80 rounded"
+                  >
+                    {size}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
       </div>
-
       <Link
         href={`/products/${product.id}`}
         className="block hover:text-blue-600"
       >
         <h3 className="text-lg font-medium line-clamp-2">{product.name}</h3>
       </Link>
-
       {currentVariant && (
         <div className="mt-2 space-y-2">
           <div className="flex justify-between items-center">
             <span className="font-semibold">
-              {currentVariant.price.toLocaleString("vi-VN")}đ
+              {price.toLocaleString("vi-VN")}đ
             </span>
-            {currentVariant.originalPrice > currentVariant.price && (
+            {originalPrice > price && (
               <span className="text-sm text-gray-500 line-through">
-                {currentVariant.originalPrice.toLocaleString("vi-VN")}đ
+                {originalPrice.toLocaleString("vi-VN")}đ
               </span>
             )}
           </div>

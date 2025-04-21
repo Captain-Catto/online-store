@@ -1,7 +1,7 @@
-const API_URL = "http://localhost:3000/api";
+import { API_BASE_URL } from "@/config/apiConfig";
 
 export interface ProductDetail {
-  id?: number; // Added optional id property
+  id?: number;
   color: string;
   price: number;
   originalPrice: number;
@@ -23,6 +23,7 @@ export interface ProductCreate {
   suitability: string[];
   categories: number[];
   details: ProductDetail[];
+  subtypeId?: number | null;
 }
 
 export const ProductService = {
@@ -52,7 +53,9 @@ export const ProductService = {
 
       console.log("Query Params:", params.toString());
 
-      const response = await fetch(`${API_URL}/products?${params.toString()}`);
+      const response = await fetch(
+        `${API_BASE_URL}/products?${params.toString()}`
+      );
       if (!response.ok) throw new Error("Network response was not ok");
       return await response.json();
     } catch (error) {
@@ -64,7 +67,7 @@ export const ProductService = {
   // Lấy chi tiết một sản phẩm
   getProductById: async (id: string) => {
     try {
-      const response = await fetch(`${API_URL}/products/${id}`);
+      const response = await fetch(`${API_BASE_URL}/products/${id}`);
       if (!response.ok) throw new Error("Network response was not ok");
       return await response.json();
     } catch (error) {
@@ -84,7 +87,7 @@ export const ProductService = {
     try {
       console.log("Sending product data with credentials included");
 
-      const response = await fetch(`${API_URL}/products`, {
+      const response = await fetch(`${API_BASE_URL}/products`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -126,7 +129,7 @@ export const ProductService = {
 
     try {
       const response = await fetch(
-        `${API_URL}/product-images/${productDetailId}`,
+        `${API_BASE_URL}/product-images/${productDetailId}`,
         {
           method: "POST",
           headers: {
@@ -229,7 +232,7 @@ export const ProductService = {
 
       // Send the request
       const response = await fetch(
-        `${API_URL}/products/${productId}/with-details`,
+        `${API_BASE_URL}/products/${productId}/with-details`,
         {
           method: "PUT",
           headers: {
@@ -266,7 +269,7 @@ export const ProductService = {
       if (!token) {
         throw new Error("Token không hợp lệ hoặc đã hết hạn.");
       }
-      const response = await fetch(`${API_URL}/products/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/products/${id}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -289,7 +292,7 @@ export const ProductService = {
       }).toString();
 
       // Nối query params vào URL nếu có
-      const url = `${API_URL}/products/category/${categoryId}${
+      const url = `${API_BASE_URL}/products/category/${categoryId}${
         queryParams ? `?${queryParams}` : ""
       }`;
 
@@ -308,7 +311,7 @@ export const ProductService = {
   //lấy thông tin suitabilities
   getSuitabilities: async () => {
     try {
-      const response = await fetch(`${API_URL}/suitabilities`);
+      const response = await fetch(`${API_BASE_URL}/suitabilities`);
       if (!response.ok) throw new Error("Network response was not ok");
       return await response.json();
     } catch (error) {
@@ -320,7 +323,7 @@ export const ProductService = {
   // layá thông tin các biến thể của sản phẩm theo id product
   getProductVariants: async (id: string | number) => {
     try {
-      const response = await fetch(`${API_URL}/products/variants/${id}`);
+      const response = await fetch(`${API_BASE_URL}/products/variants/${id}`);
       if (!response.ok)
         throw new Error(`Failed to fetch product variants: ${response.status}`);
       return await response.json();
@@ -358,19 +361,20 @@ export const ProductService = {
       formData.append("tags", JSON.stringify(product.tags));
       formData.append("suitability", JSON.stringify(product.suitability));
       formData.append("categories", JSON.stringify(product.categories));
-
       // Thêm chi tiết sản phẩm (details - các biến thể màu sắc)
       formData.append("details", JSON.stringify(product.details));
       formData.append("imageIsMain", JSON.stringify(imageMainMapping));
       formData.append("imageColors", JSON.stringify(imageColorMapping));
-
       // Duyệt qua các màu và thêm từng file ảnh
       imageFiles.forEach((file) => {
         formData.append("images", file);
       });
+      if (product.subtypeId !== null && product.subtypeId !== undefined) {
+        formData.append("subtypeId", product.subtypeId.toString());
+      }
 
       // Gửi request đến API
-      const response = await fetch(`${API_URL}/products/`, {
+      const response = await fetch(`${API_BASE_URL}/products/`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -403,7 +407,7 @@ export const ProductService = {
     if (!token) throw new Error("Token không hợp lệ");
 
     const response = await fetch(
-      `${API_URL}/products/${productId}/basic-info`,
+      `${API_BASE_URL}/products/${productId}/basic-info`,
       {
         method: "PATCH",
         headers: {
@@ -424,19 +428,22 @@ export const ProductService = {
 
   updateProductInventory: async (
     productId: string | number,
-    details: any[]
+    details: ProductDetail[]
   ) => {
     const token = sessionStorage.getItem("authToken");
     if (!token) throw new Error("Token không hợp lệ");
 
-    const response = await fetch(`${API_URL}/products/${productId}/inventory`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ details }),
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/products/${productId}/inventory`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ details }),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -456,7 +463,7 @@ export const ProductService = {
     const formData = new FormData();
 
     // Thêm ảnh và metadata
-    images.forEach((img, index) => {
+    images.forEach((img) => {
       formData.append("images", img.file);
     });
 
@@ -472,13 +479,16 @@ export const ProductService = {
     formData.append("imageColors", JSON.stringify(imageColors));
     formData.append("imageIsMain", JSON.stringify(imageIsMain));
 
-    const response = await fetch(`${API_URL}/products/${productId}/images`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: formData,
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/products/${productId}/images`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -495,14 +505,17 @@ export const ProductService = {
     const token = sessionStorage.getItem("authToken");
     if (!token) throw new Error("Token không hợp lệ");
 
-    const response = await fetch(`${API_URL}/products/${productId}/images`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ imageIds }),
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/products/${productId}/images`,
+      {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ imageIds }),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -517,7 +530,7 @@ export const ProductService = {
     if (!token) throw new Error("Token không hợp lệ");
 
     const response = await fetch(
-      `${API_URL}/products/${productId}/images/${imageId}/main`,
+      `${API_BASE_URL}/products/${productId}/images/${imageId}/main`,
       {
         method: "PATCH",
         headers: {
@@ -542,14 +555,17 @@ export const ProductService = {
     const token = sessionStorage.getItem("authToken");
     if (!token) throw new Error("Token không hợp lệ");
 
-    const response = await fetch(`${API_URL}/products/${productId}/variants`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ variants }),
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/products/${productId}/variants`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ variants }),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -557,5 +573,32 @@ export const ProductService = {
     }
 
     return await response.json();
+  },
+
+  // Thêm phương thức mới để lấy sản phẩm theo slug
+  getProductsByCategorySlug: async (
+    categorySlug: string,
+    filters: Record<string, string> = {}
+  ) => {
+    try {
+      // Chuyển filters thành query string
+      const queryString = new URLSearchParams(filters).toString();
+
+      // Gọi API endpoint mới sử dụng slug
+      const response = await fetch(
+        `${API_BASE_URL}/categories/slug/${categorySlug}/products${
+          queryString ? `?${queryString}` : ""
+        }`
+      );
+
+      if (!response.ok) {
+        throw new Error("Không thể lấy sản phẩm theo danh mục");
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Lỗi khi lấy sản phẩm theo danh mục:", error);
+      throw error;
+    }
   },
 };

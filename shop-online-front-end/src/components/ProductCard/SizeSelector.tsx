@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { Product } from "@/types/product";
+import { SimpleProduct } from "@/types/product";
 import { addToCart } from "@/utils/cartUtils";
 
 interface SizeSelectorProps {
-  product: Product;
+  product: SimpleProduct;
   selectedColor: string;
   productImage?: string;
-  onProductAdded: (product: Product, color: string, size: string) => void;
+  onProductAdded: (product: SimpleProduct, color: string, size: string) => void;
 }
 
 const SizeSelector: React.FC<SizeSelectorProps> = ({
@@ -15,9 +15,12 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
   productImage,
   onProductAdded,
 }) => {
-  // Lấy kích thước từ variant trực tiếp
-  const variant = product.variants[selectedColor];
-  const availableSizes = variant?.availableSizes || [];
+  // Lấy kích thước từ variant hoặc từ product
+  const variant =
+    product.variants && selectedColor ? product.variants[selectedColor] : null;
+
+  // Sử dụng sizes từ variant hoặc từ product nếu không có variant
+  const availableSizes = variant?.sizes || product.sizes || [];
 
   // State để lưu size đã chọn
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
@@ -35,13 +38,17 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
     }
 
     try {
+      // Xác định giá từ variant hoặc từ product
+      const price =
+        variant?.price || product.priceRange?.min || product.price || 0;
+
       const cartItem = {
         id: product.id.toString(),
         name: product.name,
         color: selectedColor,
         size: selectedSize,
         quantity: 1,
-        price: variant.price,
+        price: price,
         image: productImage,
       };
 
@@ -63,8 +70,8 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
   };
 
   return (
-    <div className="size-selector bg-white/90 p-4 rounded-lg w-full">
-      <span className="text-black font-medium">Chọn kích thước:</span>
+    <div className="size-selector">
+      <span className="text-black font-bold">Chọn kích thước:</span>
       <div className="flex flex-wrap justify-center gap-2 mt-2">
         {availableSizes.map((size, idx) => (
           <button
@@ -81,7 +88,7 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
         ))}
       </div>
       <button
-        className="mt-4 px-4 py-2 bg-black text-white rounded cursor-pointer hover:bg-gray-800 transition-colors"
+        className="mt-4 px-4 py-2 bg-black text-white rounded cursor-pointer hover:bg-gray-800 transition-colors w-full"
         onClick={handleAddToCart}
         disabled={!selectedSize}
       >

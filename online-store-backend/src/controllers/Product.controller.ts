@@ -8,6 +8,7 @@ import ProductCategory from "../models/ProductCategory";
 import Category from "../models/Category";
 import { getPublicUrl, deleteFile } from "../services/imageUpload";
 import { Op, FindOptions } from "sequelize";
+import Suitability from "../models/Suitability";
 
 interface ExtendedFindOptions extends FindOptions {
   distinct?: boolean;
@@ -267,9 +268,6 @@ export const getProductsWithVariants = async (
         suitability: { [Op.like]: `%${suit}%` },
       }));
     }
-    if (subtype) {
-      where.subtypeId = subtype;
-    }
 
     if (featured === true) {
       where.featured = true;
@@ -457,7 +455,6 @@ export const getProductsWithVariants = async (
           ),
         },
         variants: variantMap,
-        subtypeId: product.subtypeId,
       };
     });
 
@@ -471,7 +468,6 @@ export const getProductsWithVariants = async (
         brand: brand || null,
         color: color || null,
         size: sizeParam || null,
-        subtypeId: subtype || null,
         featured: req.query.featured === "true" ? true : null,
         sort: sort || null,
         suitability: products
@@ -755,6 +751,9 @@ export const deleteProduct = async (
 /**
  * Get products by category ID with pagination
  */
+/**
+ * Get products by category ID with pagination
+ */
 export const getProductsByCategory = async (
   req: Request,
   res: Response
@@ -768,21 +767,55 @@ export const getProductsByCategory = async (
     const limit = parseInt(req.query.limit as string) || 10;
     const offset = (page - 1) * limit;
 
-    // New filter parameters
+    // Giữ lại các filter parameters
     const color = req.query.color as string;
     const sizeParam = req.query.size as string;
     const sizes = sizeParam ? sizeParam.split(",") : [];
     const suitabilityParam = req.query.suitability as string;
     const suitabilities = suitabilityParam ? suitabilityParam.split(",") : [];
+    const childCategoryId = req.query.childCategory as string;
 
-    // Thêm filter subtype
-    const subtype = req.query.subtype as string;
-
-    // Find category to check if exists
+    // Tìm category để kiểm tra tồn tại
     const category = await Category.findByPk(categoryId);
     if (!category) {
       res.status(404).json({ message: "Danh mục không tồn tại" });
       return;
+    }
+
+    // Lấy danh sách categoryIds để lọc sản phẩm
+    let categoryIds = [categoryId];
+
+    // Nếu đây là danh mục cha và không có childCategoryId được chỉ định
+    if (category.parentId === null && !childCategoryId) {
+      // Lấy tất cả các danh mục con của danh mục hiện tại
+      const childCategories = await Category.findAll({
+        where: {
+          parentId: categoryId,
+          isActive: true,
+        },
+        attributes: ["id"],
+      });
+
+      // Thêm IDs của danh mục con vào danh sách lọc
+      categoryIds = [
+        ...categoryIds,
+        ...childCategories.map((c) => c.id.toString()),
+      ];
+    }
+    // Nếu có chỉ định childCategoryId cụ thể
+    else if (childCategoryId) {
+      // Kiểm tra xem childCategory có thuộc category cha không
+      const childCategory = await Category.findOne({
+        where: {
+          id: childCategoryId,
+          parentId: categoryId,
+        },
+      });
+
+      if (childCategory) {
+        // Nếu có, chỉ lấy sản phẩm thuộc danh mục con này
+        categoryIds = [childCategoryId];
+      }
     }
 
     // Start with basic include for category filtering
@@ -790,7 +823,7 @@ export const getProductsByCategory = async (
       {
         model: Category,
         as: "categories",
-        where: { id: categoryId },
+        where: { id: { [Op.in]: categoryIds } },
         attributes: ["id", "name"],
         through: { attributes: [] },
       },
@@ -798,11 +831,6 @@ export const getProductsByCategory = async (
 
     // Where condition for product filtering
     const where: any = {};
-
-    // Thêm filter theo subtype
-    if (subtype) {
-      where.subtypeId = subtype;
-    }
 
     // Add suitability filter if present
     if (suitabilities.length > 0) {
@@ -850,7 +878,7 @@ export const getProductsByCategory = async (
       distinct: true,
     } as ExtendedFindOptions);
 
-    // Format products (same as in getProductsWithVariants)
+    // Format sản phẩm (giữ nguyên phần này)
     const formattedProducts = products.map((product: any) => {
       const details = product.details || [];
 
@@ -984,16 +1012,32 @@ export const getProductsByCategory = async (
       };
     });
 
+    // Lấy thông tin danh mục con nếu là danh mục cha
+    let childCategories: Category[] = [];
+    if (category.parentId === null) {
+      childCategories = await Category.findAll({
+        where: {
+          parentId: categoryId,
+          isActive: true,
+        },
+        attributes: ["id", "name", "slug"],
+        order: [["name", "ASC"]],
+      });
+    }
+
     // Return with pagination info
     res.status(200).json({
-      categoryName: category.getDataValue("name"),
+      categoryName: category.name,
+      categoryId: category.id,
+      parentCategoryId: category.parentId,
       products: formattedProducts,
+      childCategories: childCategories,
       filters: {
         category: categoryId,
+        childCategory: childCategoryId || null,
         color: color || null,
         size: sizeParam || null,
         suitability: suitabilityParam || null,
-        subtype: subtype || null,
       },
       pagination: {
         total: count,
@@ -1003,6 +1047,7 @@ export const getProductsByCategory = async (
       },
     });
   } catch (error: any) {
+    console.error("Error getting products by category:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -1012,31 +1057,17 @@ export const getSuitabilities = async (
   res: Response
 ): Promise<void> => {
   try {
-    // Lấy tất cả sản phẩm và trích xuất các giá trị `suitability`
-    const products = await Product.findAll({
-      attributes: ["suitability"],
+    // Lấy tất cả suitabilities từ bảng mới
+    const suitabilities = await Suitability.findAll({
+      attributes: ["id", "name", "description"],
+      order: [["name", "ASC"]],
     });
 
-    // Tạo danh sách `suitabilities` duy nhất
-    const suitabilities = products
-      .flatMap((product: any) => {
-        try {
-          return Array.isArray(product.suitability)
-            ? product.suitability
-            : typeof product.suitability === "string"
-            ? JSON.parse(product.suitability)
-            : [];
-        } catch (e) {
-          return [];
-        }
-      })
-      .filter((value, index, self) => self.indexOf(value) === index); // Loại bỏ trùng lặp
-
-    // Trả về danh sách `suitabilities`
-    res.status(200).json({ suitabilities });
+    // Trả về danh sách suitabilities
+    res.status(200).json(suitabilities);
   } catch (error: any) {
-    console.error("Error fetching suitabilities:", error);
-    res.status(500).json({ message: "Lỗi khi lấy danh sách suitabilities" });
+    console.error("Error getting suitabilities:", error);
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -1045,20 +1076,44 @@ export const getSubtypes = async (
   res: Response
 ): Promise<void> => {
   try {
-    // Kiểm tra đã vào function
-    console.log("Fetching subtypes...");
+    // Lấy category ID từ query parameters
+    const categoryId = req.query.categoryId as string;
 
-    // Lấy tất cả sản phẩm
-    const products = await Product.findAll({
-      attributes: ["subtype"],
-      where: {
-        subtype: {
-          [Op.not]: null,
+    console.log("Fetching subtypes for category:", categoryId || "all");
+
+    let products;
+
+    if (categoryId) {
+      // Nếu có categoryId, lọc sản phẩm theo category
+      products = await Product.findAll({
+        attributes: ["subtype"],
+        include: [
+          {
+            model: Category,
+            as: "categories",
+            where: { id: categoryId },
+            through: { attributes: [] },
+            required: true, // Đảm bảo chỉ lấy sản phẩm thuộc category này
+          },
+        ],
+        where: {
+          subtype: {
+            [Op.not]: null,
+          },
         },
-      },
-    });
+      });
+    } else {
+      // Nếu không có categoryId, lấy tất cả (giữ lại chức năng cũ)
+      products = await Product.findAll({
+        attributes: ["subtype"],
+        where: {
+          subtype: {
+            [Op.not]: null,
+          },
+        },
+      });
+    }
 
-    // Kiểm tra số lượng sản phẩm tìm được
     console.log("Products found:", products.length);
     console.log(
       "Product subtypes:",
@@ -1073,7 +1128,11 @@ export const getSubtypes = async (
     console.log("Unique subtypes:", subtypes);
 
     // Trả về danh sách `subtypes`
-    res.status(200).json({ subtypes });
+    res.status(200).json({
+      subtypes,
+      categoryId: categoryId || null,
+      count: subtypes.length,
+    });
   } catch (error: any) {
     console.error("Error fetching subtypes:", error);
     res.status(500).json({ message: "Lỗi khi lấy danh sách subtypes" });

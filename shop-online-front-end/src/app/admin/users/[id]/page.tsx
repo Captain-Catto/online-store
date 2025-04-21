@@ -13,6 +13,8 @@ import { Order } from "@/types/order";
 import { formatDateDisplay } from "@/utils/dateUtils";
 import { UserAdminApi } from "@/types/user";
 import PaginationComponent from "@/components/Category/Pagination";
+import { UserService } from "@/services/UserService";
+import { UserNote } from "@/types/user";
 
 export default function UserDetailPage() {
   const { id } = useParams() as { id: string };
@@ -37,6 +39,24 @@ export default function UserDetailPage() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
+
+  // state xử lý notes
+  const [notes, setNotes] = useState<UserNote[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [notesError, setNotesError] = useState<string | null>(null);
+  const [newNote, setNewNote] = useState("");
+  const [editingNote, setEditingNote] = useState<{
+    id: number;
+    note: string;
+  } | null>(null);
+  const [isSubmittingNote, setIsSubmittingNote] = useState(false);
+  const [deleteNoteModal, setDeleteNoteModal] = useState<{
+    show: boolean;
+    noteId: number | null;
+  }>({
+    show: false,
+    noteId: null,
+  });
 
   // Danh sách các trạng thái đơn hàng
   const orderStatuses = [
@@ -85,7 +105,7 @@ export default function UserDetailPage() {
     [id, currentPage, orderStatus, pagination.perPage]
   );
 
-  const fetchUserData = async () => {
+  const fetchUserData = useCallback(async () => {
     try {
       setUserLoading(true);
       setUserError(null);
@@ -112,12 +132,11 @@ export default function UserDetailPage() {
     } finally {
       setUserLoading(false);
     }
-  };
+  }, [id]);
 
-  // Thêm useEffect để fetch dữ liệu khi component mount
   useEffect(() => {
     fetchUserData();
-  }, [id]);
+  }, [fetchUserData]);
 
   // Thêm useEffect để fetch dữ liệu khi tab được kích hoạt
   useEffect(() => {
@@ -251,7 +270,7 @@ export default function UserDetailPage() {
         );
       }
 
-      const updatedUser = await response.json();
+      await response.json();
 
       // Cập nhật dữ liệu người dùng trong state
       setUser((prev) => (prev ? { ...prev, isActive: !prev.isActive } : null));
@@ -268,6 +287,120 @@ export default function UserDetailPage() {
     } finally {
       setIsStatusLoading(false);
     }
+  };
+
+  const fetchUserNotes = useCallback(async () => {
+    if (!id) return;
+
+    try {
+      setNotesLoading(true);
+      setNotesError(null);
+
+      const data = await UserService.getUserNotes(Number(id));
+      console.log("User notes data:", data);
+      setNotes(data.notes || []);
+    } catch (error) {
+      console.error("Failed to fetch user notes:", error);
+      setNotesError(
+        error instanceof Error
+          ? error.message
+          : "Không thể tải danh sách ghi chú"
+      );
+    } finally {
+      setNotesLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (activeTab === "notes") {
+      fetchUserNotes();
+    }
+  }, [activeTab, fetchUserNotes]);
+
+  // Thêm các hàm xử lý
+  const handleAddNote = async () => {
+    if (!newNote.trim() || isSubmittingNote) return;
+
+    try {
+      setIsSubmittingNote(true);
+
+      const response = await UserService.addUserNote(
+        Number(id),
+        newNote.trim()
+      );
+      console.log("Note added successfully:", response);
+
+      // Làm mới danh sách ghi chú
+      await fetchUserNotes();
+      setNewNote("");
+    } catch (error) {
+      console.error("Error adding note:", error);
+      setNotesError(
+        error instanceof Error ? error.message : "Không thể thêm ghi chú"
+      );
+    } finally {
+      setIsSubmittingNote(false);
+    }
+  };
+
+  const handleUpdateNote = async () => {
+    if (!editingNote || !editingNote.note.trim() || isSubmittingNote) return;
+
+    try {
+      setIsSubmittingNote(true);
+
+      const response = await UserService.updateUserNote(
+        editingNote.id,
+        editingNote.note.trim()
+      );
+      console.log("Note updated successfully:", response);
+
+      // Làm mới danh sách ghi chú và reset trạng thái chỉnh sửa
+      await fetchUserNotes();
+      setEditingNote(null);
+    } catch (error) {
+      console.error("Error updating note:", error);
+      setNotesError(
+        error instanceof Error ? error.message : "Không thể cập nhật ghi chú"
+      );
+    } finally {
+      setIsSubmittingNote(false);
+    }
+  };
+
+  const handleDeleteNote = async (noteId: number) => {
+    setDeleteNoteModal({
+      show: true,
+      noteId: noteId,
+    });
+  };
+
+  const confirmDeleteNote = async () => {
+    if (!deleteNoteModal.noteId || isSubmittingNote) return;
+
+    try {
+      setIsSubmittingNote(true);
+
+      const response = await UserService.deleteUserNote(deleteNoteModal.noteId);
+      console.log("Note deleted successfully:", response);
+
+      // Làm mới danh sách ghi chú
+      await fetchUserNotes();
+
+      // Đóng modal
+      setDeleteNoteModal({ show: false, noteId: null });
+    } catch (error) {
+      console.error("Error deleting note:", error);
+      setNotesError(
+        error instanceof Error ? error.message : "Không thể xóa ghi chú"
+      );
+    } finally {
+      setIsSubmittingNote(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingNote(null);
   };
 
   return (
@@ -767,30 +900,162 @@ export default function UserDetailPage() {
                     <h3 className="font-medium text-gray-900 mb-3">
                       Ghi chú về khách hàng
                     </h3>
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <p className="text-gray-700">
-                        {user?.notes || "Chưa có ghi chú nào về khách hàng này"}
-                      </p>
-                    </div>
-                    <div className="mt-4">
+
+                    {/* Form thêm ghi chú */}
+                    <div className="mb-6">
                       <label
-                        htmlFor="notes"
+                        htmlFor="newNote"
                         className="block text-sm font-medium text-gray-700 mb-2"
                       >
                         Thêm ghi chú mới
                       </label>
-                      <textarea
-                        id="notes"
-                        rows={3}
-                        className="shadow-sm block w-full focus:ring-blue-500 focus:border-blue-500 sm:text-sm border border-gray-300 rounded-md p-2"
-                        placeholder="Nhập ghi chú về khách hàng này..."
-                      ></textarea>
-                      <button
-                        type="button"
-                        className="mt-2 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      >
-                        Lưu ghi chú
-                      </button>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          id="newNote"
+                          className="shadow-sm block w-full focus:ring-blue-500 focus:border-blue-500 sm:text-sm border border-gray-300 rounded-md p-2"
+                          placeholder="Nhập ghi chú về khách hàng này..."
+                          value={newNote}
+                          onChange={(e) => setNewNote(e.target.value)}
+                          disabled={isSubmittingNote}
+                        />
+                        <button
+                          type="button"
+                          className={`inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                            !newNote.trim() || isSubmittingNote
+                              ? "bg-gray-400 cursor-not-allowed"
+                              : "bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          }`}
+                          onClick={handleAddNote}
+                          disabled={!newNote.trim() || isSubmittingNote}
+                        >
+                          {isSubmittingNote ? "Đang lưu..." : "Lưu ghi chú"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Hiển thị danh sách ghi chú */}
+                    <div className="mt-6">
+                      <h4 className="font-medium text-gray-700 mb-3">
+                        Lịch sử ghi chú
+                      </h4>
+
+                      {notesLoading ? (
+                        <div className="text-center py-4">
+                          <div
+                            className="spinner-border text-primary"
+                            role="status"
+                          >
+                            <span className="sr-only">Đang tải...</span>
+                          </div>
+                          <p className="mt-2">Đang tải danh sách ghi chú...</p>
+                        </div>
+                      ) : notesError ? (
+                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+                          <i className="fas fa-exclamation-circle mr-2"></i>{" "}
+                          {notesError}
+                        </div>
+                      ) : notes.length === 0 ? (
+                        <div className="bg-gray-50 p-4 rounded-md text-center text-gray-500">
+                          <i className="far fa-sticky-note mr-2"></i> Chưa có
+                          ghi chú nào về khách hàng này
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {notes.map((note) => (
+                            <div
+                              key={note.id}
+                              className="bg-white border border-gray-200 rounded-md shadow-sm p-4"
+                            >
+                              {editingNote && editingNote.id === note.id ? (
+                                <div className="space-y-3">
+                                  <input
+                                    type="text"
+                                    className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+                                    value={editingNote.note}
+                                    onChange={(e) =>
+                                      setEditingNote({
+                                        ...editingNote,
+                                        note: e.target.value,
+                                      })
+                                    }
+                                    disabled={isSubmittingNote}
+                                  />
+                                  <div className="flex justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      className="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                                      onClick={handleCancelEdit}
+                                      disabled={isSubmittingNote}
+                                    >
+                                      Hủy
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className={`px-3 py-1 ${
+                                        !editingNote.note.trim() ||
+                                        isSubmittingNote
+                                          ? "bg-gray-400 cursor-not-allowed"
+                                          : "bg-blue-600 hover:bg-blue-700"
+                                      } text-white rounded-md`}
+                                      onClick={handleUpdateNote}
+                                      disabled={
+                                        !editingNote.note.trim() ||
+                                        isSubmittingNote
+                                      }
+                                    >
+                                      {isSubmittingNote ? "Đang lưu..." : "Lưu"}
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="flex justify-between items-start">
+                                    <p className="text-gray-800">{note.note}</p>
+                                    <div className="flex gap-2">
+                                      <button
+                                        type="button"
+                                        className="text-blue-600 hover:text-blue-800"
+                                        onClick={() =>
+                                          setEditingNote({
+                                            id: note.id,
+                                            note: note.note,
+                                          })
+                                        }
+                                        disabled={isSubmittingNote}
+                                      >
+                                        <i className="fas fa-edit"></i>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="text-red-600 hover:text-red-800"
+                                        onClick={() =>
+                                          handleDeleteNote(note.id)
+                                        }
+                                        disabled={isSubmittingNote}
+                                      >
+                                        <i className="fas fa-trash-alt"></i>
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="mt-2 text-xs text-gray-500">
+                                    <span>
+                                      {formatDateDisplay(note.createdAt)}
+                                    </span>
+                                    {note.createdAt !== note.updatedAt && (
+                                      <span>
+                                        {" "}
+                                        (Đã chỉnh sửa{" "}
+                                        {formatDateDisplay(note.updatedAt)})
+                                      </span>
+                                    )}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -850,6 +1115,54 @@ export default function UserDetailPage() {
                   "Vô hiệu hóa"
                 ) : (
                   "Kích hoạt"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal xác nhận xóa ghi chú */}
+      {deleteNoteModal.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-xl font-bold mb-4">Xác nhận xóa</h3>
+            <p className="mb-6">
+              Bạn có chắc chắn muốn xóa ghi chú này? Hành động này không thể
+              hoàn tác.
+            </p>
+
+            {notesError && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                {notesError}
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-3 gap-1">
+              <button
+                onClick={() =>
+                  setDeleteNoteModal({ show: false, noteId: null })
+                }
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                disabled={isSubmittingNote}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={confirmDeleteNote}
+                className="px-4 py-2 rounded-md text-white bg-red-600 hover:bg-red-700"
+                disabled={isSubmittingNote}
+              >
+                {isSubmittingNote ? (
+                  <>
+                    <span
+                      className="spinner-border spinner-border-sm mr-2"
+                      role="status"
+                      aria-hidden="true"
+                    ></span>
+                    Đang xử lý...
+                  </>
+                ) : (
+                  "Xóa ghi chú"
                 )}
               </button>
             </div>

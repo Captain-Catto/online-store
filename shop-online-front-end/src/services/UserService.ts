@@ -1,6 +1,12 @@
 import { API_BASE_URL } from "@/config/apiConfig";
 import { AuthClient } from "./AuthClient";
-import { UserProfile, UserProfileUpdate } from "@/types/user";
+import {
+  UserProfile,
+  UserProfileUpdate,
+  UserNotes,
+  UserNoteDeleteResponse,
+  UserNoteResponse,
+} from "@/types/user";
 import { Address, AddressCreate, AddressUpdate } from "@/types/address";
 
 class UserService {
@@ -280,6 +286,153 @@ class UserService {
       }
 
       console.error("Error setting default address:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Lấy danh sách ghi chú của người dùng
+   * @param userId ID của người dùng
+   * @returns Danh sách ghi chú
+   */
+  static async getUserNotes(userId: number): Promise<UserNotes> {
+    try {
+      const response = await AuthClient.fetchWithAuth(
+        `${API_BASE_URL}/user-notes/users/${userId}/notes`
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || "Không thể lấy danh sách ghi chú người dùng"
+        );
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.message === "NO_AUTH_TOKEN" ||
+          error.message === "TOKEN_REFRESH_FAILED")
+      ) {
+        throw new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
+      }
+
+      console.error("Error fetching user notes:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Thêm ghi chú cho người dùng
+   * @param userId ID của người dùng
+   * @param content Nội dung ghi chú
+   * @returns Ghi chú đã thêm
+   */
+  static async addUserNote(
+    userId: number,
+    content: string
+  ): Promise<UserNoteResponse> {
+    try {
+      const response = await AuthClient.fetchWithAuth(
+        `${API_BASE_URL}/user-notes/users/${userId}/notes`,
+        {
+          method: "POST",
+          body: JSON.stringify({ note: content }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || "Không thể thêm ghi chú cho người dùng"
+        );
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.message === "NO_AUTH_TOKEN" ||
+          error.message === "TOKEN_REFRESH_FAILED")
+      ) {
+        throw new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
+      }
+
+      console.error("Error adding user note:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Cập nhật ghi chú
+   * @param noteId ID của ghi chú cần cập nhật
+   * @param content Nội dung ghi chú mới
+   * @returns Ghi chú đã cập nhật
+   */
+  static async updateUserNote(
+    noteId: number,
+    content: string
+  ): Promise<UserNoteResponse> {
+    try {
+      const response = await AuthClient.fetchWithAuth(
+        `${API_BASE_URL}/user-notes/notes/${noteId}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ note: content }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Không thể cập nhật ghi chú");
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.message === "NO_AUTH_TOKEN" ||
+          error.message === "TOKEN_REFRESH_FAILED")
+      ) {
+        throw new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
+      }
+
+      console.error("Error updating user note:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Xóa ghi chú
+   * @param noteId ID của ghi chú cần xóa
+   * @returns Thông báo thành công
+   */
+  static async deleteUserNote(noteId: number): Promise<UserNoteDeleteResponse> {
+    try {
+      const response = await AuthClient.fetchWithAuth(
+        `${API_BASE_URL}/user-notes/notes/${noteId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Không thể xóa ghi chú");
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.message === "NO_AUTH_TOKEN" ||
+          error.message === "TOKEN_REFRESH_FAILED")
+      ) {
+        throw new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
+      }
+
+      console.error("Error deleting user note:", error);
       throw error;
     }
   }

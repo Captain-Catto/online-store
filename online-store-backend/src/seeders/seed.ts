@@ -13,7 +13,6 @@ import Voucher from "../models/Voucher";
 import UserAddress from "../models/UserAddress"; // Thêm import này
 import Order from "../models/Order"; // Import Order model
 import OrderDetail from "../models/OrderDetail"; // Import OrderDetail model
-import Subtype from "../models/Subtype";
 
 import {
   roles,
@@ -30,7 +29,6 @@ import {
   userAddresses,
   orders, // Add this
   orderDetails, // Add this
-  subtypes,
 } from "./data";
 
 // Đảm bảo associations được thiết lập đúng
@@ -50,7 +48,6 @@ const seedDatabase = async () => {
     await PaymentMethod.sync({ force: true });
     await PaymentStatus.sync({ force: true });
     await Category.sync({ force: true });
-    await Subtype.sync({ force: true });
     await Voucher.sync({ force: true });
 
     // 2. Sau đó là các bảng có khóa ngoại đơn giản
@@ -82,9 +79,6 @@ const seedDatabase = async () => {
 
     await Category.bulkCreate(categories);
     console.log("✓ Đã tạo categories");
-
-    await Subtype.bulkCreate(subtypes);
-    console.log("✓ Đã tạo subtypes");
 
     await Product.bulkCreate(products);
     console.log("✓ Đã tạo products");

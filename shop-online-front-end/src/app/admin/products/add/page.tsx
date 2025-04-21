@@ -29,19 +29,25 @@ export default function AddProductPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedColor, setSelectedColor] = useState<string>("");
   const [tagInput, setTagInput] = useState("");
+  const [subtypes, setSubtypes] = useState<
+    Array<{ id: number; name: string; displayName: string }>
+  >([]);
+  const [subtypeLoading, setSubtypeLoading] = useState<boolean>(false);
 
   // State cho sản phẩm mới
   const [product, setProduct] = useState({
     name: "",
     sku: "",
     description: "",
-    category: "shirts", // Danh mục mặc định
+    category: "shirts",
     categoryName: "Áo",
     brand: "Shop Online",
+    subtype: "",
+    subtypeName: "",
     material: "",
     price: 0,
     originalPrice: 0,
-    suitability: [] as string[],
+    suitability: ["casual"] as string[],
     stock: {
       total: 0,
       variants: [] as ProductVariant[],
@@ -90,9 +96,13 @@ export default function AddProductPage() {
   const categories = [
     { value: "shirts", label: "Áo" },
     { value: "pants", label: "Quần" },
-    { value: "jackets", label: "Áo khoác" },
-    { value: "accessories", label: "Phụ kiện" },
   ];
+
+  // data map từ value sang id cho subtype
+  const categoryToIdMap = {
+    shirts: 1,
+    pants: 2,
+  };
 
   // Theo dõi màu sắc được chọn
   useEffect(() => {
@@ -104,6 +114,51 @@ export default function AddProductPage() {
       setSelectedColor(product.colors[0]);
     }
   }, [product.colors, selectedColor]);
+
+  useEffect(() => {
+    const fetchSubtypes = async () => {
+      console.log("Fetching subtypes for category:", product.category);
+      // do product.category là string và lầ chữ nên cần map về number khi truyền vào API
+
+      try {
+        setSubtypeLoading(true);
+        const categoryId =
+          categoryToIdMap[product.category as keyof typeof categoryToIdMap];
+        if (!categoryId) {
+          setSubtypes([]);
+          return;
+        }
+        console.log("Fetching subtypes for categoryId:", categoryId);
+
+        // Giả sử API endpoint là /api/subtypes/category/{categoryId}
+        const response = await fetch(`/api/subtypes/category/${categoryId}`);
+
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        setSubtypes(data || []);
+
+        // Reset subtype khi đổi category
+        setProduct((prev) => ({
+          ...prev,
+          subtype: "",
+          subtypeName: "",
+        }));
+      } catch (error) {
+        console.error("Error fetching subtypes:", error);
+        setSubtypes([]);
+      } finally {
+        setSubtypeLoading(false);
+      }
+    };
+
+    // Chỉ fetch khi có category
+    if (product.category) {
+      fetchSubtypes();
+    }
+  }, [product.category]);
 
   // Hàm xử lý khi chọn hình ảnh
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -436,6 +491,7 @@ export default function AddProductPage() {
         tags: product.tags,
         suitability: product.suitability,
         categories: [parseInt(product.category) || 1],
+        subtypeId: product.subtype ? parseInt(product.subtype) : null,
         details: [] as Array<{
           color: string;
           price: number;
@@ -619,6 +675,44 @@ export default function AddProductPage() {
                         </option>
                       ))}
                     </select>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="productSubtype">Loại sản phẩm</label>
+                    <select
+                      className="form-control"
+                      id="productSubtype"
+                      value={product.subtype}
+                      onChange={(e) => {
+                        const selectedSubtype = subtypes.find(
+                          (s) => s.id.toString() === e.target.value
+                        );
+                        setProduct({
+                          ...product,
+                          subtype: e.target.value,
+                          subtypeName: selectedSubtype
+                            ? selectedSubtype.displayName
+                            : "",
+                        });
+                      }}
+                      disabled={subtypeLoading}
+                    >
+                      <option value="">-- Chọn loại sản phẩm --</option>
+                      {subtypes.map((subtype) => (
+                        <option key={subtype.id} value={subtype.id.toString()}>
+                          {subtype.displayName || subtype.name}
+                        </option>
+                      ))}
+                    </select>
+                    {subtypeLoading && (
+                      <small className="form-text text-muted">
+                        Đang tải loại sản phẩm...
+                      </small>
+                    )}
+                    {!subtypeLoading && subtypes.length === 0 && (
+                      <small className="form-text text-muted">
+                        Không có loại sản phẩm cho danh mục này
+                      </small>
+                    )}
                   </div>
                   <div className="form-group">
                     <label htmlFor="productBrand">Thương hiệu</label>
@@ -874,7 +968,7 @@ export default function AddProductPage() {
                       <select
                         multiple
                         className="form-control"
-                        value={product.suitability || []}
+                        value={product.suitability}
                         onChange={(e) => {
                           const selected = Array.from(
                             e.target.selectedOptions,

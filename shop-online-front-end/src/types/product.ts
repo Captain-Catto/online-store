@@ -2,6 +2,12 @@ export interface ProductImage {
   id: number;
   url: string;
   isMain: boolean;
+  productDetailId?: number;
+}
+
+export interface PriceRange {
+  min: number;
+  max: number;
 }
 
 export interface VariantDetail {
@@ -19,48 +25,54 @@ export interface Product {
   name: string;
   sku: string;
   description: string;
-  categories: Array<{ id: number; name: string }>;
   brand: string;
-  colors: string[];
-  sizes: string[];
   featured: boolean;
   status: string;
-  statusLabel: string;
-  statusClass: string;
-  variants: Record<string, VariantDetail>;
-  createdAt: string;
-  updatedAt: string;
-  suitability: string[];
+  mainImage: string;
+  subImage: ProductImage[];
+  price: number | null;
+  priceRange?: PriceRange | null;
+  hasDiscount: boolean;
+  colors: string[];
+  sizes: string[];
+  categories: Array<{ id: number; name: string; slug: string }>;
+  suitabilities: string[];
+  details?: Record<string, VariantDetail>;
 }
 
 // Interface đơn giản hóa cho ProductCard
-export interface SimpleProduct {
-  id: number;
-  name: string;
-  featured: boolean;
-  colors: string[];
-  variants: Record<string, VariantDetail>;
+export interface SimpleProduct extends Product {
+  colorToImage?: Record<string, string>;
+  variants?: Record<
+    string,
+    {
+      price: number;
+      originalPrice: number;
+      sizes: string[];
+      inventories?: Array<{
+        size: string;
+        stock: number;
+      }>;
+    }
+  >;
 }
 
 export interface PaginatedResponse {
   products: Product[];
   pagination: {
     total: number;
-    totalPages: number;
-    currentPage: number;
+    page: number;
     limit: number;
+    totalPages: number;
   };
 }
 
 // Interface cho các tham số lọc sản phẩm
 export interface ProductFilterParams {
-  category?: number | string;
-  brand?: string;
-  minPrice?: number;
-  maxPrice?: number;
+  page?: number;
+  limit?: number;
   color?: string;
-  size?: string;
-  search?: string;
-  sort?: string;
-  featured?: boolean;
+  size?: string[];
+  suitability?: string[];
+  childCategory?: string;
 }

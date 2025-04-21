@@ -2,39 +2,48 @@ import React from "react";
 import SuitabilityFilter from "./SuitabilityFilter";
 import SizeFilter from "./SizeFilter";
 import ColorFilter from "./ColorFilter";
-import SubtypeFilter from "./SubtypeFilter";
+import ChildCategoryFilter from "./ChildCategoryFilter";
+import MainCategoryFilter from "./MainCategoryFilter";
 
+interface CategoryInfo {
+  id: number | string;
+  name: string;
+  slug: string;
+  children?: CategoryInfo[];
+}
+
+interface FiltersOpenState {
+  suitability: boolean;
+  size: boolean;
+  color: boolean;
+  categories: boolean;
+  mainCategory: boolean;
+}
+// Cập nhật interface FilterSidebarProps
 interface FilterSidebarProps {
-  filtersOpen: {
-    suitability: boolean;
-    size: boolean;
-    color: boolean;
-    category: boolean;
-    productGroups?: boolean;
-  };
+  filtersOpen: FiltersOpenState;
   activeFilters: {
     suitability: string[];
     size: string[];
     color: string;
-    category: string;
-    subtype?: string;
+    childCategory: string;
+    category?: number;
   };
-  toggleFilter: (filterName: keyof FilterSidebarProps["filtersOpen"]) => void;
+  toggleFilter: (filterName: keyof FiltersOpenState) => void;
   handleSuitabilityFilter: (suitability: string) => void;
   handleSizeFilter: (size: string) => void;
   handleColorFilter: (color: string) => void;
-  handleCategoryFilter: (categoryId: string) => void;
-  handleSubtypeFilter?: (subtype: string) => void;
-  availableSuitability?: string[];
-  categories: { id: number; name: string }[];
-  subtypes?: Array<{
-    id: number;
-    name: string;
-    displayName: string;
-    categoryId: number;
-    createdAt: string;
-    updatedAt: string;
-  }>;
+  handleChildCategoryFilter: (childSlug: string) => void;
+  handleCategoryFilter: (categorySlug: string) => void;
+  availableSuitability: string[];
+  childCategories: CategoryInfo[];
+  mainCategories: CategoryInfo[];
+
+  // Thêm các props mới mà bạn đang sử dụng
+  availableColors: string[];
+  availableSizes: string[];
+  availableBrands: string[];
+  priceRange: { min: number; max: number };
 }
 
 export default function FilterSidebar({
@@ -44,29 +53,35 @@ export default function FilterSidebar({
   handleSuitabilityFilter,
   handleSizeFilter,
   handleColorFilter,
-
-  handleSubtypeFilter,
+  handleChildCategoryFilter,
+  handleCategoryFilter,
   availableSuitability,
-  subtypes,
+  childCategories,
+  mainCategories,
 }: FilterSidebarProps) {
   return (
     <div className="lg:w-1/4">
       <div className="sticky top-24">
         <h2 className="text-2xl font-bold mb-6">Bộ lọc</h2>
 
-        {/* Chỉ hiển thị SubtypeFilter khi có đủ props cần thiết */}
-        {filtersOpen.productGroups !== undefined &&
-          activeFilters.subtype !== undefined &&
-          handleSubtypeFilter &&
-          subtypes && (
-            <SubtypeFilter
-              isOpen={filtersOpen.productGroups}
-              activeSubtype={activeFilters.subtype}
-              onToggle={() => toggleFilter("productGroups")}
-              onFilterChange={handleSubtypeFilter}
-              subtypes={subtypes}
-            />
-          )}
+        {/* Sử dụng MainCategoryFilter */}
+        <MainCategoryFilter
+          isOpen={filtersOpen.mainCategory ?? false}
+          activeCategory={activeFilters.category}
+          onToggle={() => toggleFilter("mainCategory")}
+          onFilterChange={handleCategoryFilter}
+          categories={mainCategories || []}
+        />
+        {/* Sử dụng ChildCategoryFilter thay vì SubtypeFilter */}
+        {childCategories && childCategories.length > 0 && (
+          <ChildCategoryFilter
+            isOpen={filtersOpen.categories}
+            activeChildCategory={activeFilters.childCategory || ""}
+            onToggle={() => toggleFilter("categories")}
+            onFilterChange={handleChildCategoryFilter}
+            childCategories={childCategories}
+          />
+        )}
 
         <SuitabilityFilter
           isOpen={filtersOpen.suitability}

@@ -21,10 +21,36 @@ const ProductCard: React.FC<ProductCardProps> = ({
   secondaryImage,
   onColorSelect,
 }) => {
+  console.log("ProductCard props:", {
+    product,
+    selectedColor,
+    productImage,
+    secondaryImage,
+  });
+
   const [isHovered, setIsHovered] = useState(false);
-  const currentVariant = product.variants[selectedColor];
+
+  // Lấy variant hiện tại dựa trên màu đã chọn
+  const currentVariant =
+    product.variants && selectedColor ? product.variants[selectedColor] : null;
+
+  // Nếu không có giá trong variant hoặc giá bằng 0, sử dụng giá từ product
+  const price =
+    currentVariant && currentVariant.price > 0
+      ? currentVariant.price
+      : product.price || 0;
+
+  // Nếu không có giá gốc hoặc giá gốc bằng 0, sử dụng giá + 10%
+  const originalPrice =
+    currentVariant && currentVariant.originalPrice > 0
+      ? currentVariant.originalPrice
+      : product.hasDiscount
+      ? price * 1.1
+      : price;
+
   const { showToast, Toast } = useToast();
 
+  // Mở rộng colorMap để bao gồm thêm nhiều màu
   const colorMap: Record<string, string> = {
     black: "#000000",
     white: "#FFFFFF",
@@ -34,15 +60,21 @@ const ProductCard: React.FC<ProductCardProps> = ({
     green: "#008000",
     red: "#FF0000",
     navy: "#000080",
+    yellow: "#FFFF00",
+    purple: "#800080",
+    pink: "#FFC0CB",
+    orange: "#FFA500",
   };
 
-  // Xử lý sự kiện khi sản phẩm được thêm vào giỏ hàng
+  // Cập nhật hàm xử lý thêm vào giỏ hàng để làm việc với dữ liệu mới
   const handleProductAdded = (
-    product: Product,
+    product: Product | SimpleProduct,
     color: string,
     size: string
   ) => {
-    const variant = product.variants[color];
+    // Xác định giá cả từ variant hoặc từ product nếu không có variant
+    const productPrice = price;
+    const productOriginalPrice = originalPrice;
 
     try {
       showToast(`Đã thêm vào giỏ hàng thành công!`, {
@@ -53,8 +85,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
           color: color,
           size: size,
           quantity: 1,
-          price: variant.price,
-          originalPrice: variant.originalPrice,
+          price: productPrice,
+          originalPrice: productOriginalPrice,
         },
         duration: 4000,
       });
@@ -66,6 +98,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
   return (
     <div className="product-container w-full rounded-lg flex-shrink-0 m-2 h-[500px] mx-auto flex flex-col relative">
+      {/* product img */}
       <div
         className="relative product-image"
         onMouseEnter={() => setIsHovered(true)}
@@ -119,16 +152,20 @@ const ProductCard: React.FC<ProductCardProps> = ({
         </Link>
 
         {/* Size selector overlay khi hover */}
-        {isHovered && currentVariant && (
-          <div className="absolute inset-0 flex flex-col justify-center items-center p-4 transition-opacity duration-200">
-            <SizeSelector
-              product={product as Product}
-              selectedColor={selectedColor}
-              productImage={productImage}
-              onProductAdded={handleProductAdded}
-            />
-          </div>
-        )}
+        <div
+          className={`product-image relative ${
+            isHovered
+              ? "translate-y-0 opacity-100"
+              : "translate-y-full opacity-0"
+          }`}
+        >
+          <SizeSelector
+            product={product}
+            selectedColor={selectedColor}
+            productImage={productImage}
+            onProductAdded={handleProductAdded}
+          />
+        </div>
       </div>
 
       <Link
@@ -138,35 +175,28 @@ const ProductCard: React.FC<ProductCardProps> = ({
         <h3 className="text-lg font-medium line-clamp-2">{product.name}</h3>
       </Link>
 
-      {/*  */}
-      {currentVariant && (
-        <div className="mt-2 space-y-2">
-          <div className="flex gap-2 items-center">
-            <span className="font-semibold">
-              {currentVariant.price.toLocaleString("vi-VN")}đ
-            </span>
-            {currentVariant.originalPrice > currentVariant.price && (
-              // hiển thị thêm % giảm giá
-              <>
-                <span className="text-sm text-red-600 font-medium bg-red-50 px-2 py-1 rounded mr-2">
-                  -
-                  {Math.round(
-                    ((currentVariant.originalPrice - currentVariant.price) /
-                      currentVariant.originalPrice) *
-                      100
-                  )}
-                  %
-                </span>
-                <span className="text-sm text-gray-500 line-through">
-                  {currentVariant.originalPrice.toLocaleString("vi-VN")}đ
-                </span>
-              </>
-            )}
-          </div>
+      {/* Hiển thị giá */}
+      <div className="mt-2 space-y-2">
+        <div className="flex gap-2 items-center">
+          <span className="font-semibold">
+            {price.toLocaleString("vi-VN")}đ
+          </span>
+          {product.hasDiscount && originalPrice > price && (
+            <>
+              <span className="text-sm text-red-600 font-medium bg-red-50 px-2 py-1 rounded mr-2">
+                -{Math.round(((originalPrice - price) / originalPrice) * 100)}%
+              </span>
+              <span className="text-sm text-gray-500 line-through">
+                {originalPrice.toLocaleString("vi-VN")}đ
+              </span>
+            </>
+          )}
+        </div>
 
-          {/* ColorSelector luôn hiển thị khi không hover */}
-          <div className="flex gap-2">
-            {product.colors.map((color) => (
+        {/* ColorSelector với kiểm tra product.colors */}
+        <div className="flex gap-2">
+          {product.colors &&
+            product.colors.map((color) => (
               <button
                 key={color}
                 className={`w-6 h-6 rounded-full border-2 ${
@@ -177,9 +207,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
                 aria-label={`Màu ${color}`}
               />
             ))}
-          </div>
         </div>
-      )}
+      </div>
+
       {/* Hiển thị Toast khi có thông báo */}
       {Toast}
     </div>

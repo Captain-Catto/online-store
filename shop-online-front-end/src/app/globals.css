@@ -130,9 +130,9 @@ body {
   pointer-events: none;
   display: block;
   position: absolute;
-  bottom: -10%;
+  bottom: -20%;
   left: 50%;
-  transform: translate(-50%, -50%) translateY(20px);
+  transform: translate(-50%, -20%) translateY(20px);
   width: 80%;
   backdrop-filter: blur(20px);
   background: linear-gradient(0deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)),
@@ -143,12 +143,12 @@ body {
   padding: 0.75rem;
   max-width: 90%;
   opacity: 0;
-  transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+  transition: transform 0.3s ease-in-out;
 }
 
 .product-image:hover .size-selector {
   pointer-events: auto;
   opacity: 1;
   /* Khi hover, di chuyển lên về vị trí ban đầu */
-  transform: translate(-50%, -50%) translateY(0);
+  transform: translate(-50%, -50%) translateY(0px);
 }

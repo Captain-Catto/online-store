@@ -1,6 +1,8 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/db";
-import Subtype from "./Subtype";
+import ProductDetail from "./ProductDetail";
+import Category from "./Category";
+import Suitability from "./Suitability";
 
 class Product extends Model {
   public id!: number;
@@ -12,7 +14,10 @@ class Product extends Model {
   public featured!: boolean;
   public status!: string;
   public tags!: string;
-  public suitability!: string;
+
+  public readonly details?: ProductDetail[]; // Quan hệ với ProductDetail
+  public readonly categories?: Category[]; // Quan hệ với Category
+  public readonly suitabilities?: Suitability[]; // Quan hệ với Suitability
 }
 
 Product.init(
@@ -64,23 +69,6 @@ Product.init(
       set(value: string[]) {
         this.setDataValue("tags", JSON.stringify(value));
       },
-    },
-    suitability: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-      defaultValue: "[]",
-      get() {
-        const rawValue = this.getDataValue("suitability");
-        return rawValue ? JSON.parse(rawValue) : [];
-      },
-      set(value: string[]) {
-        this.setDataValue("suitability", JSON.stringify(value));
-      },
-    },
-    subtypeId: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      references: { model: Subtype, key: "id" },
     },
   },
   {

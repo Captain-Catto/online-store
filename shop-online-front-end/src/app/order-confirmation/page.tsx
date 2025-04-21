@@ -74,7 +74,16 @@ export default function OrderConfirmationPage() {
       try {
         const order = await OrderService.getOrderById(Number(orderId));
         console.log("Order data:", order);
-        setOrderData(order);
+        setOrderData({
+          ...order,
+          orderDetails: (order.orderDetails || []).map((detail) => ({
+            ...detail,
+            product: {
+              ...detail.product,
+              sku: detail.product.sku || "",
+            },
+          })),
+        });
       } catch (error) {
         console.error("Error fetching order details:", error);
         setError("Không thể tải thông tin đơn hàng. Vui lòng thử lại sau.");
