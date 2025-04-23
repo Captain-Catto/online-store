@@ -1,292 +1,461 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import Image from "next/image";
+import React, { useState, useEffect, useRef } from "react";
+import { useToast } from "@/utils/useToast";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
+import { CategoryService } from "@/services/CategoryService";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
+import Image from "next/image";
 
+// Define interfaces outside the component
 interface Category {
-  id: string;
+  id: string | number;
   name: string;
   slug: string;
-  description: string;
-  parentId: string | null;
-  image: string;
+  description?: string;
+  image?: string | null;
+  parentId?: string | number | null;
   isActive: boolean;
-  productCount: number;
-  createdAt: string;
+  children?: Category[];
 }
 
 interface CategoryFormData {
-  id?: string;
   name: string;
   slug: string;
   description: string;
-  parentId: string | null;
+  image: File | null;
+  imageUrl: string;
+  parentId: string | number | null;
   isActive: boolean;
-  image?: File | null;
 }
 
-export default function CategoriesPage() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [showForm, setShowForm] = useState(false);
-  const [editingCategory, setEditingCategory] =
-    useState<CategoryFormData | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+export default function CategoriesManagement() {
+  const { showToast, Toast } = useToast();
 
-  // Form data state
-  const initialFormData: CategoryFormData = {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [showForm, setShowForm] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+
+  // State để theo dõi danh mục nào đang được mở rộng
+  const [expandedCategories, setExpandedCategories] = useState<
+    Set<string | number>
+  >(new Set());
+
+  // States for form handling
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [formData, setFormData] = useState<CategoryFormData>({
     name: "",
     slug: "",
     description: "",
+    image: null,
+    imageUrl: "",
     parentId: null,
     isActive: true,
+  });
+
+  // States for child category form
+  const [showChildForm, setShowChildForm] = useState<boolean>(false);
+  const [childFormData, setChildFormData] = useState<CategoryFormData>({
+    name: "",
+    slug: "",
+    description: "",
     image: null,
-  };
+    imageUrl: "",
+    parentId: "",
+    isActive: true,
+  });
 
-  const [formData, setFormData] = useState<CategoryFormData>(initialFormData);
+  const [pendingChildCategories, setPendingChildCategories] = useState<
+    CategoryFormData[]
+  >([]);
 
-  // Breadcrumb items
-  const breadcrumbItems = [
-    { label: "Trang chủ", href: "/admin" },
-    { label: "Sản phẩm", href: "/admin/products" },
-    { label: "Danh mục", active: true },
-  ];
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const childFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Fetch categories on component mount
   useEffect(() => {
-    // Fetch categories data from API
-    // For now, let's use mock data
-    const mockCategories: Category[] = [
-      {
-        id: "cat1",
-        name: "Áo",
-        slug: "ao",
-        description: "Các loại áo nam, nữ",
-        parentId: null,
-        image:
-          "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/ao-thun-nam-cotton/AT.220.xd.12.webp",
-        isActive: true,
-        productCount: 45,
-        createdAt: "01/01/2025",
-      },
-      {
-        id: "cat2",
-        name: "Áo thun",
-        slug: "ao-thun",
-        description: "Áo thun nam nữ các loại",
-        parentId: "cat1",
-        image:
-          "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/ao-thun-nam-cotton/AT.220.xd.12.webp",
-        isActive: true,
-        productCount: 30,
-        createdAt: "01/01/2025",
-      },
-      {
-        id: "cat3",
-        name: "Áo sơ mi",
-        slug: "ao-so-mi",
-        description: "Áo sơ mi nam nữ các loại",
-        parentId: "cat1",
-        image:
-          "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/ao-thun-nam-cotton/AT.220.xd.12.webp",
-        isActive: true,
-        productCount: 15,
-        createdAt: "01/01/2025",
-      },
-      {
-        id: "cat4",
-        name: "Quần",
-        slug: "quan",
-        description: "Các loại quần nam, nữ",
-        parentId: null,
-        image:
-          "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/ao-thun-nam-cotton/AT.220.xd.12.webp",
-        isActive: true,
-        productCount: 35,
-        createdAt: "01/01/2025",
-      },
-      {
-        id: "cat5",
-        name: "Quần jean",
-        slug: "quan-jean",
-        description: "Quần jean nam nữ các loại",
-        parentId: "cat4",
-        image:
-          "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/ao-thun-nam-cotton/AT.220.xd.12.webp",
-        isActive: true,
-        productCount: 20,
-        createdAt: "01/01/2025",
-      },
-      {
-        id: "cat6",
-        name: "Quần kaki",
-        slug: "quan-kaki",
-        description: "Quần kaki nam nữ các loại",
-        parentId: "cat4",
-        image:
-          "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/ao-thun-nam-cotton/AT.220.xd.12.webp",
-        isActive: true,
-        productCount: 15,
-        createdAt: "01/01/2025",
-      },
-      {
-        id: "cat7",
-        name: "Phụ kiện",
-        slug: "phu-kien",
-        description: "Các loại phụ kiện thời trang",
-        parentId: null,
-        image:
-          "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/ao-thun-nam-cotton/AT.220.xd.12.webp",
-        isActive: false,
-        productCount: 25,
-        createdAt: "01/01/2025",
-      },
-    ];
+    const fetchCategories = async () => {
+      try {
+        setLoading(true);
+        const data = await CategoryService.getAllCategories();
+        console.log("Fetched categories:", data);
 
-    setCategories(mockCategories);
-    setIsLoading(false);
+        // Nếu dữ liệu trả về có cấu trúc phân cấp, cần phẳng hóa
+        const flattenedData = flattenCategories(data);
+        setCategories(flattenedData);
+        setLoading(false);
+
+        // Mặc định mở tất cả danh mục cha
+        const parentIds = flattenedData
+          .filter((category) => category.parentId === null)
+          .map((category) => category.id);
+        setExpandedCategories(new Set(parentIds));
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+        showToast("Không thể tải danh mục", { type: "error" });
+        setLoading(false);
+      }
+    };
+
+    fetchCategories();
   }, []);
 
-  // Filter categories based on search term
-  const filteredCategories = categories.filter(
-    (category) =>
-      category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      category.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Hàm làm phẳng dữ liệu danh mục phân cấp (cải tiến với đệ quy)
+  const flattenCategories = (nestedCategories: Category[]): Category[] => {
+    const result: Category[] = [];
 
-  // Find parent category name by ID
-  const getParentCategoryName = (parentId: string | null): string => {
-    if (!parentId) return "-";
-    const parent = categories.find((category) => category.id === parentId);
-    return parent ? parent.name : "-";
+    // Hàm đệ quy để duyệt qua tất cả các cấp danh mục
+    const flatten = (categories: Category[]): void => {
+      for (const category of categories) {
+        // Tạo bản sao của danh mục hiện tại (không bao gồm children)
+        const { children, ...categoryWithoutChildren } = category;
+
+        // Thêm danh mục hiện tại vào kết quả
+        result.push({
+          ...categoryWithoutChildren,
+          children: undefined, // Đảm bảo không có children trong kết quả
+        } as Category);
+
+        // Nếu có danh mục con, đệ quy để làm phẳng chúng
+        if (children && Array.isArray(children) && children.length > 0) {
+          flatten(children);
+        }
+      }
+    };
+
+    // Bắt đầu quá trình làm phẳng
+    flatten(nestedCategories);
+    return result;
   };
 
-  // Handle form input change
+  // Hàm để bật/tắt hiển thị danh mục con
+  const toggleCategoryExpansion = (categoryId: string | number) => {
+    setExpandedCategories((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(categoryId)) {
+        newSet.delete(categoryId);
+      } else {
+        newSet.add(categoryId);
+      }
+      return newSet;
+    });
+  };
+
+  // Phân loại danh mục thành cha và con
+  const getParentCategories = (): Category[] => {
+    return categories.filter((category) => category.parentId === null);
+  };
+
+  const getChildCategories = (parentId: string | number): Category[] => {
+    return categories.filter((category) => category.parentId === parentId);
+  };
+
+  // Filter categories based on search query
+  const filteredCategories = categories.filter((category) =>
+    category.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredParentCategories = getParentCategories().filter((category) =>
+    category.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Handle form input changes for main category
   const handleInputChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
     >
   ) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    const { name, value, type } = e.target as HTMLInputElement;
 
-    // Auto-generate slug from name if slug field is empty
-    if (name === "name" && (!formData.slug || formData.slug === "")) {
-      const slug = value
+    if (type === "checkbox") {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData((prev) => ({ ...prev, [name]: checked }));
+    } else if (name === "name" && !editingCategory) {
+      // Auto-generate slug when name changes (only when adding new category)
+      const newSlug = value
         .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
         .replace(/đ/g, "d")
-        .replace(/[^\w\s]/gi, "")
+        .replace(/Đ/g, "D")
+        .replace(/[^a-z0-9\s]/g, "")
         .replace(/\s+/g, "-");
-      setFormData({ ...formData, name: value, slug });
+
+      setFormData((prev) => ({
+        ...prev,
+        name: value,
+        slug: newSlug,
+      }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
 
-  // Handle checkbox change
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, checked } = e.target;
-    setFormData({ ...formData, [name]: checked });
-  };
-
-  // Handle image upload
+  // Handle image upload for main category
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setFormData({ ...formData, image: file });
-
-      // Create preview URL
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setFormData((prev) => ({
+        ...prev,
+        image: file,
+        imageUrl: URL.createObjectURL(file),
+      }));
     }
   };
 
-  // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
+  // Handle form input changes for child category
+  const handleChildInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value, type } = e.target as HTMLInputElement;
+
+    if (type === "checkbox") {
+      const checked = (e.target as HTMLInputElement).checked;
+      setChildFormData((prev) => ({ ...prev, [name]: checked }));
+    } else if (name === "name") {
+      // Auto-generate slug for child category
+      const newSlug = value
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/đ/g, "d")
+        .replace(/Đ/g, "D")
+        .replace(/[^a-z0-9\s]/g, "")
+        .replace(/\s+/g, "-");
+
+      setChildFormData((prev) => ({
+        ...prev,
+        name: value,
+        slug: newSlug,
+      }));
+    } else {
+      setChildFormData((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  // Handle image upload for child category
+  const handleChildImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setChildFormData((prev) => ({
+        ...prev,
+        image: file,
+        imageUrl: URL.createObjectURL(file),
+      }));
+    }
+  };
+
+  // Add a child category to pending list
+  const handleAddPendingChildCategory = () => {
+    if (!childFormData.name) {
+      showToast("Vui lòng nhập tên danh mục con", { type: "error" });
+      return;
+    }
+
+    setPendingChildCategories((prev) => [...prev, { ...childFormData }]);
+
+    // Reset child form data
+    setChildFormData({
+      name: "",
+      slug: "",
+      description: "",
+      image: null,
+      imageUrl: "",
+      parentId: "",
+      isActive: true,
+    });
+
+    // Reset file input
+    if (childFileInputRef.current) {
+      childFileInputRef.current.value = "";
+    }
+
+    showToast("Đã thêm danh mục con vào danh sách chờ", { type: "success" });
+  };
+
+  // Remove child category from pending list
+  const handleRemovePendingChildCategory = (index: number) => {
+    setPendingChildCategories((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Main form submit handler
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (editingCategory) {
-      // Update existing category
-      const updatedCategories = categories.map((category) =>
-        category.id === editingCategory.id
-          ? {
-              ...category,
-              name: formData.name,
-              slug: formData.slug,
-              description: formData.description,
-              parentId: formData.parentId,
-              isActive: formData.isActive,
-              // In a real app, you would upload the image and get a URL
-              image: imagePreview || category.image,
-            }
-          : category
-      );
-      setCategories(updatedCategories);
-    } else {
-      // Add new category
-      const newCategory: Category = {
-        id: `cat${categories.length + 1}`,
-        name: formData.name,
-        slug: formData.slug,
-        description: formData.description,
-        parentId: formData.parentId,
-        isActive: formData.isActive,
-        image:
-          imagePreview ||
-          "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/ao-thun-nam-cotton/AT.220.xd.12.webp",
-        productCount: 0,
-        createdAt: new Date().toLocaleDateString("vi-VN"),
-      };
-      setCategories([...categories, newCategory]);
+    try {
+      let parentCategoryId: string = "";
+
+      // 1. Tạo hoặc cập nhật danh mục chính
+      if (editingCategory) {
+        // Update existing category
+        const formDataToSend = new FormData();
+        formDataToSend.append("name", formData.name);
+        formDataToSend.append("slug", formData.slug);
+        formDataToSend.append("description", formData.description || "");
+
+        if (formData.parentId) {
+          formDataToSend.append("parentId", String(formData.parentId));
+        }
+
+        formDataToSend.append("isActive", formData.isActive ? "true" : "false");
+
+        if (formData.image) {
+          formDataToSend.append("image", formData.image);
+        }
+
+        await CategoryService.updateCategory(
+          editingCategory.id,
+          formDataToSend
+        );
+        showToast("Cập nhật danh mục thành công", { type: "success" });
+        parentCategoryId = String(editingCategory.id);
+      } else {
+        // Create new category
+        const formDataToSend = new FormData();
+        formDataToSend.append("name", formData.name);
+        formDataToSend.append("slug", formData.slug);
+        formDataToSend.append("description", formData.description || "");
+
+        if (formData.parentId) {
+          formDataToSend.append("parentId", String(formData.parentId));
+        }
+
+        formDataToSend.append("isActive", formData.isActive ? "true" : "false");
+
+        if (formData.image) {
+          formDataToSend.append("image", formData.image);
+        }
+
+        const newCategory = await CategoryService.createCategory(
+          formDataToSend
+        );
+        showToast("Thêm danh mục thành công", { type: "success" });
+        parentCategoryId = String(newCategory.id);
+      }
+
+      // 2. Tạo các danh mục con nếu có
+      if (pendingChildCategories.length > 0) {
+        for (const childCategory of pendingChildCategories) {
+          const childFormDataToSend = new FormData();
+          childFormDataToSend.append("name", childCategory.name);
+          childFormDataToSend.append("slug", childCategory.slug);
+          childFormDataToSend.append(
+            "description",
+            childCategory.description || ""
+          );
+          childFormDataToSend.append("parentId", parentCategoryId);
+          childFormDataToSend.append(
+            "isActive",
+            childCategory.isActive ? "true" : "false"
+          );
+
+          if (childCategory.image) {
+            childFormDataToSend.append("image", childCategory.image);
+          }
+
+          await CategoryService.createCategory(childFormDataToSend);
+        }
+
+        showToast(
+          `Đã thêm ${pendingChildCategories.length} danh mục con thành công`,
+          { type: "success" }
+        );
+      }
+
+      // Reset forms and fetch updated data
+      resetForm();
+      const data = await CategoryService.getAllCategories();
+      const flattenedData = flattenCategories(data);
+      setCategories(flattenedData);
+    } catch (error) {
+      console.error("Error saving category:", error);
+      showToast("Lỗi khi lưu danh mục", { type: "error" });
     }
-
-    // Reset form
-    resetForm();
   };
 
-  // Reset form to initial state
-  const resetForm = () => {
-    setFormData(initialFormData);
-    setEditingCategory(null);
-    setShowForm(false);
-    setImagePreview(null);
-  };
-
-  // Edit category handler
+  // Handler to edit category
   const handleEditCategory = (category: Category) => {
-    setEditingCategory({
-      id: category.id,
-      name: category.name,
-      slug: category.slug,
-      description: category.description,
-      parentId: category.parentId,
-      isActive: category.isActive,
-    });
+    setEditingCategory(category);
     setFormData({
-      id: category.id,
       name: category.name,
       slug: category.slug,
-      description: category.description,
-      parentId: category.parentId,
-      isActive: category.isActive,
+      description: category.description || "",
       image: null,
+      imageUrl: category.image || "",
+      parentId: category.parentId || null,
+      isActive: category.isActive,
     });
-    setImagePreview(category.image);
     setShowForm(true);
+    // Clear pending child categories when editing
+    setPendingChildCategories([]);
+    setShowChildForm(false);
   };
 
-  // Delete category handler
-  const handleDeleteCategory = (categoryId: string) => {
-    if (window.confirm("Bạn có chắc chắn muốn xóa danh mục này?")) {
-      const updatedCategories = categories.filter(
-        (category) => category.id !== categoryId
-      );
-      setCategories(updatedCategories);
+  // Handler to delete category
+  const handleDeleteCategory = async (id: string | number) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa danh mục này?")) return;
+
+    try {
+      await CategoryService.deleteCategory(id);
+      showToast("Xóa danh mục thành công", { type: "success" });
+      const data = await CategoryService.getAllCategories();
+      const flattenedData = flattenCategories(data);
+      setCategories(flattenedData);
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      showToast("Lỗi khi xóa danh mục", { type: "error" });
     }
+  };
+
+  // Reset all forms
+  const resetForm = () => {
+    setEditingCategory(null);
+    setFormData({
+      name: "",
+      slug: "",
+      description: "",
+      image: null,
+      imageUrl: "",
+      parentId: null,
+      isActive: true,
+    });
+    setShowForm(false);
+    setShowChildForm(false);
+    setPendingChildCategories([]);
+    setChildFormData({
+      name: "",
+      slug: "",
+      description: "",
+      image: null,
+      imageUrl: "",
+      parentId: "",
+      isActive: true,
+    });
+
+    // Reset file inputs
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    if (childFileInputRef.current) {
+      childFileInputRef.current.value = "";
+    }
+  };
+
+  // Helper function to get absolute URL for images
+  const getAbsoluteImageUrl = (relativePath?: string | null): string => {
+    if (!relativePath) return "";
+
+    // If it's already an absolute URL
+    if (
+      relativePath.startsWith("http://") ||
+      relativePath.startsWith("https://")
+    ) {
+      return relativePath;
+    }
+
+    // Otherwise, prepend base URL
+    return `${process.env.NEXT_PUBLIC_API_URL || ""}${relativePath}`;
   };
 
   return (
@@ -299,7 +468,12 @@ export default function CategoriesPage() {
               <h1 className="m-0">Quản lý danh mục sản phẩm</h1>
             </div>
             <div className="col-sm-6">
-              <Breadcrumb items={breadcrumbItems} />
+              <Breadcrumb
+                items={[
+                  { label: "Trang chủ", href: "/admin" },
+                  { label: "Danh mục sản phẩm" },
+                ]}
+              />
             </div>
           </div>
         </div>
@@ -308,46 +482,57 @@ export default function CategoriesPage() {
       {/* Main content */}
       <section className="content">
         <div className="container-fluid">
-          {/* Top action buttons */}
-          <div className="mb-3">
-            <button
-              onClick={() => {
-                resetForm();
-                setShowForm(true);
-              }}
-              className="btn btn-primary"
-            >
-              <i className="fas fa-plus mr-1"></i> Thêm danh mục mới
-            </button>
-            <Link
-              href="/admin/products"
-              className="btn btn-outline-secondary ml-2"
-            >
-              <i className="fas fa-tshirt mr-1"></i> Quản lý sản phẩm
-            </Link>
-          </div>
+          <div className="row">
+            {/* Form */}
+            <div className="col-md-4">
+              {showForm ? (
+                <div className="card">
+                  <div className="card-header">
+                    <h3 className="card-title">
+                      {editingCategory
+                        ? "Chỉnh sửa danh mục"
+                        : "Thêm danh mục mới"}
+                    </h3>
+                    <div className="card-tools">
+                      <button
+                        type="button"
+                        className="btn btn-tool"
+                        onClick={resetForm}
+                      >
+                        <i className="fas fa-times"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="card-body">
+                    <form onSubmit={handleSubmit}>
+                      {/* Danh mục cha */}
+                      <div className="form-group">
+                        <label htmlFor="parentId">Danh mục cha</label>
+                        <select
+                          className="form-control"
+                          id="parentId"
+                          name="parentId"
+                          value={formData.parentId?.toString() || ""}
+                          onChange={handleInputChange}
+                        >
+                          <option value="">
+                            -- Không có (Danh mục gốc) --
+                          </option>
+                          {categories
+                            .filter((cat) => cat.parentId === null)
+                            .map((category) => (
+                              <option
+                                key={category.id}
+                                value={category.id.toString()}
+                                disabled={editingCategory?.id === category.id}
+                              >
+                                {category.name}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
 
-          {/* Form area */}
-          {showForm && (
-            <div className="card mb-4">
-              <div className="card-header">
-                <h3 className="card-title">
-                  {editingCategory ? "Chỉnh sửa danh mục" : "Thêm danh mục mới"}
-                </h3>
-                <div className="card-tools">
-                  <button
-                    type="button"
-                    className="btn btn-tool"
-                    onClick={resetForm}
-                  >
-                    <i className="fas fa-times"></i>
-                  </button>
-                </div>
-              </div>
-              <div className="card-body">
-                <form onSubmit={handleSubmit}>
-                  <div className="row">
-                    <div className="col-md-6">
+                      {/* Tên danh mục */}
                       <div className="form-group">
                         <label htmlFor="name">
                           Tên danh mục <span className="text-danger">*</span>
@@ -363,6 +548,8 @@ export default function CategoriesPage() {
                           required
                         />
                       </div>
+
+                      {/* Slug */}
                       <div className="form-group">
                         <label htmlFor="slug">
                           Slug <span className="text-danger">*</span>
@@ -378,28 +565,110 @@ export default function CategoriesPage() {
                           required
                         />
                         <small className="form-text text-muted">
-                          Slug sẽ được sử dụng cho URL của danh mục.
+                          Định dạng URL thân thiện
                         </small>
                       </div>
+
+                      {/* Mô tả */}
                       <div className="form-group">
-                        <label htmlFor="parentId">Danh mục cha</label>
-                        <select
+                        <label htmlFor="description">Mô tả</label>
+                        <textarea
                           className="form-control"
-                          id="parentId"
-                          name="parentId"
-                          value={formData.parentId || ""}
+                          id="description"
+                          name="description"
+                          rows={3}
+                          value={formData.description}
                           onChange={handleInputChange}
-                        >
-                          <option value="">Không có (danh mục gốc)</option>
-                          {categories
-                            .filter((cat) => cat.parentId === null)
-                            .map((category) => (
-                              <option key={category.id} value={category.id}>
-                                {category.name}
-                              </option>
-                            ))}
-                        </select>
+                          placeholder="Nhập mô tả danh mục"
+                        />
                       </div>
+
+                      {/* Hình ảnh */}
+                      <div className="form-group">
+                        <label htmlFor="image">Hình ảnh</label>
+                        <div className="input-group">
+                          <div className="custom-file">
+                            <input
+                              type="file"
+                              className="custom-file-input"
+                              id="image"
+                              name="image"
+                              onChange={handleImageChange}
+                              ref={fileInputRef}
+                              accept=".jpg,.jpeg,.png,.gif"
+                            />
+                            <label
+                              className="custom-file-label"
+                              htmlFor="image"
+                            >
+                              {formData.image
+                                ? formData.image.name
+                                : "Chọn hình ảnh"}
+                            </label>
+                          </div>
+                        </div>
+                        {formData.imageUrl && (
+                          <div className="mt-2">
+                            <Image
+                              src={formData.imageUrl}
+                              alt="Category preview"
+                              width={100}
+                              height={100}
+                              className="img-thumbnail"
+                              style={{ objectFit: "cover" }}
+                            />
+                            {editingCategory && editingCategory.image && (
+                              <div className="mt-1">
+                                <div className="input-group">
+                                  <input
+                                    type="text"
+                                    className="form-control form-control-sm"
+                                    value={getAbsoluteImageUrl(
+                                      editingCategory.image
+                                    )}
+                                    readOnly
+                                  />
+                                  <div className="input-group-append">
+                                    <button
+                                      className="btn btn-sm btn-outline-secondary"
+                                      type="button"
+                                      onClick={() => {
+                                        if (editingCategory.image) {
+                                          navigator.clipboard.writeText(
+                                            getAbsoluteImageUrl(
+                                              editingCategory.image
+                                            )
+                                          );
+                                          showToast(
+                                            "Đã sao chép link hình ảnh",
+                                            { type: "success" }
+                                          );
+                                        }
+                                      }}
+                                    >
+                                      <i className="fas fa-copy"></i>
+                                    </button>
+                                    {editingCategory.image && (
+                                      <a
+                                        className="btn btn-sm btn-outline-info"
+                                        href={getAbsoluteImageUrl(
+                                          editingCategory.image
+                                        )}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                      >
+                                        <i className="fas fa-external-link-alt"></i>
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Trạng thái */}
                       <div className="form-group">
                         <div className="custom-control custom-switch">
                           <input
@@ -408,7 +677,7 @@ export default function CategoriesPage() {
                             id="isActive"
                             name="isActive"
                             checked={formData.isActive}
-                            onChange={handleCheckboxChange}
+                            onChange={handleInputChange}
                           />
                           <label
                             className="custom-control-label"
@@ -418,201 +687,466 @@ export default function CategoriesPage() {
                           </label>
                         </div>
                       </div>
-                    </div>
-                    <div className="col-md-6">
+
+                      {/* Button để hiển thị form con */}
+                      {!formData.parentId && !editingCategory && (
+                        <div className="form-group mt-4">
+                          <button
+                            type="button"
+                            className="btn btn-outline-info"
+                            onClick={() => setShowChildForm(!showChildForm)}
+                          >
+                            <i
+                              className={`fas fa-${
+                                showChildForm ? "minus" : "plus"
+                              } mr-1`}
+                            ></i>
+                            {showChildForm
+                              ? "Ẩn form danh mục con"
+                              : "Thêm danh mục con cùng lúc"}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Danh sách các danh mục con đang chờ */}
+                      {pendingChildCategories.length > 0 && (
+                        <div className="form-group mt-3">
+                          <label>Danh mục con sẽ được tạo:</label>
+                          <ul className="list-group">
+                            {pendingChildCategories.map((child, index) => (
+                              <li
+                                key={index}
+                                className="list-group-item d-flex justify-content-between align-items-center"
+                              >
+                                {child.name}
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-danger"
+                                  onClick={() =>
+                                    handleRemovePendingChildCategory(index)
+                                  }
+                                >
+                                  <i className="fas fa-times"></i>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Submit buttons */}
                       <div className="form-group">
-                        <label htmlFor="description">Mô tả</label>
-                        <textarea
-                          className="form-control"
-                          id="description"
-                          name="description"
-                          value={formData.description}
-                          onChange={handleInputChange}
-                          rows={4}
-                          placeholder="Nhập mô tả về danh mục"
-                        ></textarea>
+                        <button type="submit" className="btn btn-primary">
+                          {editingCategory ? "Cập nhật" : "Thêm mới"}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-default ml-2"
+                          onClick={resetForm}
+                        >
+                          Hủy
+                        </button>
                       </div>
-                      <div className="form-group">
-                        <label htmlFor="image">Hình ảnh danh mục</label>
-                        <div className="input-group">
-                          <div className="custom-file">
+                    </form>
+                  </div>
+                </div>
+              ) : (
+                <div className="card">
+                  <div className="card-body">
+                    <button
+                      onClick={() => setShowForm(true)}
+                      className="btn btn-primary btn-lg btn-block"
+                    >
+                      <i className="fas fa-plus mr-1"></i> Thêm danh mục mới
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Form danh mục con */}
+              {showForm &&
+                showChildForm &&
+                !formData.parentId &&
+                !editingCategory && (
+                  <div className="card mt-4">
+                    <div className="card-header">
+                      <h3 className="card-title">Thêm danh mục con</h3>
+                    </div>
+                    <div className="card-body">
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          handleAddPendingChildCategory();
+                        }}
+                      >
+                        {/* Tên danh mục con */}
+                        <div className="form-group">
+                          <label htmlFor="childName">
+                            Tên danh mục con{" "}
+                            <span className="text-danger">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            id="childName"
+                            name="name"
+                            value={childFormData.name}
+                            onChange={handleChildInputChange}
+                            placeholder="Nhập tên danh mục con"
+                            required
+                          />
+                        </div>
+
+                        {/* Slug con */}
+                        <div className="form-group">
+                          <label htmlFor="childSlug">
+                            Slug <span className="text-danger">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            id="childSlug"
+                            name="slug"
+                            value={childFormData.slug}
+                            onChange={handleChildInputChange}
+                            placeholder="ten-danh-muc-con"
+                            required
+                          />
+                        </div>
+
+                        {/* Mô tả con */}
+                        <div className="form-group">
+                          <label htmlFor="childDescription">Mô tả</label>
+                          <textarea
+                            className="form-control"
+                            id="childDescription"
+                            name="description"
+                            rows={2}
+                            value={childFormData.description}
+                            onChange={handleChildInputChange}
+                            placeholder="Nhập mô tả danh mục con"
+                          />
+                        </div>
+
+                        {/* Hình ảnh con */}
+                        <div className="form-group">
+                          <label htmlFor="childImage">Hình ảnh</label>
+                          <div className="input-group">
+                            <div className="custom-file">
+                              <input
+                                type="file"
+                                className="custom-file-input"
+                                id="childImage"
+                                name="image"
+                                onChange={handleChildImageChange}
+                                ref={childFileInputRef}
+                                accept=".jpg,.jpeg,.png,.gif"
+                              />
+                              <label
+                                className="custom-file-label"
+                                htmlFor="childImage"
+                              >
+                                {childFormData.image
+                                  ? childFormData.image.name
+                                  : "Chọn hình ảnh"}
+                              </label>
+                            </div>
+                          </div>
+                          {childFormData.imageUrl && (
+                            <div className="mt-2">
+                              <Image
+                                src={childFormData.imageUrl}
+                                alt="Child category preview"
+                                width={100}
+                                height={100}
+                                className="img-thumbnail"
+                                style={{ objectFit: "cover" }}
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Trạng thái con */}
+                        <div className="form-group">
+                          <div className="custom-control custom-switch">
                             <input
-                              type="file"
-                              className="custom-file-input"
-                              id="image"
-                              name="image"
-                              accept="image/*"
-                              onChange={handleImageChange}
+                              type="checkbox"
+                              className="custom-control-input"
+                              id="childIsActive"
+                              name="isActive"
+                              checked={childFormData.isActive}
+                              onChange={handleChildInputChange}
                             />
                             <label
-                              className="custom-file-label"
-                              htmlFor="image"
+                              className="custom-control-label"
+                              htmlFor="childIsActive"
                             >
-                              {formData.image ? "Đã chọn 1 file" : "Chọn file"}
+                              Kích hoạt
                             </label>
                           </div>
                         </div>
-                        {imagePreview && (
-                          <div
-                            className="mt-2 position-relative"
-                            style={{ height: "200px" }}
-                          >
-                            <Image
-                              src={imagePreview}
-                              alt="Preview"
-                              fill
-                              sizes="(max-width: 768px) 100vw, 400px"
-                              style={{ objectFit: "contain" }}
-                              className="img-thumbnail"
-                            />
-                          </div>
-                        )}
+
+                        <button type="submit" className="btn btn-success">
+                          <i className="fas fa-plus mr-1"></i> Thêm vào danh
+                          sách
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                )}
+            </div>
+
+            {/* Categories list */}
+            <div className="col-md-8">
+              <div className="card">
+                <div className="card-header">
+                  <h3 className="card-title">Danh sách danh mục</h3>
+                  <div className="card-tools">
+                    <div
+                      className="input-group input-group-sm"
+                      style={{ width: "250px" }}
+                    >
+                      <input
+                        type="text"
+                        name="table_search"
+                        className="form-control float-right"
+                        placeholder="Tìm kiếm theo tên..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                      <div className="input-group-append">
+                        <button type="submit" className="btn btn-default">
+                          <i className="fas fa-search"></i>
+                        </button>
                       </div>
                     </div>
                   </div>
-                  <div className="mt-3">
-                    <button type="submit" className="btn btn-primary mr-2">
-                      {editingCategory ? "Cập nhật" : "Thêm danh mục"}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-default"
-                      onClick={resetForm}
-                    >
-                      Hủy
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
+                </div>
 
-          {/* Search and filters */}
-          <div className="card mb-4">
-            <div className="card-header">
-              <h3 className="card-title">Tìm kiếm và lọc</h3>
-              <div className="card-tools">
-                <button
-                  type="button"
-                  className="btn btn-tool"
-                  data-card-widget="collapse"
-                >
-                  <i className="fas fa-minus"></i>
-                </button>
-              </div>
-            </div>
-            <div className="card-body">
-              <div className="input-group">
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Tìm kiếm danh mục..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <div className="input-group-append">
-                  <button className="btn btn-default">
-                    <i className="fas fa-search"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+                <div className="card-body table-responsive p-0">
+                  {loading ? (
+                    <div className="d-flex justify-content-center p-5">
+                      <div className="spinner-border" role="status">
+                        <span className="sr-only">Loading...</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <table className="table table-hover text-nowrap">
+                      <thead>
+                        <tr>
+                          <th>ID</th>
+                          <th>Hình ảnh</th>
+                          <th>Tên danh mục</th>
+                          <th>Slug</th>
+                          <th>Trạng thái</th>
+                          <th>Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredCategories.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="text-center">
+                              Không có dữ liệu
+                            </td>
+                          </tr>
+                        ) : (
+                          // Hiển thị danh mục cha trước, sau đó là các danh mục con
+                          filteredParentCategories.map((parentCategory) => (
+                            <React.Fragment key={parentCategory.id}>
+                              {/* Hiển thị danh mục cha */}
+                              <tr className="bg-light">
+                                <td>{parentCategory.id}</td>
+                                <td>
+                                  {parentCategory.image ? (
+                                    <div>
+                                      <Image
+                                        src={parentCategory.image}
+                                        alt={parentCategory.name}
+                                        width={50}
+                                        height={50}
+                                        className="img-thumbnail mb-1"
+                                        style={{ objectFit: "cover" }}
+                                      />
+                                      <div>
+                                        <a
+                                          href={getAbsoluteImageUrl(
+                                            parentCategory.image
+                                          )}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="small d-block text-primary"
+                                        >
+                                          <i className="fas fa-external-link-alt mr-1"></i>
+                                          Xem link
+                                        </a>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted">
+                                      Không có hình
+                                    </span>
+                                  )}
+                                </td>
+                                <td>
+                                  <button
+                                    className="btn btn-link p-0 font-weight-bold text-dark"
+                                    onClick={() =>
+                                      toggleCategoryExpansion(parentCategory.id)
+                                    }
+                                    style={{ textDecoration: "none" }}
+                                  >
+                                    <i
+                                      className={`fas fa-${
+                                        expandedCategories.has(
+                                          parentCategory.id
+                                        )
+                                          ? "minus"
+                                          : "plus"
+                                      } mr-2 text-${
+                                        expandedCategories.has(
+                                          parentCategory.id
+                                        )
+                                          ? "danger"
+                                          : "success"
+                                      }`}
+                                    ></i>
+                                    {parentCategory.name}
+                                  </button>
+                                </td>
+                                <td>{parentCategory.slug}</td>
+                                <td>
+                                  {parentCategory.isActive ? (
+                                    <span className="badge badge-success">
+                                      Hoạt động
+                                    </span>
+                                  ) : (
+                                    <span className="badge badge-danger">
+                                      Vô hiệu hóa
+                                    </span>
+                                  )}
+                                </td>
+                                <td>
+                                  <button
+                                    onClick={() =>
+                                      handleEditCategory(parentCategory)
+                                    }
+                                    className="btn btn-sm btn-info mr-1"
+                                    title="Chỉnh sửa"
+                                  >
+                                    <i className="fas fa-edit"></i>
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      handleDeleteCategory(parentCategory.id)
+                                    }
+                                    className="btn btn-sm btn-danger"
+                                    title="Xóa"
+                                  >
+                                    <i className="fas fa-trash"></i>
+                                  </button>
+                                </td>
+                              </tr>
 
-          {/* Categories Table */}
-          <div className="card">
-            <div className="card-header">
-              <h3 className="card-title">Danh sách danh mục</h3>
-              <div className="card-tools">
-                <button
-                  type="button"
-                  className="btn btn-tool"
-                  data-card-widget="collapse"
-                >
-                  <i className="fas fa-minus"></i>
-                </button>
+                              {/* Hiển thị các danh mục con nếu danh mục cha đang được mở */}
+                              {expandedCategories.has(parentCategory.id) &&
+                                getChildCategories(parentCategory.id)
+                                  .filter((childCategory) =>
+                                    childCategory.name
+                                      .toLowerCase()
+                                      .includes(searchQuery.toLowerCase())
+                                  )
+                                  .map((childCategory) => (
+                                    <tr
+                                      key={childCategory.id}
+                                      style={{ backgroundColor: "#fafafa" }}
+                                    >
+                                      <td>{childCategory.id}</td>
+                                      <td>
+                                        {childCategory.image ? (
+                                          <div>
+                                            <Image
+                                              src={childCategory.image}
+                                              alt={childCategory.name}
+                                              width={50}
+                                              height={50}
+                                              className="img-thumbnail mb-1"
+                                              style={{ objectFit: "cover" }}
+                                            />
+                                            <div>
+                                              <a
+                                                href={getAbsoluteImageUrl(
+                                                  childCategory.image
+                                                )}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="small d-block text-primary"
+                                              >
+                                                <i className="fas fa-external-link-alt mr-1"></i>
+                                                Xem link
+                                              </a>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <span className="text-muted">
+                                            Không có hình
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td>
+                                        <span className="ml-4">
+                                          └─ {childCategory.name}
+                                        </span>
+                                      </td>
+                                      <td>{childCategory.slug}</td>
+                                      <td>
+                                        {childCategory.isActive ? (
+                                          <span className="badge badge-success">
+                                            Hoạt động
+                                          </span>
+                                        ) : (
+                                          <span className="badge badge-danger">
+                                            Vô hiệu hóa
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td>
+                                        <button
+                                          onClick={() =>
+                                            handleEditCategory(childCategory)
+                                          }
+                                          className="btn btn-sm btn-info mr-1"
+                                          title="Chỉnh sửa"
+                                        >
+                                          <i className="fas fa-edit"></i>
+                                        </button>
+                                        <button
+                                          onClick={() =>
+                                            handleDeleteCategory(
+                                              childCategory.id
+                                            )
+                                          }
+                                          className="btn btn-sm btn-danger"
+                                          title="Xóa"
+                                        >
+                                          <i className="fas fa-trash"></i>
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                            </React.Fragment>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="card-body table-responsive p-0">
-              {isLoading ? (
-                <div className="text-center p-4">
-                  <div className="spinner-border text-primary" role="status">
-                    <span className="sr-only">Đang tải...</span>
-                  </div>
-                </div>
-              ) : filteredCategories.length > 0 ? (
-                <table className="table table-hover text-nowrap">
-                  <thead>
-                    <tr>
-                      <th style={{ width: "60px" }}>Hình ảnh</th>
-                      <th>Tên danh mục</th>
-                      <th>Slug</th>
-                      <th>Danh mục cha</th>
-                      <th>Số sản phẩm</th>
-                      <th>Trạng thái</th>
-                      <th>Ngày tạo</th>
-                      <th style={{ width: "120px" }}>Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredCategories.map((category) => (
-                      <tr key={category.id}>
-                        <td>
-                          <Image
-                            src={category.image}
-                            alt={category.name}
-                            width="50"
-                            height="50"
-                            className="img-thumbnail"
-                          />
-                        </td>
-                        <td>{category.name}</td>
-                        <td>{category.slug}</td>
-                        <td>{getParentCategoryName(category.parentId)}</td>
-                        <td>
-                          <span className="badge bg-info">
-                            {category.productCount}
-                          </span>
-                        </td>
-                        <td>
-                          {category.isActive ? (
-                            <span className="badge bg-success">Kích hoạt</span>
-                          ) : (
-                            <span className="badge bg-danger">Vô hiệu hóa</span>
-                          )}
-                        </td>
-                        <td>{category.createdAt}</td>
-                        <td>
-                          <div className="btn-group">
-                            <button
-                              className="btn btn-sm btn-primary mr-1"
-                              title="Chỉnh sửa"
-                              onClick={() => handleEditCategory(category)}
-                            >
-                              <i className="fas fa-edit"></i>
-                            </button>
-                            <button
-                              className="btn btn-sm btn-danger"
-                              title="Xóa"
-                              onClick={() => handleDeleteCategory(category.id)}
-                            >
-                              <i className="fas fa-trash"></i>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <div className="text-center p-4">
-                  <p>Không tìm thấy danh mục nào phù hợp.</p>
-                </div>
-              )}
             </div>
           </div>
         </div>
       </section>
+      {/* toast noti */}
+      {Toast}
     </AdminLayout>
   );
 }

@@ -27,6 +27,8 @@ export default function NavbarCategory() {
     return <div>Loading categories...</div>;
   }
 
+  console.log("Fetched categories:", categories);
+
   return (
     <nav className="w-full">
       <ul className="flex flex-wrap items-center gap-8">
@@ -44,7 +46,7 @@ export default function NavbarCategory() {
                   {category.children.map((child) => (
                     <li key={child.id}>
                       <Link
-                        href={`/category/${category.slug}/${child.slug}`}
+                        href={`/category/${category.slug}?childCategory=${child.slug}`}
                         className="block px-4 py-2 text-sm hover:bg-gray-100"
                       >
                         {child.name}

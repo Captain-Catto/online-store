@@ -31,14 +31,6 @@ interface FilterState {
   childCategory: string;
 }
 
-// Định nghĩa interface cho filter response từ API
-interface FilterResponse {
-  availableColors?: string[];
-  availableSizes?: string[];
-  priceRange?: { min: number; max: number };
-  brands?: string[];
-}
-
 // Định nghĩa interface cho filters mở
 interface FiltersOpenState {
   suitability: boolean;

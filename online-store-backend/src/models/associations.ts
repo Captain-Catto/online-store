@@ -16,6 +16,7 @@ import RefreshToken from "./RefreshToken";
 import UserNote from "./UserNotes";
 import Suitability from "./Suitability";
 import ProductSuitability from "./ProductSuitability";
+import NavigationMenu from "./NavigationMenu";
 
 export default function initAssociations() {
   // Product - ProductDetail relationship
@@ -140,5 +141,15 @@ export default function initAssociations() {
     foreignKey: "suitabilityId",
     otherKey: "productId",
     as: "products",
+  });
+
+  // mqh giữa navigation menu và category
+  NavigationMenu.belongsTo(Category, {
+    foreignKey: "categoryId",
+    as: "category",
+  });
+  Category.hasMany(NavigationMenu, {
+    foreignKey: "categoryId",
+    as: "navigationMenus",
   });
 }

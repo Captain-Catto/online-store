@@ -33,3 +33,10 @@ export interface Category {
   id: number | string;
   name: string;
 }
+
+interface FilterResponse {
+  availableColors?: string[];
+  availableSizes?: string[];
+  priceRange?: { min: number; max: number };
+  brands?: string[];
+}

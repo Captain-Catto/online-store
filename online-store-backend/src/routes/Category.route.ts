@@ -7,6 +7,8 @@ import {
   getNavCategories,
   getCategoryBySlug,
   getProductsByCategorySlug,
+  getAllCategories,
+  getSubCategories,
 } from "../controllers/Category.controller";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { roleMiddleware } from "../middlewares/roleMiddleware";
@@ -14,13 +16,16 @@ import { roleMiddleware } from "../middlewares/roleMiddleware";
 const router = Router();
 
 // Lấy danh sách tất cả các Category
-// router.get("/", getCategories);
+router.get("/", getAllCategories);
 
 // Lấy danh mục cho navigation - Thêm route mới này
 router.get("/nav", getNavCategories);
 
 // Lấy chi tiết một Category theo ID
 router.get("/:id", getCategoryById);
+
+// Lấy danh sách các Category con theo ID của Category cha
+router.get("/:id/subcategories", getSubCategories);
 
 // Thêm mới một Category (chỉ admin)
 router.post("/", authMiddleware, roleMiddleware([1]), createCategory);

@@ -1,0 +1,490 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import AdminLayout from "@/components/admin/layout/AdminLayout";
+import Breadcrumb from "@/components/admin/shared/Breadcrumb";
+import {
+  NavigationService,
+  NavigationMenuItem,
+} from "@/services/NaviagationService";
+import { CategoryService } from "@/services/CategoryService";
+import SortableTableRow from "@/components/admin/navigation/SortableTableRow";
+import { useNavigation } from "@/contexts/NavigationContext";
+import { useToast } from "@/utils/useToast";
+
+export default function NavigationManagement() {
+  const { showToast, Toast } = useToast();
+
+  const [menuItems, setMenuItems] = useState<NavigationMenuItem[]>([]);
+  interface Category {
+    id: number;
+    name: string;
+  }
+
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const { refreshNavigation, updateMenuItems } = useNavigation();
+
+  // Form state
+  const [formMode, setFormMode] = useState<"add" | "edit">("add");
+  const [editingItem, setEditingItem] = useState<NavigationMenuItem | null>(
+    null
+  );
+  const [formData, setFormData] = useState({
+    name: "",
+    link: "",
+    categoryId: "",
+    parentId: "",
+    isActive: true,
+    megaMenu: false,
+  });
+
+  // Cấu hình sensors cho drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5, // Kích hoạt drag sau khi di chuyển 5px
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Tải danh sách menu và categories
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const [menuData, categoryData] = await Promise.all([
+          NavigationService.getAllMenuItems(),
+          CategoryService.getAllCategories(),
+        ]);
+
+        setMenuItems(menuData);
+        setCategories(
+          categoryData.map((category) => ({
+            ...category,
+            id:
+              typeof category.id === "string"
+                ? parseInt(category.id, 10)
+                : category.id,
+          }))
+        );
+        setError(null);
+      } catch (error) {
+        console.error("Lỗi khi tải dữ liệu:", error);
+        setError("Không thể tải dữ liệu. Vui lòng thử lại sau.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // Xử lý form submit
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (formMode === "add") {
+        await NavigationService.createMenuItem({
+          name: formData.name,
+          link: formData.link || null,
+          categoryId: formData.categoryId
+            ? parseInt(formData.categoryId)
+            : null,
+          parentId: formData.parentId ? parseInt(formData.parentId) : null,
+          order: menuItems.length,
+          isActive: formData.isActive,
+          megaMenu: formData.megaMenu,
+        });
+      } else if (formMode === "edit" && editingItem) {
+        await NavigationService.updateMenuItem(editingItem.id, {
+          name: formData.name,
+          link: formData.link,
+          categoryId: formData.categoryId
+            ? parseInt(formData.categoryId)
+            : null,
+          parentId: formData.parentId ? parseInt(formData.parentId) : null,
+          isActive: formData.isActive,
+          megaMenu: formData.megaMenu,
+        });
+      }
+
+      resetForm();
+      // Tải lại danh sách menu
+      const menuData = await NavigationService.getAllMenuItems();
+      setMenuItems(menuData);
+      await refreshNavigation();
+    } catch (error) {
+      console.error("Lỗi khi lưu menu:", error);
+      setError("Không thể lưu menu. Vui lòng thử lại.");
+    }
+  };
+
+  // Reset form
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      link: "",
+      categoryId: "",
+      parentId: "",
+      isActive: true,
+      megaMenu: false,
+    });
+    setFormMode("add");
+    setEditingItem(null);
+  };
+
+  // Edit menu item
+  const handleEdit = (item: NavigationMenuItem) => {
+    setFormMode("edit");
+    setEditingItem(item);
+    setFormData({
+      name: item.name,
+      link: item.link || "",
+      categoryId: item.categoryId ? item.categoryId.toString() : "",
+      parentId: item.parentId ? item.parentId.toString() : "",
+      isActive: item.isActive,
+      megaMenu: item.megaMenu,
+    });
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa mục này?")) return;
+
+    try {
+      await NavigationService.deleteMenuItem(id);
+      // Tải lại danh sách menu
+      const menuData = await NavigationService.getAllMenuItems();
+      setMenuItems(menuData);
+
+      // Thêm dòng này để cập nhật navbar
+      await refreshNavigation();
+    } catch (error) {
+      console.error("Lỗi khi xóa menu:", error);
+      setError("Không thể xóa menu. Vui lòng thử lại.");
+    }
+  };
+
+  // Xử lý khi bắt đầu kéo
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id.toString());
+  };
+
+  // Xử lý kéo thả để sắp xếp menu
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over || active.id === over.id) return;
+
+    // Tìm index của các item trong mảng
+    const oldIndex = menuItems.findIndex(
+      (item) => item.id.toString() === active.id
+    );
+    const newIndex = menuItems.findIndex(
+      (item) => item.id.toString() === over.id
+    );
+
+    // Cập nhật mảng theo thứ tự mới
+    const updatedItems = arrayMove(menuItems, oldIndex, newIndex);
+
+    // Cập nhật state
+    setMenuItems(updatedItems);
+
+    try {
+      setLoading(true); // Thêm loading state để người dùng biết đang xử lý
+
+      // Cập nhật thứ tự trong database
+      const promises = updatedItems.map((item, index) =>
+        NavigationService.updateMenuItem(item.id, { order: index })
+      );
+
+      await Promise.all(promises);
+
+      // Cập nhật Menu trong context
+      updateMenuItems(updatedItems);
+
+      // Tải lại menu từ API sau khi cập nhật
+      await refreshNavigation();
+
+      showToast("Đã thay đổi vị trí menu thành công", { type: "success" });
+    } catch (error) {
+      console.error("Lỗi khi cập nhật thứ tự:", error);
+      showToast("Không thể thay đổi vị trí menu. Vui lòng thử lại.", {
+        type: "error",
+      });
+
+      // Tải lại menu nếu có lỗi
+      const menuData = await NavigationService.getAllMenuItems();
+      setMenuItems(menuData);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <AdminLayout title="Quản lý Menu Điều hướng">
+      <div className="content-header">
+        <div className="container-fluid">
+          <div className="row mb-2">
+            <div className="col-sm-6">
+              <h1 className="m-0">Quản lý Menu Điều hướng</h1>
+            </div>
+            <div className="col-sm-6">
+              <Breadcrumb
+                items={[
+                  { label: "Dashboard", href: "/admin" },
+                  { label: "Quản lý Menu Điều hướng", active: true },
+                ]}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <section className="content">
+        <div className="container-fluid">
+          <div className="row">
+            {/* Form thêm/sửa menu */}
+            <div className="col-md-4">
+              <div className="card">
+                <div className="card-header">
+                  <h3 className="card-title">
+                    {formMode === "add" ? "Thêm" : "Sửa"} Menu
+                  </h3>
+                </div>
+                <form onSubmit={handleSubmit}>
+                  <div className="card-body">
+                    {error && <div className="alert alert-danger">{error}</div>}
+
+                    <div className="form-group">
+                      <label htmlFor="name">Tên menu</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        id="name"
+                        value={formData.name}
+                        onChange={(e) =>
+                          setFormData({ ...formData, name: e.target.value })
+                        }
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="categoryId">Danh mục liên kết</label>
+                      <select
+                        className="form-control"
+                        id="categoryId"
+                        value={formData.categoryId}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            categoryId: e.target.value,
+                          })
+                        }
+                      >
+                        <option value="">-- Chọn danh mục --</option>
+                        {categories.map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {category.name}
+                          </option>
+                        ))}
+                      </select>
+                      <small className="form-text text-muted">
+                        Nếu chọn danh mục, link sẽ tự động tạo
+                      </small>
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="link">Đường dẫn tùy chỉnh</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        id="link"
+                        value={formData.link}
+                        onChange={(e) =>
+                          setFormData({ ...formData, link: e.target.value })
+                        }
+                        placeholder="/duong-dan-tuy-chinh"
+                      />
+                      <small className="form-text text-muted">
+                        Chỉ điền nếu không chọn danh mục liên kết
+                      </small>
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="parentId">Menu cha</label>
+                      <select
+                        className="form-control"
+                        id="parentId"
+                        value={formData.parentId}
+                        onChange={(e) =>
+                          setFormData({ ...formData, parentId: e.target.value })
+                        }
+                      >
+                        <option value="">-- Menu gốc --</option>
+                        {menuItems
+                          .filter(
+                            (item) =>
+                              !item.parentId && item.id !== editingItem?.id
+                          )
+                          .map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.name}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <div className="custom-control custom-switch">
+                        <input
+                          type="checkbox"
+                          className="custom-control-input"
+                          id="isActive"
+                          checked={formData.isActive}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              isActive: e.target.checked,
+                            })
+                          }
+                        />
+                        <label
+                          className="custom-control-label"
+                          htmlFor="isActive"
+                        >
+                          Hiển thị menu
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <div className="custom-control custom-switch">
+                        <input
+                          type="checkbox"
+                          className="custom-control-input"
+                          id="megaMenu"
+                          checked={formData.megaMenu}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              megaMenu: e.target.checked,
+                            })
+                          }
+                        />
+                        <label
+                          className="custom-control-label"
+                          htmlFor="megaMenu"
+                        >
+                          Megamenu (chỉ cho menu cấp 1)
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="card-footer">
+                    <button type="submit" className="btn btn-primary">
+                      {formMode === "add" ? "Thêm menu" : "Cập nhật"}
+                    </button>
+                    {formMode === "edit" && (
+                      <button
+                        type="button"
+                        className="btn btn-default ml-2"
+                        onClick={resetForm}
+                      >
+                        Hủy
+                      </button>
+                    )}
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            {/* Danh sách menu */}
+            <div className="col-md-8">
+              <div className="card">
+                <div className="card-header">
+                  <h3 className="card-title">Danh sách Menu Điều hướng</h3>
+                </div>
+                <div className="card-body table-responsive p-0">
+                  {loading ? (
+                    <div className="text-center my-3">
+                      <div
+                        className="spinner-border text-primary"
+                        role="status"
+                      >
+                        <span className="sr-only">Đang tải...</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragStart={handleDragStart}
+                      onDragEnd={handleDragEnd}
+                    >
+                      <table className="table table-hover">
+                        <thead>
+                          <tr>
+                            <th style={{ width: "50px" }}>#</th>
+                            <th>Tên</th>
+                            <th>Link/Danh mục</th>
+                            <th>Loại</th>
+                            <th>Trạng thái</th>
+                            <th>Thao tác</th>
+                          </tr>
+                        </thead>
+                        <SortableContext
+                          items={menuItems.map((item) => item.id.toString())}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <tbody>
+                            {menuItems.map((item) => (
+                              <SortableTableRow
+                                key={item.id}
+                                item={item}
+                                isParentItem={!item.parentId}
+                                isActive={activeId === item.id.toString()}
+                                onEdit={handleEdit}
+                                onDelete={handleDelete}
+                              />
+                            ))}
+                          </tbody>
+                        </SortableContext>
+                      </table>
+                    </DndContext>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      {/* Toast notifications */}
+      {Toast}
+    </AdminLayout>
+  );
+}

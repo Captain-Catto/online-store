@@ -7,6 +7,8 @@ import Image from "next/image";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
 import { ProductService } from "@/services/ProductService";
+import { CategoryService } from "@/services/CategoryService";
+import { useToast } from "@/utils/useToast";
 
 // Kiểu dữ liệu cho hình ảnh của một màu
 interface ColorImage {
@@ -23,15 +25,31 @@ interface ProductVariant {
   stock: number;
 }
 
+// Kiểu dữ liệu cho danh mục
+interface Category {
+  id: number | string;
+  name: string;
+  slug: string;
+  description?: string;
+  image?: string | null;
+  parentId?: number | string | null;
+  isActive?: boolean;
+}
+
 export default function AddProductPage() {
   const router = useRouter();
+  const { showToast, Toast } = useToast();
   const [activeTab, setActiveTab] = useState("info");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedColor, setSelectedColor] = useState<string>("");
   const [tagInput, setTagInput] = useState("");
-  const [subtypes, setSubtypes] = useState<
-    Array<{ id: number; name: string; displayName: string }>
-  >([]);
+
+  // State cho danh mục từ API
+  const [categoryList, setCategoryList] = useState<Category[]>([]);
+  const [categoryLoading, setCategoryLoading] = useState<boolean>(false);
+
+  // State cho danh mục con từ API
+  const [subtypes, setSubtypes] = useState<Category[]>([]);
   const [subtypeLoading, setSubtypeLoading] = useState<boolean>(false);
 
   // State cho sản phẩm mới
@@ -39,8 +57,8 @@ export default function AddProductPage() {
     name: "",
     sku: "",
     description: "",
-    category: "shirts",
-    categoryName: "Áo",
+    category: "",
+    categoryName: "",
     brand: "Shop Online",
     subtype: "",
     subtypeName: "",
@@ -92,53 +110,57 @@ export default function AddProductPage() {
   ];
   const availableSizes = ["S", "M", "L", "XL", "XXL"];
 
-  // Danh sách danh mục mẫu
-  const categories = [
-    { value: "shirts", label: "Áo" },
-    { value: "pants", label: "Quần" },
-  ];
-
-  // data map từ value sang id cho subtype
-  const categoryToIdMap = {
-    shirts: 1,
-    pants: 2,
-  };
-
-  // Theo dõi màu sắc được chọn
+  // Lấy danh sách danh mục khi component mount
   useEffect(() => {
-    if (product.colors.length > 0 && !selectedColor) {
-      setSelectedColor(product.colors[0]);
-    } else if (product.colors.length === 0) {
-      setSelectedColor("");
-    } else if (!product.colors.includes(selectedColor)) {
-      setSelectedColor(product.colors[0]);
-    }
-  }, [product.colors, selectedColor]);
+    const fetchCategories = async () => {
+      try {
+        setCategoryLoading(true);
+        // Lấy tất cả danh mục từ API
+        const data = await CategoryService.getAllCategories();
 
+        // Lọc để chỉ lấy danh mục cha (không có parentId)
+        const parentCategories = data.filter((cat) => cat.parentId === null);
+        console.log("Parent categories:", parentCategories);
+        setCategoryList(parentCategories);
+
+        // Chọn danh mục đầu tiên nếu có
+        if (parentCategories.length > 0) {
+          setProduct((prev) => ({
+            ...prev,
+            category: parentCategories[0].id.toString(),
+            categoryName: parentCategories[0].name,
+          }));
+        }
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+        showToast("Không thể tải danh mục sản phẩm", { type: "error" });
+      } finally {
+        setCategoryLoading(false);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  // Lấy danh mục con khi danh mục cha thay đổi
   useEffect(() => {
     const fetchSubtypes = async () => {
-      console.log("Fetching subtypes for category:", product.category);
-      // do product.category là string và lầ chữ nên cần map về number khi truyền vào API
+      if (!product.category) {
+        setSubtypes([]);
+        return;
+      }
 
       try {
         setSubtypeLoading(true);
-        const categoryId =
-          categoryToIdMap[product.category as keyof typeof categoryToIdMap];
-        if (!categoryId) {
-          setSubtypes([]);
-          return;
-        }
-        console.log("Fetching subtypes for categoryId:", categoryId);
+        console.log("Fetching subtypes for categoryId:", product.category);
 
-        // Giả sử API endpoint là /api/subtypes/category/{categoryId}
-        const response = await fetch(`/api/subtypes/category/${categoryId}`);
+        // Lấy danh mục con của danh mục đã chọn
+        const childCategories = await CategoryService.getChildCategories(
+          product.category
+        );
+        console.log("Child categories:", childCategories);
 
-        if (!response.ok) {
-          throw new Error(`Error ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        setSubtypes(data || []);
+        setSubtypes(childCategories);
 
         // Reset subtype khi đổi category
         setProduct((prev) => ({
@@ -148,6 +170,7 @@ export default function AddProductPage() {
         }));
       } catch (error) {
         console.error("Error fetching subtypes:", error);
+        showToast("Không thể tải loại sản phẩm", { type: "error" });
         setSubtypes([]);
       } finally {
         setSubtypeLoading(false);
@@ -159,6 +182,17 @@ export default function AddProductPage() {
       fetchSubtypes();
     }
   }, [product.category]);
+
+  // Theo dõi màu sắc được chọn
+  useEffect(() => {
+    if (product.colors.length > 0 && !selectedColor) {
+      setSelectedColor(product.colors[0]);
+    } else if (product.colors.length === 0) {
+      setSelectedColor("");
+    } else if (!product.colors.includes(selectedColor)) {
+      setSelectedColor(product.colors[0]);
+    }
+  }, [product.colors, selectedColor]);
 
   // Hàm xử lý khi chọn hình ảnh
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -172,7 +206,9 @@ export default function AddProductPage() {
     const remainingSlots = 3 - currentImages.length;
 
     if (remainingSlots <= 0) {
-      alert("Mỗi màu chỉ được phép tải lên tối đa 3 hình ảnh");
+      showToast("Mỗi màu chỉ được phép tải lên tối đa 3 hình ảnh", {
+        type: "warning",
+      });
       return;
     }
 
@@ -247,7 +283,9 @@ export default function AddProductPage() {
   // Hàm thêm variant mới
   const handleAddVariant = () => {
     if (!newVariant.color || !newVariant.size) {
-      alert("Vui lòng chọn màu sắc và kích thước cho biến thể");
+      showToast("Vui lòng chọn màu sắc và kích thước cho biến thể", {
+        type: "error",
+      });
       return;
     }
 
@@ -257,7 +295,7 @@ export default function AddProductPage() {
     );
 
     if (isDuplicate) {
-      alert("Biến thể này đã tồn tại!");
+      showToast("Biến thể này đã tồn tại!", { type: "error" });
       return;
     }
 
@@ -360,7 +398,6 @@ export default function AddProductPage() {
   };
 
   // Hàm xử lý thay đổi tags
-  // Cập nhật hàm handleTagsChange
   const handleTagsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTagInput(e.target.value);
   };
@@ -392,39 +429,47 @@ export default function AddProductPage() {
   const validateProductData = (): boolean => {
     // Kiểm tra thông tin cơ bản
     if (!product.name) {
-      alert("Vui lòng nhập tên sản phẩm");
+      showToast("Vui lòng nhập tên sản phẩm", { type: "error" });
       setActiveTab("info");
       return false;
     }
 
     if (!product.sku) {
-      alert("Vui lòng nhập mã SKU");
+      showToast("Vui lòng nhập mã SKU", { type: "error" });
+      setActiveTab("info");
+      return false;
+    }
+
+    if (!product.category) {
+      showToast("Vui lòng chọn danh mục sản phẩm", { type: "error" });
       setActiveTab("info");
       return false;
     }
 
     if (product.price <= 0) {
-      alert("Giá bán phải lớn hơn 0");
+      showToast("Giá bán phải lớn hơn 0", { type: "error" });
       setActiveTab("info");
       return false;
     }
 
     // Kiểm tra màu sắc và kích thước
     if (product.colors.length === 0) {
-      alert("Vui lòng chọn ít nhất một màu sắc");
+      showToast("Vui lòng chọn ít nhất một màu sắc", { type: "error" });
       setActiveTab("attributes");
       return false;
     }
 
     if (product.sizes.length === 0) {
-      alert("Vui lòng chọn ít nhất một kích thước");
+      showToast("Vui lòng chọn ít nhất một kích thước", { type: "error" });
       setActiveTab("attributes");
       return false;
     }
 
     // Kiểm tra biến thể
     if (product.stock.variants.length === 0) {
-      alert("Vui lòng thêm ít nhất một biến thể sản phẩm");
+      showToast("Vui lòng thêm ít nhất một biến thể sản phẩm", {
+        type: "error",
+      });
       setActiveTab("inventory");
       return false;
     }
@@ -435,21 +480,9 @@ export default function AddProductPage() {
     );
 
     if (colorsWithoutImages.length > 0) {
-      alert(`Các màu sau chưa có hình ảnh: ${colorsWithoutImages.join(", ")}`);
-      setActiveTab("images");
-      return false;
-    }
-
-    // Kiểm tra số lượng hình ảnh của từng màu
-    const colorsWithTooFewImages = product.colors.filter(
-      (color) => colorImages[color] && colorImages[color].length < 1
-    );
-
-    if (colorsWithTooFewImages.length > 0) {
-      alert(
-        `Các màu sau cần ít nhất 1 hình ảnh: ${colorsWithTooFewImages.join(
-          ", "
-        )}`
+      showToast(
+        `Các màu sau chưa có hình ảnh: ${colorsWithoutImages.join(", ")}`,
+        { type: "error" }
       );
       setActiveTab("images");
       return false;
@@ -461,10 +494,11 @@ export default function AddProductPage() {
     );
 
     if (colorsWithoutMainImage.length > 0) {
-      alert(
+      showToast(
         `Các màu sau chưa có hình ảnh chính: ${colorsWithoutMainImage.join(
           ", "
-        )}`
+        )}`,
+        { type: "error" }
       );
       setActiveTab("images");
       return false;
@@ -490,7 +524,7 @@ export default function AddProductPage() {
         status: product.status,
         tags: product.tags,
         suitability: product.suitability,
-        categories: [parseInt(product.category) || 1],
+        categories: [parseInt(product.category) || 0],
         subtypeId: product.subtype ? parseInt(product.subtype) : null,
         details: [] as Array<{
           color: string;
@@ -555,14 +589,15 @@ export default function AddProductPage() {
         imageMainMapping
       );
 
-      alert("Thêm sản phẩm thành công!");
+      showToast("Thêm sản phẩm thành công!", { type: "success" });
       router.push(`/admin/products/${result.productId}`);
     } catch (error) {
       console.error("Lỗi khi thêm sản phẩm:", error);
-      alert(
+      showToast(
         `Có lỗi xảy ra: ${
           error instanceof Error ? error.message : "Vui lòng thử lại"
-        }`
+        }`,
+        { type: "error" }
       );
     } finally {
       setIsSubmitting(false);
@@ -651,30 +686,46 @@ export default function AddProductPage() {
                     />
                   </div>
                   <div className="form-group">
-                    <label htmlFor="productCategory">Danh mục</label>
+                    <label htmlFor="productCategory">
+                      Danh mục <span className="text-danger">*</span>
+                    </label>
                     <select
                       className="form-control"
                       id="productCategory"
                       value={product.category}
                       onChange={(e) => {
-                        const selectedCategory = categories.find(
-                          (c) => c.value === e.target.value
+                        const selectedCategoryId = e.target.value;
+                        const selectedCategory = categoryList.find(
+                          (c) => c.id.toString() === selectedCategoryId
                         );
                         setProduct({
                           ...product,
-                          category: e.target.value,
+                          category: selectedCategoryId,
                           categoryName: selectedCategory
-                            ? selectedCategory.label
+                            ? selectedCategory.name
                             : "",
+                          // Reset subtype khi đổi category
+                          subtype: "",
+                          subtypeName: "",
                         });
                       }}
+                      disabled={categoryLoading}
                     >
-                      {categories.map((category) => (
-                        <option key={category.value} value={category.value}>
-                          {category.label}
+                      <option value="">-- Chọn danh mục --</option>
+                      {categoryList.map((category) => (
+                        <option
+                          key={category.id}
+                          value={category.id.toString()}
+                        >
+                          {category.name}
                         </option>
                       ))}
                     </select>
+                    {categoryLoading && (
+                      <small className="form-text text-muted">
+                        Đang tải danh mục...
+                      </small>
+                    )}
                   </div>
                   <div className="form-group">
                     <label htmlFor="productSubtype">Loại sản phẩm</label>
@@ -683,23 +734,24 @@ export default function AddProductPage() {
                       id="productSubtype"
                       value={product.subtype}
                       onChange={(e) => {
+                        const selectedSubtypeId = e.target.value;
                         const selectedSubtype = subtypes.find(
-                          (s) => s.id.toString() === e.target.value
+                          (s) => s.id.toString() === selectedSubtypeId
                         );
                         setProduct({
                           ...product,
-                          subtype: e.target.value,
+                          subtype: selectedSubtypeId,
                           subtypeName: selectedSubtype
-                            ? selectedSubtype.displayName
+                            ? selectedSubtype.name
                             : "",
                         });
                       }}
-                      disabled={subtypeLoading}
+                      disabled={subtypeLoading || !product.category}
                     >
                       <option value="">-- Chọn loại sản phẩm --</option>
                       {subtypes.map((subtype) => (
                         <option key={subtype.id} value={subtype.id.toString()}>
-                          {subtype.displayName || subtype.name}
+                          {subtype.name}
                         </option>
                       ))}
                     </select>
@@ -708,9 +760,16 @@ export default function AddProductPage() {
                         Đang tải loại sản phẩm...
                       </small>
                     )}
-                    {!subtypeLoading && subtypes.length === 0 && (
+                    {!subtypeLoading &&
+                      subtypes.length === 0 &&
+                      product.category && (
+                        <small className="form-text text-muted">
+                          Không có loại sản phẩm cho danh mục này
+                        </small>
+                      )}
+                    {!product.category && (
                       <small className="form-text text-muted">
-                        Không có loại sản phẩm cho danh mục này
+                        Hãy chọn danh mục trước
                       </small>
                     )}
                   </div>
@@ -911,12 +970,14 @@ export default function AddProductPage() {
             </div>
             <div className="card-body">
               <div className="tab-content">
+                {/* Rest of the code remains unchanged */}
                 {/* Attributes Tab */}
                 <div
                   className={`tab-pane ${
                     activeTab === "attributes" ? "active" : ""
                   }`}
                 >
+                  {/* ... Existing attributes tab content ... */}
                   <div className="row">
                     <div className="col-md-6">
                       <div className="form-group">
@@ -1054,6 +1115,7 @@ export default function AddProductPage() {
                     activeTab === "inventory" ? "active" : ""
                   }`}
                 >
+                  {/* ... Existing inventory tab content ... */}
                   <div className="mb-4">
                     <h5>Thêm biến thể sản phẩm</h5>
                     <div className="row">
@@ -1073,7 +1135,8 @@ export default function AddProductPage() {
                             <option value="">Chọn màu</option>
                             {product.colors.map((color) => (
                               <option key={color} value={color}>
-                                {color}
+                                {availableColors.find((c) => c.key === color)
+                                  ?.label || color}
                               </option>
                             ))}
                           </select>
@@ -1144,7 +1207,11 @@ export default function AddProductPage() {
                         {product.stock.variants.length > 0 ? (
                           product.stock.variants.map((variant, index) => (
                             <tr key={index}>
-                              <td>{variant.color}</td>
+                              <td>
+                                {availableColors.find(
+                                  (c) => c.key === variant.color
+                                )?.label || variant.color}
+                              </td>
                               <td>{variant.size}</td>
                               <td>
                                 <input
@@ -1198,6 +1265,7 @@ export default function AddProductPage() {
                     activeTab === "images" ? "active" : ""
                   }`}
                 >
+                  {/* ... Existing images tab content ... */}
                   {product.colors.length === 0 ? (
                     <div className="alert alert-warning">
                       Vui lòng chọn ít nhất một màu sắc trong tab Thuộc tính
@@ -1219,7 +1287,8 @@ export default function AddProductPage() {
                                 setSelectedColor(color);
                               }}
                             >
-                              {color}
+                              {availableColors.find((c) => c.key === color)
+                                ?.label || color}
                               <span className="badge ml-1 badge-pill badge-secondary">
                                 {colorImages[color]?.length || 0}/3
                               </span>
@@ -1230,7 +1299,12 @@ export default function AddProductPage() {
 
                       {selectedColor && (
                         <div className="mb-4">
-                          <h5>Tải lên hình ảnh cho màu: {selectedColor}</h5>
+                          <h5>
+                            Tải lên hình ảnh cho màu:
+                            {availableColors.find(
+                              (c) => c.key === selectedColor
+                            )?.label || selectedColor}
+                          </h5>
                           {(colorImages[selectedColor]?.length || 0) >= 3 ? (
                             <div className="alert alert-info">
                               Đã đạt giới hạn 3 hình ảnh cho màu này. Nếu muốn
@@ -1251,8 +1325,11 @@ export default function AddProductPage() {
                                 className="custom-file-label"
                                 htmlFor="productImages"
                               >
-                                Chọn hình ảnh cho màu {selectedColor} (
-                                {colorImages[selectedColor]?.length || 0}/3)
+                                Chọn hình ảnh cho màu{" "}
+                                {availableColors.find(
+                                  (c) => c.key === selectedColor
+                                )?.label || selectedColor}{" "}
+                                ({colorImages[selectedColor]?.length || 0}/3)
                               </label>
                             </div>
                           )}
@@ -1328,8 +1405,11 @@ export default function AddProductPage() {
                             </div>
                           ) : (
                             <div className="alert alert-warning">
-                              Chưa có hình ảnh nào cho màu {selectedColor}. Vui
-                              lòng tải lên ít nhất một hình ảnh.
+                              Chưa có hình ảnh nào cho màu{" "}
+                              {availableColors.find(
+                                (c) => c.key === selectedColor
+                              )?.label || selectedColor}
+                              . Vui lòng tải lên ít nhất một hình ảnh.
                             </div>
                           )}
                         </div>
@@ -1350,7 +1430,11 @@ export default function AddProductPage() {
                             <tbody>
                               {product.colors.map((color) => (
                                 <tr key={color}>
-                                  <td>{color}</td>
+                                  <td>
+                                    {availableColors.find(
+                                      (c) => c.key === color
+                                    )?.label || color}
+                                  </td>
                                   <td>{colorImages[color]?.length || 0}/3</td>
                                   <td>
                                     {!colorImages[color] ||
@@ -1403,6 +1487,9 @@ export default function AddProductPage() {
           </div>
         </div>
       </section>
+
+      {/* Toast notifications */}
+      {Toast}
     </AdminLayout>
   );
 }

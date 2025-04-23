@@ -95,11 +95,38 @@ export const OrderService = {
     }
   },
 
-  // Có thể thêm các phương thức khác như cancelOrder, trackOrder nếu cần
-  getAdminOrders: async (): Promise<PaginatedOrders> => {
+  getAdminOrders: async (
+    page = 1,
+    limit = 10,
+    status = "all",
+    search = "",
+    fromDate = "",
+    toDate = ""
+  ): Promise<PaginatedOrders> => {
     try {
+      // Tạo query parameters
+      const params = new URLSearchParams();
+      params.append("page", page.toString());
+      params.append("limit", limit.toString());
+
+      if (status !== "all") {
+        params.append("status", status);
+      }
+
+      if (search) {
+        params.append("search", search);
+      }
+
+      if (fromDate) {
+        params.append("fromDate", fromDate);
+      }
+
+      if (toDate) {
+        params.append("toDate", toDate);
+      }
+
       const response = await AuthClient.fetchWithAuth(
-        `${API_BASE_URL}/orders/admin/all`
+        `${API_BASE_URL}/orders/admin/all?${params.toString()}`
       );
 
       if (!response.ok) {
@@ -120,6 +147,224 @@ export const OrderService = {
       return await response.json();
     } catch (error) {
       console.error("Error fetching admin orders:", error);
+      throw error;
+    }
+  },
+
+  // Thêm phương thức để in hóa đơn
+  printOrderInvoice: async (orderId: string | number): Promise<void> => {
+    try {
+      const order = await OrderService.getOrderById(Number(orderId));
+
+      // Tạo cửa sổ in mới
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) {
+        throw new Error(
+          "Không thể mở cửa sổ in. Vui lòng kiểm tra cài đặt trình duyệt của bạn."
+        );
+      }
+
+      // Tạo nội dung HTML cho trang in
+      let orderDetailsHtml = "";
+      let totalItems = 0;
+
+      order.orderDetails.forEach((item) => {
+        totalItems += item.quantity;
+        orderDetailsHtml += `
+          <tr>
+            <td>${item.product?.name || "Sản phẩm không xác định"}</td>
+            <td>${item.color} - ${item.size}</td>
+            <td style="text-align:right;">${item.quantity}</td>
+            <td style="text-align:right;">${new Intl.NumberFormat("vi-VN", {
+              style: "currency",
+              currency: "VND",
+            }).format(item.discountPrice || 0)}</td>
+            <td style="text-align:right;">${new Intl.NumberFormat("vi-VN", {
+              style: "currency",
+              currency: "VND",
+            }).format((item.discountPrice || 0) * item.quantity)}</td>
+          </tr>
+        `;
+      });
+
+      const formattedDate = new Date(order.createdAt).toLocaleDateString(
+        "vi-VN"
+      );
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Hóa đơn #${order.id}</title>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+            .invoice-header { text-align: center; margin-bottom: 30px; }
+            .invoice-header h1 { margin: 0; font-size: 24px; }
+            .invoice-details { display: flex; justify-content: space-between; margin-bottom: 20px; }
+            .invoice-details div { width: 48%; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+            .total-row { font-weight: bold; }
+            .footer { margin-top: 30px; text-align: center; }
+            @media print {
+              .no-print { display: none; }
+              body { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="invoice-header">
+            <h1>HÓA ĐƠN BÁN HÀNG</h1>
+            <p>Mã đơn hàng: #${order.id}</p>
+            <p>Ngày tạo: ${formattedDate}</p>
+          </div>
+          
+          <div class="invoice-details">
+            <div>
+              <h3>Thông tin khách hàng</h3>
+              <p><strong>ID khách hàng:</strong> ${order.userId}</p>
+              <p><strong>Điện thoại:</strong> ${
+                order.shippingPhone || "N/A"
+              }</p>
+              <p><strong>Địa chỉ giao hàng:</strong> ${
+                order.shippingAddress || "N/A"
+              }</p>
+            </div>
+            <div>
+              <h3>Thông tin thanh toán</h3>
+              <p><strong>Phương thức:</strong> ${
+                order.paymentMethodId === 1
+                  ? "COD (Thanh toán khi nhận hàng)"
+                  : "Chuyển khoản"
+              }</p>
+              <p><strong>Trạng thái:</strong> ${
+                order.paymentStatusId === 2
+                  ? "Đã thanh toán"
+                  : "Chưa thanh toán"
+              }</p>
+              <p><strong>Trạng thái đơn hàng:</strong> ${
+                order.statusLabel || order.status
+              }</p>
+            </div>
+          </div>
+          
+          <h3>Chi tiết đơn hàng</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Sản phẩm</th>
+                <th>Biến thể</th>
+                <th style="text-align:right;">SL</th>
+                <th style="text-align:right;">Đơn giá</th>
+                <th style="text-align:right;">Thành tiền</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${orderDetailsHtml}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="2"><strong>Tổng cộng:</strong></td>
+                <td style="text-align:right;"><strong>${totalItems}</strong></td>
+                <td></td>
+                <td style="text-align:right;"><strong>${new Intl.NumberFormat(
+                  "vi-VN",
+                  {
+                    style: "currency",
+                    currency: "VND",
+                  }
+                ).format(order.subtotal || 0)}</strong></td>
+              </tr>
+              <tr>
+                <td colspan="4"><strong>Phí vận chuyển:</strong></td>
+                <td style="text-align:right;">${new Intl.NumberFormat("vi-VN", {
+                  style: "currency",
+                  currency: "VND",
+                }).format(order.shippingFee || 0)}</td>
+              </tr>
+              ${
+                order.voucherDiscount > 0
+                  ? `
+              <tr>
+                <td colspan="4"><strong>Giảm giá voucher:</strong></td>
+                <td style="text-align:right;">- ${new Intl.NumberFormat(
+                  "vi-VN",
+                  {
+                    style: "currency",
+                    currency: "VND",
+                  }
+                ).format(order.voucherDiscount || 0)}</td>
+              </tr>`
+                  : ""
+              }
+              <tr class="total-row">
+                <td colspan="4"><strong>Tổng thanh toán:</strong></td>
+                <td style="text-align:right;"><strong>${new Intl.NumberFormat(
+                  "vi-VN",
+                  {
+                    style: "currency",
+                    currency: "VND",
+                  }
+                ).format(order.total || 0)}</strong></td>
+              </tr>
+            </tfoot>
+          </table>
+          
+          <div class="footer">
+            <p>Cảm ơn quý khách đã mua hàng!</p>
+          </div>
+          
+          <div class="no-print" style="margin-top: 20px; text-align: center;">
+            <button onclick="window.print()" style="padding: 10px 20px; background: #4CAF50; color: white; border: none; cursor: pointer;">
+              In hóa đơn
+            </button>
+          </div>
+        </body>
+        </html>
+      `);
+
+      // Tự động mở hộp thoại in
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 1000);
+    } catch (error) {
+      console.error("Error printing invoice:", error);
+      throw error;
+    }
+  },
+
+  // Thêm phương thức cập nhật trạng thái đơn hàng
+  updateOrderStatus: async (
+    orderId: number | string,
+    status: string
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      const response = await AuthClient.fetchWithAuth(
+        `${API_BASE_URL}/orders/${orderId}/status`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message ||
+            `Error ${response.status}: ${response.statusText}`
+        );
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error(`Error updating order ${orderId} status:`, error);
       throw error;
     }
   },

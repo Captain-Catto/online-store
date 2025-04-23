@@ -1,10 +1,12 @@
 import { Request, Response } from "express";
+import { Op } from "sequelize";
 import sequelize from "../config/db";
 import Order from "../models/Order";
 import OrderDetail from "../models/OrderDetail";
 import ProductInventory from "../models/ProductInventory";
 import ProductDetail from "../models/ProductDetail";
 import PaymentStatus from "../models/PaymentStatus";
+import Product from "../models/Product";
 import Users from "../models/Users";
 /**
  * Update order status (admin only)
@@ -281,14 +283,46 @@ export const getAllOrders = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { page = 1, limit = 10, status, paymentStatus } = req.query;
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      search,
+      fromDate,
+      toDate,
+    } = req.query;
 
     const offset = (Number(page) - 1) * Number(limit);
 
     // Xây dựng điều kiện tìm kiếm
     const where: any = {};
-    if (status) where.status = status;
-    if (paymentStatus) where.paymentStatusId = paymentStatus;
+    if (status && status !== "all") where.status = status;
+
+    // Thêm điều kiện tìm kiếm theo từ khóa
+    if (search) {
+      const searchTerm = `%${search}%`;
+      where[Op.or] = [
+        sequelize.where(sequelize.cast(sequelize.col("Order.id"), "varchar"), {
+          [Op.like]: searchTerm,
+        }),
+        { shippingPhone: { [Op.like]: searchTerm } },
+      ];
+    }
+
+    // Tìm kiếm theo khoảng thời gian
+    if (fromDate) {
+      where.createdAt = {
+        ...where.createdAt,
+        [Op.gte]: new Date(fromDate as string),
+      };
+    }
+
+    if (toDate) {
+      where.createdAt = {
+        ...where.createdAt,
+        [Op.lte]: new Date(new Date(toDate as string).setHours(23, 59, 59)),
+      };
+    }
 
     // Đếm tổng số đơn hàng
     const count = await Order.count({ where });
@@ -306,7 +340,17 @@ export const getAllOrders = async (
               as: "productDetail",
               attributes: ["id", "color"],
             },
+            {
+              model: Product,
+              as: "product",
+              attributes: ["id", "name"],
+            },
           ],
+        },
+        {
+          model: Users,
+          as: "user",
+          attributes: ["id", "email", "username"],
         },
       ],
       order: [["createdAt", "DESC"]],
@@ -324,6 +368,7 @@ export const getAllOrders = async (
       },
     });
   } catch (error: any) {
+    console.error("Error in getAllOrders:", error);
     res.status(500).json({ message: error.message });
   }
 };

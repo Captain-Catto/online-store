@@ -36,6 +36,8 @@ import orderRoutes from "./routes/Order.route";
 import userAddressRoutes from "./routes/UserAddress.route";
 import userRoutes from "./routes/User.route";
 import UserNoteRoutes from "./routes/UserNotes.route";
+import navigationMenuRoutes from "./routes/NaviagationMenu.route";
+import wishlistRoutes from "./routes/Wishlist.route";
 
 dotenv.config();
 
@@ -66,6 +68,8 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/user-addresses", userAddressRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/user-notes", UserNoteRoutes);
+app.use("/api/navigation", navigationMenuRoutes);
+app.use("/api/wishlist", wishlistRoutes);
 // Middleware xử lý lỗi
 
 // Kết nối DB

@@ -63,6 +63,19 @@ export default function AdminSidebar({
       path: "/admin/reports",
       icon: "fas fa-chart-bar",
     },
+    {
+      title: "Cấu hình website",
+      path: "/admin/settings",
+      icon: "fas fa-cog",
+      children: [
+        {
+          title: "Menu điều hướng",
+          path: "/admin/navigation",
+          icon: "fas fa-bars",
+        },
+        // Các menu khác...
+      ],
+    },
   ];
 
   return (

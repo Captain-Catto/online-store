@@ -1,81 +1,42 @@
 import { Request, Response } from "express";
 import { Op } from "sequelize";
 import Category from "../models/Category";
-import multer from "multer";
-import path from "path";
-import fs from "fs";
-import { v4 as uuidv4 } from "uuid";
 import Product from "../models/Product";
 import ProductDetail from "../models/ProductDetail";
 import ProductInventory from "../models/ProductInventory";
 import ProductImage from "../models/ProductImage";
 import Suitability from "../models/Suitability";
+import { upload, deleteFile } from "../services/categoryImageUpload";
 
-// Cấu hình upload file
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, "../../uploads/categories");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const uniqueName = `category-${uuidv4()}${ext}`;
-    cb(null, uniqueName);
-  },
-});
-
-export const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(
-        new Error(
-          "Định dạng file không được hỗ trợ. Chỉ hỗ trợ JPEG, PNG, WEBP và GIF."
-        )
-      );
-    }
-  },
-}).single("image");
-
-// Cập nhật hàm tạo mới một category
+// Tạo mới một category với upload ảnh lên S3
 export const createCategory = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   upload(req, res, async (err) => {
-    if (err instanceof multer.MulterError) {
+    if (err) {
       return res.status(400).json({ message: `Lỗi upload: ${err.message}` });
-    } else if (err) {
-      return res.status(400).json({ message: err.message });
     }
 
     try {
       const { name, slug, description, parentId, isActive } = req.body;
-      console.log("isActive", isActive);
+
       // Kiểm tra nếu Category đã tồn tại
       const existingCategory = await Category.findOne({ where: { slug } });
       if (existingCategory) {
         return res.status(400).json({ message: "Slug danh mục đã tồn tại" });
       }
 
-      // Lấy đường dẫn file nếu có upload
-      const image = req.file
-        ? `/uploads/categories/${req.file.filename}`
-        : null;
+      // Lấy URL hình ảnh từ S3 nếu có upload
+      const file = req.file as Express.MulterS3.File;
+      const imageUrl = file ? file.location : null; // multer-s3 tự động cung cấp location là URL của file
 
       const newCategory = await Category.create({
         name,
         slug: slug || name.toLowerCase().replace(/\s+/g, "-"),
         description,
         parentId: parentId || null,
-        image,
+        image: imageUrl, // Lưu toàn bộ S3 URL vào database
         isActive: isActive === "true" || isActive === true,
       });
 
@@ -86,7 +47,7 @@ export const createCategory = async (
   });
 };
 
-// Cập nhật một category
+// Cập nhật function updateCategory để sử dụng S3
 export const updateCategory = async (
   req: Request,
   res: Response
@@ -110,7 +71,7 @@ export const updateCategory = async (
         const existingCategory = await Category.findOne({
           where: {
             slug,
-            id: { [Op.ne]: id }, // Op.ne = not equal, tức là không phải category hiện tại
+            id: { [Op.ne]: id },
           },
         });
         if (existingCategory) {
@@ -129,17 +90,18 @@ export const updateCategory = async (
       };
 
       // Nếu có upload file mới
-      if (req.file) {
-        // Xóa file cũ nếu có
-        if (category.image) {
-          const oldImagePath = path.join(__dirname, "../../", category.image);
-          if (fs.existsSync(oldImagePath)) {
-            fs.unlinkSync(oldImagePath);
-          }
+      const file = req.file as Express.MulterS3.File;
+      if (file) {
+        // Xóa ảnh cũ trên S3 nếu có
+        if (
+          category.image &&
+          category.image.includes(process.env.S3_BUCKET || "")
+        ) {
+          await deleteFile(category.image);
         }
 
-        // Cập nhật đường dẫn mới
-        updateData.image = `/uploads/categories/${req.file.filename}`;
+        // Cập nhật URL mới
+        updateData.image = file.location;
       }
 
       // Cập nhật category
@@ -191,7 +153,7 @@ export const getCategoryById = async (
   }
 };
 
-// xóa category
+// Xóa category và hình ảnh S3 kèm theo
 export const deleteCategory = async (
   req: Request,
   res: Response
@@ -203,6 +165,14 @@ export const deleteCategory = async (
     if (!category) {
       res.status(404).json({ message: "Category không tồn tại" });
       return;
+    }
+
+    // Xóa hình ảnh trên S3 nếu có
+    if (
+      category.image &&
+      category.image.includes(process.env.S3_BUCKET || "")
+    ) {
+      await deleteFile(category.image);
     }
 
     // Xóa Category
@@ -612,6 +582,30 @@ export const getProductsByCategorySlug = async (
     });
   } catch (error: any) {
     console.error("Lỗi khi lấy sản phẩm theo danh mục:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// lấy các categories con của category cha
+export const getSubCategories = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const subCategories = await Category.findAll({
+      where: { parentId: id, isActive: true },
+      attributes: ["id", "name", "slug"],
+    });
+
+    if (!subCategories) {
+      res.status(404).json({ message: "Không tìm thấy danh mục con" });
+      return;
+    }
+
+    res.status(200).json(subCategories);
+  } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
 };
