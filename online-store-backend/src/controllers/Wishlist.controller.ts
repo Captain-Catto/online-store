@@ -3,8 +3,11 @@ import Wishlist from "../models/Wishlist";
 import Product from "../models/Product";
 import ProductDetail from "../models/ProductDetail";
 import ProductImage from "../models/ProductImage";
+import ProductInventory from "../models/ProductInventory";
+import ProductCategory from "../models/ProductCategory";
+import Category from "../models/Category";
 
-// Lấy danh sách yêu thích của người dùng đang đăng nhập
+// Lấy danh sách yêu thích của người dùng đang đăng nhập (có phân trang)
 export const getUserWishlist = async (
   req: Request,
   res: Response
@@ -15,34 +18,81 @@ export const getUserWishlist = async (
       return;
     }
 
+    // Parse query parameters for pagination
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const offset = (page - 1) * limit;
+
+    // Count total wishlist items for pagination
+    const totalItems = await Wishlist.count({
+      where: { userId: req.user.id },
+    });
+
+    // Fetch wishlist items with pagination và đầy đủ thông tin
     const wishlistItems = await Wishlist.findAll({
       where: { userId: req.user.id },
       include: [
         {
           model: Product,
           as: "product",
-          attributes: ["id", "name", "sku", "status"],
+          attributes: [
+            "id",
+            "name",
+            "sku",
+            "description",
+            "brand",
+            "material",
+            "featured",
+            "status",
+          ],
           include: [
             {
               model: ProductDetail,
               as: "details",
               attributes: ["id", "color", "price", "originalPrice"],
+              include: [
+                {
+                  model: ProductImage,
+                  as: "images",
+                  attributes: ["id", "url", "isMain"],
+                },
+                {
+                  model: ProductInventory,
+                  as: "inventories",
+                  attributes: ["id", "size", "stock"],
+                },
+              ],
             },
             {
-              model: ProductImage,
-              as: "images",
-              attributes: ["id", "url", "isMain", "color"],
-              limit: 1,
-              where: { isMain: true },
-              required: false,
+              model: Category,
+              as: "categories",
+              through: { attributes: [] },
+              attributes: ["id", "name", "slug"],
             },
           ],
         },
       ],
+      limit,
+      offset,
+      order: [["createdAt", "DESC"]], // Sắp xếp theo thời gian tạo mới nhất
     });
 
-    res.status(200).json(wishlistItems);
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(totalItems / limit);
+
+    res.status(200).json({
+      items: wishlistItems,
+      pagination: {
+        totalItems,
+        totalPages,
+        currentPage: page,
+        itemsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    });
   } catch (error: any) {
+    console.error("Error fetching wishlist:", error);
     res.status(500).json({ message: error.message });
   }
 };

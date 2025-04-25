@@ -6,7 +6,7 @@ import Link from "next/link";
 import { PrevArrow, NextArrow } from "@/utils/CustomArrowSlick";
 import ProductCard from "@/components/ProductCard/ProductCard";
 import { ProductService } from "@/services/ProductService";
-import { Product, SimpleProduct } from "@/types/product";
+import { Product, VariantDetail } from "@/types/product";
 import { useCallback } from "react";
 
 const LatestProducts: React.FC = () => {
@@ -24,23 +24,21 @@ const LatestProducts: React.FC = () => {
     [productId: number]: string;
   }>({});
 
-  // hàm lấy hình ảnh
+  // Hàm lấy hình ảnh
   const extractImages = useCallback(
-    (variant: { images: { isMain: boolean; url: string }[] }) => {
+    (
+      variant: VariantDetail
+    ): { mainImage: string | null; secondaryImage: string | null } => {
       if (!variant?.images || variant.images.length === 0) {
         return { mainImage: null, secondaryImage: null };
       }
 
       const mainImage =
-        variant.images.find(
-          (img: { isMain: boolean; url: string }) => img.isMain
-        ) || variant.images[0];
+        variant.images.find((img) => img.isMain) || variant.images[0];
       let secondaryImage = null;
 
       if (variant.images.length > 1) {
-        secondaryImage = variant.images.find(
-          (img: { isMain: boolean; url: string }) => img !== mainImage
-        );
+        secondaryImage = variant.images.find((img) => img !== mainImage);
       }
 
       return {
@@ -58,34 +56,21 @@ const LatestProducts: React.FC = () => {
         const response = await ProductService.getProducts(1, 10, {
           sort: "name_desc",
         });
-        console.log("Response:", response);
 
         const initialColors: { [key: number]: string } = {};
         const initialImages: { [key: number]: string } = {};
         const initialSecondaryImages: { [key: number]: string } = {};
 
-        // Xử lý dữ liệu từ API (chỉ một vòng lặp)
         response.products.forEach((product: Product) => {
-          const defaultColor: string = product.colors[0];
-
+          const defaultColor = product.colors[0];
           if (defaultColor && product.variants[defaultColor]) {
             initialColors[product.id] = defaultColor;
-
-            const variantDetail: {
-              images: { isMain: boolean; url: string }[];
-            } = product.variants[defaultColor];
-            const {
-              mainImage,
-              secondaryImage,
-            }: {
-              mainImage: string | null;
-              secondaryImage: string | null;
-            } = extractImages(variantDetail);
-
+            const { mainImage, secondaryImage } = extractImages(
+              product.variants[defaultColor]
+            );
             if (mainImage) {
               initialImages[product.id] = mainImage;
             }
-
             if (secondaryImage) {
               initialSecondaryImages[product.id] = secondaryImage;
             }
@@ -107,24 +92,18 @@ const LatestProducts: React.FC = () => {
     fetchProducts();
   }, [extractImages]);
 
-  // Handler khi người dùng chọn màu khác
   const handleColorSelect = useCallback(
     (productId: number, color: string) => {
       setSelectedColors((prev) => ({ ...prev, [productId]: color }));
 
       const product = products.find((p) => p.id === productId);
-
       if (product?.variants[color]) {
-        const variantDetail = product.variants[color];
-        const { mainImage, secondaryImage } = extractImages(variantDetail);
-
+        const { mainImage, secondaryImage } = extractImages(
+          product.variants[color]
+        );
         if (mainImage) {
-          setProductImages((prev) => ({
-            ...prev,
-            [productId]: mainImage,
-          }));
+          setProductImages((prev) => ({ ...prev, [productId]: mainImage }));
         }
-
         if (secondaryImage) {
           setSecondaryImages((prev) => ({
             ...prev,
@@ -142,7 +121,6 @@ const LatestProducts: React.FC = () => {
     [products, extractImages]
   );
 
-  // Cấu hình slider
   const settings = {
     dots: false,
     infinite: true,
@@ -158,7 +136,6 @@ const LatestProducts: React.FC = () => {
     ],
   };
 
-  // Loading state
   if (loading) {
     return (
       <div className="w-full py-8 flex justify-center items-center">
@@ -167,7 +144,6 @@ const LatestProducts: React.FC = () => {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="w-full text-center py-8 text-red-500">
@@ -182,20 +158,15 @@ const LatestProducts: React.FC = () => {
     );
   }
 
-  // Lọc sản phẩm mới theo category (Áo)
-  const latestProducts = products.filter((product) =>
-    product.categories.some((category) => category.name === "")
-  );
-
-  // Sử dụng sản phẩm đã lọc hoặc tất cả sản phẩm nếu không có
-  const displayProducts = latestProducts.length > 0 ? latestProducts : products;
+  // Lọc sản phẩm (tạm thời bỏ category rỗng để tránh lỗi logic)
+  const displayProducts = products; // Có thể thêm logic lọc sau
 
   return (
     <div className="w-full xl:px-20 lg:px-10 md:px-4 px-2 mt-4">
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-semibold text-left">SẢN PHẨM NỔI BẬT</h2>
         <Link
-          href="/products"
+          href={`/category/ao`}
           className="text-right text-lg text-gray-500 hover:underline hover:text-gray-700"
         >
           Xem thêm
@@ -204,31 +175,25 @@ const LatestProducts: React.FC = () => {
 
       <div className="relative mt-6">
         <Slider ref={sliderRef} {...settings}>
-          {displayProducts.map((product) => {
-            const color = selectedColors[product.id] || product.colors[0];
-            // const variant = product.variants[color]; // Removed unused variable
-
-            // Sử dụng SimpleProduct cho ProductCard
-            const simpleProduct: SimpleProduct = {
-              id: product.id,
-              featured: product.featured,
-              name: product.name,
-              colors: product.colors,
-              variants: product.variants,
-            };
-
-            return (
-              <div key={product.id} className="p-2">
-                <ProductCard
-                  product={simpleProduct}
-                  selectedColor={color}
-                  productImage={productImages[product.id] || ""}
-                  secondaryImage={secondaryImages[product.id] || ""}
-                  onColorSelect={handleColorSelect}
-                />
-              </div>
-            );
-          })}
+          {displayProducts.map((product) => (
+            <div key={product.id}>
+              <ProductCard
+                product={{
+                  id: product.id,
+                  name: product.name,
+                  featured: product.featured,
+                  colors: product.colors,
+                  variants: product.variants,
+                  price: product.price,
+                  hasDiscount: product.hasDiscount,
+                }}
+                selectedColor={selectedColors[product.id] || product.colors[0]}
+                productImage={productImages[product.id] || ""}
+                secondaryImage={secondaryImages[product.id] || ""}
+                onColorSelect={handleColorSelect}
+              />
+            </div>
+          ))}
         </Slider>
       </div>
     </div>

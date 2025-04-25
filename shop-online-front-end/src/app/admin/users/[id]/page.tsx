@@ -15,6 +15,7 @@ import { UserAdminApi } from "@/types/user";
 import PaginationComponent from "@/components/Category/Pagination";
 import { UserService } from "@/services/UserService";
 import { UserNote } from "@/types/user";
+import { formatCurrency } from "@/utils/currencyUtils";
 
 export default function UserDetailPage() {
   const { id } = useParams() as { id: string };
@@ -191,16 +192,6 @@ export default function UserDetailPage() {
       default:
         return status;
     }
-  };
-
-  // Hàm định dạng tiền tệ
-  const formatCurrency = (value: number): string => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
   };
 
   // Hàm xử lý khi chuyển trang

@@ -2,11 +2,13 @@ import Cookies from "js-cookie";
 
 // Định nghĩa interface cho item trong giỏ hàng
 export interface CartItem {
+  productId?: number;
   id: string;
   name: string;
   color: string;
   size: string;
   quantity: number;
+  originalPrice?: number;
   price?: number;
   image?: string;
 }

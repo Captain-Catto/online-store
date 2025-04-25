@@ -212,6 +212,8 @@ export default function CategoryDetailPage() {
           apiFilters
         );
 
+        console.log("Đã lấy sản phẩm:", response);
+
         // Destructure dữ liệu từ response
         const {
           products: productsData,

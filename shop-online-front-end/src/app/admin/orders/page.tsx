@@ -5,6 +5,7 @@ import AdminLayout from "@/components/admin/layout/AdminLayout";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
 import { OrderService } from "@/services/OrderService";
 import { useToast } from "@/utils/useToast";
+import { formatCurrency } from "@/utils/currencyUtils";
 
 // Định nghĩa kiểu dữ liệu cho order
 interface OrderDetail {
@@ -132,15 +133,6 @@ export default function OrdersPage() {
           month: "2-digit",
           year: "numeric",
         }).format(date);
-
-        // Format tiền
-        const formatCurrency = (amount: number) => {
-          return new Intl.NumberFormat("vi-VN", {
-            style: "currency",
-            currency: "VND",
-            minimumFractionDigits: 0,
-          }).format(amount);
-        };
 
         // Tổng hợp thông tin người dùng - Xử lý các trường hợp khác nhau của cấu trúc dữ liệu
         let customerName = "Khách hàng";

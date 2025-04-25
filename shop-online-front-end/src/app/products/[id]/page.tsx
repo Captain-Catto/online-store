@@ -10,6 +10,7 @@ import { addToCart, getCartItemCount } from "@/utils/cartUtils";
 import { useToast } from "@/utils/useToast";
 import { ProductService } from "@/services/ProductService";
 import { getColorCode } from "@/utils/colorUtils";
+import WishlistButton from "@/components/Product/WishlistButton";
 
 interface ProductParams {
   id: string;
@@ -564,6 +565,12 @@ export default function Home({ params }: { params: unknown }) {
               >
                 Thêm vào giỏ hàng
               </button>
+              {/* Thêm nút yêu thích */}
+              <WishlistButton
+                productId={parseInt(productId as string)}
+                className="px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-100"
+                showText={true}
+              />
             </div>
           </div>
         </div>

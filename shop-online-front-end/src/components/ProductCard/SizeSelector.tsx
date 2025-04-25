@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { SimpleProduct } from "@/types/product";
 import { addToCart } from "@/utils/cartUtils";
+import { CartItem } from "@/types/cart";
 
 interface SizeSelectorProps {
   product: SimpleProduct;
@@ -15,48 +16,53 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
   productImage,
   onProductAdded,
 }) => {
-  // Lấy kích thước từ variant hoặc từ product
+  // Lấy variant dựa trên selectedColor
   const variant =
-    product.variants && selectedColor ? product.variants[selectedColor] : null;
+    product.variants && selectedColor in product.variants
+      ? product.variants[selectedColor]
+      : null;
 
-  // Sử dụng sizes từ variant hoặc từ product nếu không có variant
-  const availableSizes = variant?.sizes || product.sizes || [];
+  // Lấy danh sách kích thước từ variant
+  const availableSizes = variant?.availableSizes ?? [];
 
-  // State để lưu size đã chọn
-  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  // State để theo dõi size được thêm gần đây nhất
+  const [addedSize, setAddedSize] = useState<string | null>(null);
+  // State để hiển thị animation khi thêm thành công
+  const [isAdding, setIsAdding] = useState<boolean>(false);
 
-  // Hàm xử lý khi chọn size
-  const handleSizeSelect = (size: string) => {
-    setSelectedSize(size); // Cập nhật size đã chọn
-  };
-
-  // Hàm thêm vào giỏ hàng
-  const handleAddToCart = () => {
-    if (!selectedSize) {
-      alert("Vui lòng chọn kích thước trước khi thêm vào giỏ hàng!");
-      return;
-    }
-
+  // Hàm xử lý khi click vào size - thêm ngay vào giỏ hàng
+  const handleSizeClick = (size: string) => {
     try {
       // Xác định giá từ variant hoặc từ product
-      const price =
-        variant?.price || product.priceRange?.min || product.price || 0;
+      const price = variant?.price ?? product.price ?? 0;
+      const originalPrice =
+        variant?.originalPrice ?? (product.hasDiscount ? price * 1.1 : price);
 
-      const cartItem = {
-        id: product.id.toString(),
+      // Tạo ID duy nhất cho cartItem
+      const cartItemId = `${product.id}-${selectedColor}-${size}`;
+
+      const cartItem: CartItem = {
+        id: cartItemId,
+        productId: product.id,
         name: product.name,
-        color: selectedColor,
-        size: selectedSize,
+        price,
+        originalPrice,
         quantity: 1,
-        price: price,
-        image: productImage,
+        color: selectedColor,
+        size: size,
+        image: productImage ?? "/images/default-product.jpg", // Fallback nếu productImage undefined
       };
 
       // Thêm vào giỏ hàng
       addToCart(cartItem);
 
+      // Hiệu ứng khi thêm thành công
+      setAddedSize(size);
+      setIsAdding(true);
+      setTimeout(() => setIsAdding(false), 1000);
+
       // Thông báo cho component cha
-      onProductAdded(product, selectedColor, selectedSize);
+      onProductAdded(product, selectedColor, size);
 
       // Cập nhật số lượng trong header
       const cartItems = JSON.parse(localStorage.getItem("shop_cart") || "[]");
@@ -71,29 +77,56 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
 
   return (
     <div className="size-selector">
-      <span className="text-black font-bold">Chọn kích thước:</span>
+      <span className="text-xs text-center mt-2 text-black font-bold">
+        Thêm nhanh vào giỏ hàng:
+      </span>
       <div className="flex flex-wrap justify-center gap-2 mt-2">
-        {availableSizes.map((size, idx) => (
+        {availableSizes.map((size) => (
           <button
-            key={idx}
-            className={`px-3 py-1 rounded border ${
-              selectedSize === size
-                ? "bg-black text-white border-black"
-                : "bg-white text-black border-gray-300"
-            } hover:bg-black hover:text-white cursor-pointer transition-colors`}
-            onClick={() => handleSizeSelect(size)}
+            key={size}
+            className={`relative px-3 py-1 rounded border ${
+              addedSize === size && isAdding
+                ? "bg-green-500 text-white border-green-500"
+                : "bg-white text-black border-gray-300 hover:bg-black hover:text-white"
+            } cursor-pointer transition-all duration-300 overflow-hidden`}
+            onClick={() => handleSizeClick(size)}
           >
             {size}
+            {addedSize === size && isAdding && (
+              <span className="absolute inset-0 flex items-center justify-center bg-green-500 text-white animate-fade-in">
+                <svg
+                  className="w-4 h-4 animate-bounce"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </span>
+            )}
           </button>
         ))}
       </div>
-      <button
-        className="mt-4 px-4 py-2 bg-black text-white rounded cursor-pointer hover:bg-gray-800 transition-colors w-full"
-        onClick={handleAddToCart}
-        disabled={!selectedSize}
-      >
-        Thêm vào giỏ hàng
-      </button>
+
+      <style jsx>{`
+        @keyframes fadeIn {
+          0% {
+            opacity: 0;
+          }
+          100% {
+            opacity: 1;
+          }
+        }
+        .animate-fade-in {
+          animation: fadeIn 0.5s ease-in-out;
+        }
+      `}</style>
     </div>
   );
 };

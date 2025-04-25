@@ -131,7 +131,7 @@ export default function ProductsPage() {
     console.log("Product:", product);
     // Nếu không có variants, trả về ảnh mặc định
     if (!product.variants || Object.keys(product.variants).length === 0) {
-      return "https://via.placeholder.com/50";
+      return null;
     }
 
     // Lấy màu đầu tiên

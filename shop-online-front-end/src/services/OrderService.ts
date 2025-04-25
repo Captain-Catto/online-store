@@ -7,6 +7,7 @@ import {
   Order,
   PaginatedOrders,
 } from "@/types/order";
+import { formatCurrency } from "@/utils/currencyUtils";
 
 export const OrderService = {
   // OrderService.ts
@@ -168,21 +169,19 @@ export const OrderService = {
       let orderDetailsHtml = "";
       let totalItems = 0;
 
-      order.orderDetails.forEach((item) => {
+      order.orderDetails?.forEach((item) => {
         totalItems += item.quantity;
         orderDetailsHtml += `
           <tr>
             <td>${item.product?.name || "Sản phẩm không xác định"}</td>
             <td>${item.color} - ${item.size}</td>
             <td style="text-align:right;">${item.quantity}</td>
-            <td style="text-align:right;">${new Intl.NumberFormat("vi-VN", {
-              style: "currency",
-              currency: "VND",
-            }).format(item.discountPrice || 0)}</td>
-            <td style="text-align:right;">${new Intl.NumberFormat("vi-VN", {
-              style: "currency",
-              currency: "VND",
-            }).format((item.discountPrice || 0) * item.quantity)}</td>
+            <td style="text-align:right;">${formatCurrency(
+              item.discountPrice || 0
+            )}</td>
+            <td style="text-align:right;">${formatCurrency(
+              (item.discountPrice || 0) * item.quantity
+            )}</td>
           </tr>
         `;
       });
@@ -225,9 +224,7 @@ export const OrderService = {
             <div>
               <h3>Thông tin khách hàng</h3>
               <p><strong>ID khách hàng:</strong> ${order.userId}</p>
-              <p><strong>Điện thoại:</strong> ${
-                order.shippingPhone || "N/A"
-              }</p>
+              <p><strong>Điện thoại:</strong> ${order.phoneNumber || "N/A"}</p>
               <p><strong>Địa chỉ giao hàng:</strong> ${
                 order.shippingAddress || "N/A"
               }</p>
@@ -244,9 +241,7 @@ export const OrderService = {
                   ? "Đã thanh toán"
                   : "Chưa thanh toán"
               }</p>
-              <p><strong>Trạng thái đơn hàng:</strong> ${
-                order.statusLabel || order.status
-              }</p>
+              <p><strong>Trạng thái đơn hàng:</strong> ${order.status}</p>
             </div>
           </div>
           
@@ -269,45 +264,32 @@ export const OrderService = {
                 <td colspan="2"><strong>Tổng cộng:</strong></td>
                 <td style="text-align:right;"><strong>${totalItems}</strong></td>
                 <td></td>
-                <td style="text-align:right;"><strong>${new Intl.NumberFormat(
-                  "vi-VN",
-                  {
-                    style: "currency",
-                    currency: "VND",
-                  }
-                ).format(order.subtotal || 0)}</strong></td>
+                <td style="text-align:right;"><strong>${formatCurrency(
+                  order.subtotal || 0
+                )}</strong></td>
               </tr>
               <tr>
                 <td colspan="4"><strong>Phí vận chuyển:</strong></td>
-                <td style="text-align:right;">${new Intl.NumberFormat("vi-VN", {
-                  style: "currency",
-                  currency: "VND",
-                }).format(order.shippingFee || 0)}</td>
+                <td style="text-align:right;">${formatCurrency(
+                  order.shippingFee || 0
+                )}</td>
               </tr>
               ${
                 order.voucherDiscount > 0
                   ? `
               <tr>
                 <td colspan="4"><strong>Giảm giá voucher:</strong></td>
-                <td style="text-align:right;">- ${new Intl.NumberFormat(
-                  "vi-VN",
-                  {
-                    style: "currency",
-                    currency: "VND",
-                  }
-                ).format(order.voucherDiscount || 0)}</td>
+                <td style="text-align:right;">- ${formatCurrency(
+                  order.voucherDiscount || 0
+                )}</td>
               </tr>`
                   : ""
               }
               <tr class="total-row">
                 <td colspan="4"><strong>Tổng thanh toán:</strong></td>
-                <td style="text-align:right;"><strong>${new Intl.NumberFormat(
-                  "vi-VN",
-                  {
-                    style: "currency",
-                    currency: "VND",
-                  }
-                ).format(order.total || 0)}</strong></td>
+                <td style="text-align:right;"><strong>${formatCurrency(
+                  order.total || 0
+                )}</strong></td>
               </tr>
             </tfoot>
           </table>

@@ -1,17 +1,16 @@
 import { API_BASE_URL } from "@/config/apiConfig";
 import { AuthClient } from "./AuthClient";
-import {
-  WishlistItem,
-  WishlistResponse,
-  WishlistCheckResponse,
-} from "@/types/wishlist";
+import { WishlistResponse, WishlistCheckResponse } from "@/types/wishlist";
 
 export class WishlistService {
-  // Lấy danh sách yêu thích của người dùng
-  static async getWishlist(): Promise<WishlistItem[]> {
+  // Lấy danh sách yêu thích của người dùng có phân trang
+  static async getWishlist(
+    page: number = 1,
+    limit: number = 10
+  ): Promise<WishlistResponse> {
     try {
       const response = await AuthClient.fetchWithAuth(
-        `${API_BASE_URL}/wishlist`
+        `${API_BASE_URL}/wishlist?page=${page}&limit=${limit}`
       );
 
       if (!response.ok) {
@@ -21,7 +20,17 @@ export class WishlistService {
       return await response.json();
     } catch (error) {
       console.error("Error fetching wishlist:", error);
-      return [];
+      return {
+        items: [],
+        pagination: {
+          totalItems: 0,
+          totalPages: 0,
+          currentPage: 1,
+          itemsPerPage: limit,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        },
+      };
     }
   }
 

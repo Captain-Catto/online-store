@@ -5,11 +5,6 @@ export interface ProductImage {
   productDetailId?: number;
 }
 
-export interface PriceRange {
-  min: number;
-  max: number;
-}
-
 export interface VariantDetail {
   detailId: number;
   price: number;
@@ -17,7 +12,11 @@ export interface VariantDetail {
   images: ProductImage[];
   availableSizes: string[];
   inventory: Record<string, number>;
-  variants: { id: number; name: string; value: string }[];
+  variants: Array<{
+    color: string;
+    size: string;
+    stock: number;
+  }>;
 }
 
 export interface Product {
@@ -31,30 +30,21 @@ export interface Product {
   mainImage: string;
   subImage: ProductImage[];
   price: number | null;
-  priceRange?: PriceRange | null;
+  priceRange?: { min: number; max: number } | null;
   hasDiscount: boolean;
   colors: string[];
   sizes: string[];
   categories: Array<{ id: number; name: string; slug: string }>;
   suitabilities: string[];
-  details?: Record<string, VariantDetail>;
+  variants: Record<string, VariantDetail>;
 }
 
-// Interface đơn giản hóa cho ProductCard
-export interface SimpleProduct extends Product {
-  colorToImage?: Record<string, string>;
-  variants?: Record<
-    string,
-    {
-      price: number;
-      originalPrice: number;
-      sizes: string[];
-      inventories?: Array<{
-        size: string;
-        stock: number;
-      }>;
-    }
-  >;
+export interface SimpleProduct
+  extends Pick<
+    Product,
+    "id" | "name" | "featured" | "colors" | "price" | "hasDiscount"
+  > {
+  variants: Record<string, VariantDetail>;
 }
 
 export interface PaginatedResponse {
@@ -67,7 +57,6 @@ export interface PaginatedResponse {
   };
 }
 
-// Interface cho các tham số lọc sản phẩm
 export interface ProductFilterParams {
   page?: number;
   limit?: number;

@@ -17,7 +17,7 @@ import UserNote from "./UserNotes";
 import Suitability from "./Suitability";
 import ProductSuitability from "./ProductSuitability";
 import NavigationMenu from "./NavigationMenu";
-
+import Wishlist from "./Wishlist";
 export default function initAssociations() {
   // Product - ProductDetail relationship
   Product.hasMany(ProductDetail, { foreignKey: "productId", as: "details" });
@@ -151,5 +151,25 @@ export default function initAssociations() {
   Category.hasMany(NavigationMenu, {
     foreignKey: "categoryId",
     as: "navigationMenus",
+  });
+
+  // Wishlist - User mqh
+  Wishlist.belongsTo(Users, {
+    foreignKey: "userId",
+    as: "user",
+  });
+  Users.hasMany(Wishlist, {
+    foreignKey: "userId",
+    as: "wishlists",
+  });
+
+  // Wishlist - Product mqh
+  Wishlist.belongsTo(Product, {
+    foreignKey: "productId",
+    as: "product",
+  });
+  Product.hasMany(Wishlist, {
+    foreignKey: "productId",
+    as: "wishlists",
   });
 }

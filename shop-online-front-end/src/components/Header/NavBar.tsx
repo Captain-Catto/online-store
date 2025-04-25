@@ -21,7 +21,7 @@ export default function NavBar() {
               ? `/category/${item.category.slug}`
               : `/category/${item.slug}`)
           }
-          className="block py-2 px-4 hover:text-blue-600 transition-colors"
+          className="block hover:text-blue-600 transition-colors"
         >
           {item.name}
           {item.children && item.children.length > 0 && (
@@ -101,7 +101,7 @@ export default function NavBar() {
   }
 
   return (
-    <nav className="w-full bg-white shadow-sm">
+    <nav className="w-full bg-white">
       <div className="container mx-auto">
         <ul className="flex space-x-8 justify-center">
           {menuItems.map(renderMenuItem)}

@@ -44,6 +44,16 @@ export const UserLeft: React.FC<UserLeftProps> = ({
         </li>
         <li
           className={`p-3 rounded-md cursor-pointer transition-all ${
+            activeTab === "wishlist"
+              ? "bg-black text-white"
+              : "hover:bg-gray-200"
+          }`}
+          onClick={() => setActiveTab("wishlist")}
+        >
+          Yêu thích
+        </li>
+        <li
+          className={`p-3 rounded-md cursor-pointer transition-all ${
             activeTab === "promotions"
               ? "bg-black text-white"
               : "hover:bg-gray-200"

@@ -1,10 +1,11 @@
 "use client";
+
 import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import SizeSelector from "./SizeSelector";
 import { useToast } from "@/utils/useToast";
-import { SimpleProduct, Product } from "@/types/product";
+import { SimpleProduct, VariantDetail } from "@/types/product";
 
 interface ProductCardProps {
   product: SimpleProduct;
@@ -21,7 +22,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   secondaryImage,
   onColorSelect,
 }) => {
-  console.log("ProductCard props:", {
+  console.log("Rendering ProductCard with props:", {
     product,
     selectedColor,
     productImage,
@@ -30,27 +31,18 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
   const [isHovered, setIsHovered] = useState(false);
 
-  // Lấy variant hiện tại dựa trên màu đã chọn
-  const currentVariant =
-    product.variants && selectedColor ? product.variants[selectedColor] : null;
+  const currentVariant: VariantDetail | null =
+    product.variants && selectedColor in product.variants
+      ? product.variants[selectedColor]
+      : null;
 
-  // Nếu không có giá trong variant hoặc giá bằng 0, sử dụng giá từ product
-  const price =
-    currentVariant && currentVariant.price > 0
-      ? currentVariant.price
-      : product.price || 0;
-
-  // Nếu không có giá gốc hoặc giá gốc bằng 0, sử dụng giá + 10%
+  const price = currentVariant?.price ?? product.price ?? 0;
   const originalPrice =
-    currentVariant && currentVariant.originalPrice > 0
-      ? currentVariant.originalPrice
-      : product.hasDiscount
-      ? price * 1.1
-      : price;
+    currentVariant?.originalPrice ??
+    (product.hasDiscount ? price * 1.1 : price);
 
   const { showToast, Toast } = useToast();
 
-  // Mở rộng colorMap để bao gồm thêm nhiều màu
   const colorMap: Record<string, string> = {
     black: "#000000",
     white: "#FFFFFF",
@@ -66,39 +58,33 @@ const ProductCard: React.FC<ProductCardProps> = ({
     orange: "#FFA500",
   };
 
-  // Cập nhật hàm xử lý thêm vào giỏ hàng để làm việc với dữ liệu mới
   const handleProductAdded = (
-    product: Product | SimpleProduct,
+    product: SimpleProduct,
     color: string,
     size: string
   ) => {
-    // Xác định giá cả từ variant hoặc từ product nếu không có variant
-    const productPrice = price;
-    const productOriginalPrice = originalPrice;
-
     try {
       showToast(`Đã thêm vào giỏ hàng thành công!`, {
         type: "cart",
         product: {
           name: product.name,
           image: productImage,
-          color: color,
-          size: size,
+          color,
+          size,
           quantity: 1,
-          price: productPrice,
-          originalPrice: productOriginalPrice,
+          price,
+          originalPrice,
         },
         duration: 4000,
       });
-      console.log("Toast đã hiển thị");
     } catch (error) {
       console.error("Lỗi hiển thị toast:", error);
     }
   };
 
   return (
-    <div className="product-container w-full rounded-lg flex-shrink-0 m-2 h-[500px] mx-auto flex flex-col relative">
-      {/* product img */}
+    <div className="product-container w-full rounded-lg flex-shrink-0 mx-auto flex flex-col relative p-2">
+      {/* Hình ảnh sản phẩm */}
       <div
         className="relative product-image"
         onMouseEnter={() => setIsHovered(true)}
@@ -111,52 +97,41 @@ const ProductCard: React.FC<ProductCardProps> = ({
         )}
         <Link href={`/products/${product.id}`}>
           {productImage ? (
-            <div className="relative w-full h-80">
+            <div className="relative w-full aspect-[2/3]">
               <Image
                 src={productImage}
                 alt={product.name}
-                className={`w-full h-80 object-cover md:object-top rounded-md mb-4 cursor-pointer transition-opacity duration-300 ${
+                className={`w-full h-full object-cover md:object-top rounded-md transition-opacity duration-300 ${
                   isHovered && secondaryImage ? "opacity-0" : "opacity-100"
                 }`}
-                width={400}
-                height={320}
+                width={672}
+                height={990}
                 priority
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                }}
+                style={{ position: "absolute", top: 0, left: 0 }}
               />
               {secondaryImage && (
                 <Image
                   src={secondaryImage}
                   alt={`${product.name} - second view`}
-                  className={`w-full h-80 object-cover md:object-top rounded-md mb-4 cursor-pointer transition-opacity duration-300 ${
+                  className={`w-full h-full object-cover md:object-top rounded-md transition-opacity duration-300 ${
                     isHovered ? "opacity-100" : "opacity-0"
                   }`}
-                  width={400}
-                  height={320}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                  }}
+                  width={672}
+                  height={990}
+                  style={{ position: "absolute", top: 0, left: 0 }}
                 />
               )}
             </div>
           ) : (
-            <div className="w-full h-80 bg-gray-200 rounded-md mb-4 flex items-center justify-center">
+            <div className="w-full aspect-[2/3] bg-gray-200 rounded-md flex items-center justify-center">
               <span className="text-gray-400">Không có hình ảnh</span>
             </div>
           )}
         </Link>
-
-        {/* Size selector overlay khi hover */}
+        {/* Size selector hiển thị đè lên hình ảnh */}
         <div
-          className={`product-image relative ${
-            isHovered
-              ? "translate-y-0 opacity-100"
-              : "translate-y-full opacity-0"
+          className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[80%] max-w-[90%] backdrop-blur-2xl bg-white/40 rounded-lg text-white text-center p-3 opacity-0 transition-all duration-500 ease-in-out z-[100] ${
+            isHovered ? "opacity-100 bottom-[30px]" : ""
           }`}
         >
           <SizeSelector
@@ -168,15 +143,16 @@ const ProductCard: React.FC<ProductCardProps> = ({
         </div>
       </div>
 
+      {/* Thông tin sản phẩm */}
       <Link
         href={`/products/${product.id}`}
-        className="block hover:text-blue-600"
+        className="block hover:text-blue-600 mt-2"
       >
         <h3 className="text-lg font-medium line-clamp-2">{product.name}</h3>
       </Link>
 
-      {/* Hiển thị giá */}
       <div className="mt-2 space-y-2">
+        {/* Giá sản phẩm */}
         <div className="flex gap-2 items-center">
           <span className="font-semibold">
             {price.toLocaleString("vi-VN")}đ
@@ -193,24 +169,23 @@ const ProductCard: React.FC<ProductCardProps> = ({
           )}
         </div>
 
-        {/* ColorSelector với kiểm tra product.colors */}
+        {/* Chọn màu */}
         <div className="flex gap-2">
-          {product.colors &&
-            product.colors.map((color) => (
-              <button
-                key={color}
-                className={`w-6 h-6 rounded-full border-2 ${
-                  selectedColor === color ? "border-black" : "border-gray-300"
-                }`}
-                style={{ backgroundColor: colorMap[color] || color }}
-                onClick={() => onColorSelect(product.id, color)}
-                aria-label={`Màu ${color}`}
-              />
-            ))}
+          {product.colors.map((color) => (
+            <button
+              key={color}
+              className={`w-6 h-6 rounded-full border-2 ${
+                selectedColor === color ? "border-black" : "border-gray-300"
+              }`}
+              style={{ backgroundColor: colorMap[color] || color }}
+              onClick={() => onColorSelect(product.id, color)}
+              aria-label={`Màu ${color}`}
+            />
+          ))}
         </div>
       </div>
 
-      {/* Hiển thị Toast khi có thông báo */}
+      {/* Toast thông báo */}
       {Toast}
     </div>
   );

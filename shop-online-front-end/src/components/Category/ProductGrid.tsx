@@ -1,13 +1,9 @@
 import React, { useEffect, useState } from "react";
 import ProductCard from "../ProductCard/ProductCard";
-import { Product } from "@/types/product";
+import { Product, SimpleProduct, VariantDetail } from "@/types/product";
 
-interface ProcessedProduct extends Product {
+interface ProcessedProduct extends SimpleProduct {
   colorToImage: Record<string, string>;
-  variants: Record<
-    string,
-    { price: number; originalPrice: number; sizes: string[] }
-  >;
 }
 
 interface ProductGridProps {
@@ -39,168 +35,184 @@ export default function ProductGrid({
     ProcessedProduct[]
   >([]);
 
-  // Process products to extract colors and default images
+  // Xử lý sản phẩm để tạo dữ liệu phù hợp cho ProductCard
   useEffect(() => {
-    // Nếu không có sản phẩm hoặc đang loading, không xử lý
     if (!products || products.length === 0) {
       setProcessedProducts([]);
       return;
     }
 
     const processed = products.map((product) => {
-      // Sử dụng colors trực tiếp từ API
+      // Lấy danh sách màu từ API
       const colors = product.colors || [];
 
-      // Tạo variants từ dữ liệu giá và kích thước
-      const variants: Record<
-        string,
-        { price: number; originalPrice: number; sizes: string[] }
-      > = {};
+      // Tạo colorToImage mapping
+      const colorToImage: Record<string, string> = {};
 
-      // Nếu có nhiều màu sắc, tạo variants cho mỗi màu
-      if (colors && colors.length > 0) {
-        colors.forEach((color) => {
-          variants[color] = {
-            price: product.priceRange?.min || 0,
-            originalPrice: product.priceRange?.max || 0,
-            sizes: product.sizes || [],
-          };
-        });
-      } else {
-        // Nếu không có màu, tạo một variant mặc định
+      // Tạo variants với cấu trúc ProductCard mong đợi
+      const variants: Record<string, VariantDetail> = {};
+
+      // Xử lý variants cho từng màu
+      colors.forEach((color) => {
+        // Tìm hình ảnh chính cho màu này
+        const mainImage = product.mainImage || "";
+        if (mainImage) {
+          colorToImage[color] = mainImage;
+        }
+
+        // Tạo variant cho màu này
+        variants[color] = {
+          detailId: 0, // Giá trị mặc định vì không có details
+          price: product.priceRange?.min || product.price || 0,
+          originalPrice: product.priceRange?.max || product.price || 0,
+          images: [
+            { id: 0, url: mainImage, isMain: true },
+            ...(product.subImage?.map((img) => ({
+              id: img.id,
+              url: img.url,
+              isMain: false,
+            })) || []),
+          ],
+          availableSizes: product.sizes || [],
+          inventory: (product.sizes || []).reduce(
+            (acc, size) => ({ ...acc, [size]: 1 }), // Giả định mỗi kích thước có sẵn 1 sản phẩm
+            {}
+          ) as Record<string, number>,
+          variants: (product.sizes || []).map((size) => ({
+            color,
+            size,
+            stock: 1, // Giả định stock mặc định
+          })),
+        };
+      });
+
+      // Nếu không có màu, tạo variant mặc định
+      if (colors.length === 0 && product.mainImage) {
+        colorToImage["default"] = product.mainImage;
         variants["default"] = {
-          price: product.priceRange?.min || 0,
-          originalPrice: product.priceRange?.max || 0,
-          sizes: product.sizes || [],
+          detailId: 0,
+          price: product.priceRange?.min || product.price || 0,
+          originalPrice: product.priceRange?.max || product.price || 0,
+          images: [{ id: 0, url: product.mainImage, isMain: true }],
+          availableSizes: product.sizes || [],
+          inventory: (product.sizes || []).reduce(
+            (acc, size) => ({ ...acc, [size]: 1 }),
+            {}
+          ) as Record<string, number>,
+          variants: (product.sizes || []).map((size) => ({
+            color: "default",
+            size,
+            stock: 1,
+          })),
         };
       }
 
-      // Tạo colorToImage từ mainImage và subImage
-      const colorToImage: Record<string, string> = {};
+      // Tính toán hasDiscount
+      const hasDiscount = Object.values(variants).some(
+        (variant) => variant.originalPrice > variant.price
+      );
 
-      // Nếu có nhiều màu, giả định rằng màu đầu tiên tương ứng với mainImage
-      if (colors.length > 0 && product.mainImage) {
-        colorToImage[colors[0]] = product.mainImage;
-
-        // Nếu có subImage, gán cho các màu còn lại
-        if (product.subImage && product.subImage.length > 0) {
-          const remainingColors = colors.slice(1);
-          remainingColors.forEach((color, index) => {
-            if (index < product.subImage.length) {
-              colorToImage[color] = product.subImage[index].url;
-            } else {
-              colorToImage[color] = product.mainImage; // Fallback to mainImage
-            }
-          });
-        } else {
-          // Nếu không có subImage, tất cả màu đều dùng mainImage
-          colors.forEach((color) => {
-            colorToImage[color] = product.mainImage;
-          });
-        }
-      } else if (product.mainImage) {
-        // Nếu không có màu cụ thể, sử dụng mainImage cho 'default'
-        colorToImage["default"] = product.mainImage;
-      }
+      // Lấy giá nhỏ nhất để hiển thị mặc định
+      const price = Object.values(variants).reduce(
+        (min, variant) => Math.min(min, variant.price || Infinity),
+        Infinity
+      );
+      const minPrice = price === Infinity ? 0 : price;
 
       return {
-        ...product,
-        colors: colors,
-        colorToImage: colorToImage,
-        variants: variants,
+        id: product.id,
+        name: product.name,
+        featured: product.featured,
+        colors,
+        price: minPrice,
+        hasDiscount,
+        variants,
+        colorToImage,
       };
     });
 
     setProcessedProducts(processed);
+  }, [products]);
 
-    // Pre-populate selectedColors and productImages if they're empty
-    const newSelectedColors: Record<string, string> = { ...selectedColors };
-    const newProductImages: Record<string, string> = { ...productImages };
+  // Cập nhật selectedColors nếu cần
+  useEffect(() => {
+    if (processedProducts.length === 0) return;
 
-    processed.forEach((product) => {
+    processedProducts.forEach((product) => {
       const productId = product.id.toString();
-
-      // Chọn màu mặc định nếu chưa có màu được chọn
-      if (!newSelectedColors[productId]) {
-        if (product.colors && product.colors.length > 0) {
-          newSelectedColors[productId] = product.colors[0];
-
-          // Cập nhật hình ảnh tương ứng
-          if (product.colorToImage && product.colorToImage[product.colors[0]]) {
-            newProductImages[productId] =
-              product.colorToImage[product.colors[0]];
-          }
-        } else if (product.mainImage) {
-          // Nếu không có màu nhưng có mainImage
-          newProductImages[productId] = product.mainImage;
-        }
+      if (!selectedColors[productId] && product.colors.length > 0) {
+        onColorSelect(product.id, product.colors[0]);
       }
     });
-  }, [products, selectedColors, productImages]);
+  }, [processedProducts, selectedColors, onColorSelect]);
 
+  // Trạng thái loading
   if (loading) {
     return (
-      <div className="w-full text-center py-12">
-        <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-pink-500"></div>
-        <p className="mt-2">Đang tải sản phẩm...</p>
+      <div className="w-full flex flex-col items-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-pink-500" />
+        <p className="mt-2 text-gray-600">Đang tải sản phẩm...</p>
       </div>
     );
   }
 
+  // Trạng thái lỗi
   if (error) {
     return (
-      <div className="w-full text-center py-12 text-red-500">
+      <div className="w-full flex flex-col items-center py-12 text-red-500">
         <p>{error}</p>
       </div>
     );
   }
 
+  // Tính toán thông tin phân trang
+  const startItem = totalItems > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0;
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+
   return (
     <div className="w-full">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">
+      {/* Tiêu đề và thông tin phân trang */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <h1 className="text-2xl font-bold text-gray-800">
           {category
             ? `Danh mục: ${decodeURIComponent(category)}`
             : "Tất cả sản phẩm"}
         </h1>
-        <div className="text-sm">
-          Hiển thị {totalItems > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} -{" "}
-          {Math.min(currentPage * itemsPerPage, totalItems)} / {totalItems} sản
-          phẩm
+        <div className="text-sm text-gray-600">
+          Hiển thị {startItem} - {endItem} / {totalItems} sản phẩm
         </div>
       </div>
 
+      {/* Thông báo khi không có sản phẩm */}
       {processedProducts.length === 0 ? (
         <div className="text-center py-12">
-          <h3 className="text-xl font-semibold mb-2">
+          <h3 className="text-xl font-semibold text-gray-800 mb-2">
             Không tìm thấy sản phẩm nào
           </h3>
           <p className="text-gray-600">Vui lòng thử lại với bộ lọc khác</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        /* Grid sản phẩm */
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 ">
           {processedProducts.map((product) => {
             const productId = product.id.toString();
-
-            // Đảm bảo colors tồn tại và có phần tử
             const hasColors = product.colors && product.colors.length > 0;
             const selectedColor =
               selectedColors[productId] ||
               (hasColors ? product.colors[0] : "default") ||
               "default";
-
-            // Chọn hình ảnh dựa trên màu đã chọn
             const productImage =
               (selectedColor &&
                 product.colorToImage &&
                 product.colorToImage[selectedColor]) ||
               productImages[productId] ||
-              product.mainImage ||
               "";
-
             const secondaryImage =
-              product.subImage && product.subImage.length > 0
-                ? product.subImage[0].url
+              product.colors.length > 1 &&
+              product.colorToImage &&
+              product.colors[1] &&
+              product.colorToImage[product.colors[1]]
+                ? product.colorToImage[product.colors[1]]
                 : "";
 
             return (
@@ -209,7 +221,7 @@ export default function ProductGrid({
                 product={product}
                 selectedColor={selectedColor}
                 productImage={productImage}
-                secondaryImage={secondaryImage} // Thêm prop này
+                secondaryImage={secondaryImage}
                 onColorSelect={onColorSelect}
               />
             );

@@ -12,6 +12,8 @@ import Link from "next/link";
 import { Promotion } from "@/types/promotion";
 import { Order } from "@/types/order";
 import { AddressPagination } from "@/types/address";
+import { WishlistItem } from "@/types/wishlist";
+import { WishlistService } from "@/services/WishlistService";
 
 interface AccountData {
   name: string;
@@ -63,6 +65,16 @@ export default function AccountPage() {
   const [dataLoading, setDataLoading] = useState(false);
   const [addressError, setAddressError] = useState<string | null>(null);
   const [orderError, setOrderError] = useState<string | null>(null);
+  const [wishlistData, setWishlistData] = useState<WishlistItem[]>([]);
+  const [wishlistError, setWishlistError] = useState<string | null>(null);
+  const [wishlistPagination, setWishlistPagination] = useState({
+    totalItems: 0,
+    totalPages: 0,
+    currentPage: 1,
+    itemsPerPage: 10,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  });
 
   // Hàm fetch user account data
   const fetchAccountInfo = useCallback(async () => {
@@ -145,6 +157,33 @@ export default function AccountPage() {
     [isLoggedIn]
   );
 
+  // hàm fetch wishlist
+  const fetchWishlist = useCallback(async () => {
+    console.log("fetchWishlist được gọi");
+
+    if (!isLoggedIn) return;
+
+    try {
+      setDataLoading(true);
+      setWishlistError(null);
+
+      const response = await WishlistService.getWishlist();
+      console.log("Dữ liệu wishlist mới:", response);
+
+      setWishlistData(response.items);
+      setWishlistPagination(response.pagination);
+    } catch (error) {
+      console.error("Error fetching wishlist:", error);
+      setWishlistError(
+        error instanceof Error
+          ? error.message
+          : "Không thể tải danh sách yêu thích"
+      );
+    } finally {
+      setDataLoading(false);
+    }
+  }, [isLoggedIn]);
+
   // Load data based on active tab
   useEffect(() => {
     if (isLoggedIn && !loading) {
@@ -154,6 +193,8 @@ export default function AccountPage() {
         fetchOrders();
       } else if (activeTab === "account") {
         fetchAccountInfo();
+      } else if (activeTab === "wishlist") {
+        fetchWishlist();
       }
 
       // Sample promotions data
@@ -179,6 +220,7 @@ export default function AccountPage() {
     fetchAddresses,
     fetchOrders,
     fetchAccountInfo,
+    fetchWishlist,
   ]);
 
   // Nếu đang loading, hiển thị spinner
@@ -240,11 +282,13 @@ export default function AccountPage() {
               activeTab={activeTab}
               isLoading={dataLoading}
               hasError={!!addressError || !!orderError}
-              errorMessage={addressError || orderError || ""}
+              errorMessage={addressError || orderError || wishlistError || ""}
               accountData={accountData}
               ordersData={ordersData}
               addressesData={addressesData}
               promotionsData={promotionsData}
+              wishlistData={wishlistData}
+              wishlistPagination={wishlistPagination}
               onRetryFetch={
                 activeTab === "addresses"
                   ? fetchAddresses
@@ -252,6 +296,8 @@ export default function AccountPage() {
                   ? fetchOrders
                   : activeTab === "account"
                   ? fetchAccountInfo
+                  : activeTab === "wishlist"
+                  ? fetchWishlist
                   : undefined
               }
               onPageChange={

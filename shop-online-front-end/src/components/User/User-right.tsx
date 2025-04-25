@@ -2,11 +2,17 @@ import React from "react";
 import { useState, useRef, useEffect } from "react";
 import { UserService } from "@/services/UserService";
 import Link from "next/link";
+import Image from "next/image";
 import { formatDateForInput, formatDateDisplay } from "@/utils/dateUtils";
 import { User } from "@/types/user";
 import { AddressPagination, Address } from "@/types/address";
 import { Order } from "@/types/order";
 import { Promotion } from "@/types/promotion";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/utils/useToast";
+import { formatCurrency } from "@/utils/currencyUtils";
+import { WishlistItem, WishlistPagination } from "@/types/wishlist";
+import { WishlistService } from "@/services/WishlistService";
 
 // Loading component
 const LoadingSpinner: React.FC = () => (
@@ -300,15 +306,6 @@ const MyOrders: React.FC<{
   const orders = ordersData?.orders || [];
   const pagination = ordersData?.pagination;
   console.log("Orders:", orders);
-
-  // Hàm định dạng tiền tệ
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
 
   // Hàm xử lý chuyển trạng thái từ API sang hiển thị UI
   const getOrderStatus = (status: string) => {
@@ -1852,6 +1849,175 @@ const FAQ: React.FC = () => {
   );
 };
 
+// Tạo thêm component Wishlist trong file này
+const Wishlist: React.FC<{
+  data?: WishlistItem[] | null;
+  isLoading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
+  pagination?: WishlistPagination | null;
+}> = ({ data, isLoading, error, onRetry, pagination }) => {
+  const router = useRouter();
+  const { showToast, Toast } = useToast();
+
+  const handleRemoveFromWishlist = async (productId: number) => {
+    try {
+      await WishlistService.removeFromWishlist(productId);
+
+      showToast("Đã xóa sản phẩm khỏi danh sách yêu thích", {
+        type: "success",
+      });
+
+      setTimeout(() => {
+        if (onRetry) onRetry();
+      }, 2000);
+    } catch (error) {
+      console.error("Error removing from wishlist:", error);
+      showToast("Không thể xóa sản phẩm. Vui lòng thử lại.", {
+        type: "error",
+      });
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="text-center py-4">
+        <div className="spinner-border text-primary mx-auto" role="status">
+          <span className="sr-only">Đang tải...</span>
+        </div>
+        <p className="mt-2">Đang tải danh sách yêu thích...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <ErrorState message={error} />;
+  }
+
+  if (!data || data.length === 0) {
+    return (
+      <div className="text-center py-8 px-4 bg-white rounded-lg shadow-sm">
+        <svg
+          className="w-12 h-12 mx-auto text-gray-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+          />
+        </svg>
+        <h3 className="mt-4 text-lg font-medium text-gray-900">
+          Danh sách yêu thích trống
+        </h3>
+        <p className="mt-2 text-sm text-gray-600">
+          Bạn chưa thêm sản phẩm nào vào danh sách yêu thích.
+        </p>
+        <button
+          onClick={() => router.push("/products")}
+          className="mt-4 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+        >
+          Khám phá sản phẩm
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 bg-white p-6 rounded-lg shadow-sm">
+      <h3 className="text-lg font-medium">
+        Sản phẩm yêu thích ({data.length})
+      </h3>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {data.map((item) => {
+          const detail = item.product.details[0];
+          const image =
+            item.product.details[0]?.images?.[0]?.url ||
+            "/images/placeholder.jpg";
+
+          return (
+            <div
+              key={item.id}
+              className="border rounded-md overflow-hidden hover:shadow-md transition-shadow flex"
+            >
+              <div className="flex-shrink-0 w-24 h-24 bg-gray-200 relative">
+                <Link href={`/products/${item.product.id}`}>
+                  <Image
+                    src={image}
+                    alt={item.product.name}
+                    fill
+                    sizes="100px"
+                    className="object-cover"
+                  />
+                </Link>
+              </div>
+
+              <div className="flex-grow p-3">
+                <Link
+                  href={`/products/${item.product.id}`}
+                  className="text-lg font-medium text-gray-900 hover:text-blue-600 transition-colors line-clamp-2"
+                >
+                  {item.product.name}
+                </Link>
+
+                <div className="flex justify-between items-end mt-2">
+                  <div className="flex gap-1">
+                    <p className="text-sm font-bold text-pink-600">
+                      {formatCurrency(detail.price)}
+                    </p>
+                    {detail.originalPrice > detail.price && (
+                      <p className="text-xs text-gray-500 line-through">
+                        {formatCurrency(detail.originalPrice)}
+                      </p>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => handleRemoveFromWishlist(item.product.id)}
+                    className="text-red-600 hover:text-red-800 transition-colors"
+                    title="Xóa khỏi yêu thích"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="text-center pt-2">
+        <Link
+          href="/account/wishlist"
+          className="text-blue-600 hover:text-blue-800 font-medium"
+        >
+          Xem tất cả {pagination?.totalItems} sản phẩm yêu thích
+          <i className="fas fa-chevron-right ml-1 text-xs"></i>
+        </Link>
+      </div>
+      {Toast}
+    </div>
+  );
+};
+
 // Error component
 const ErrorState = ({
   message,
@@ -1890,8 +2056,10 @@ interface UserRightProps {
   } | null;
   addressesData?: Address[] | null;
   promotionsData?: Promotion[] | null;
-  onRetryFetch?: () => void;
+  wishlistData?: WishlistItem[] | null;
+  wishlistPagination?: WishlistPagination | null;
   onPageChange?: (page: number) => void;
+  onRetryFetch?: () => void;
 }
 
 export const UserRight: React.FC<UserRightProps> = ({
@@ -1903,6 +2071,8 @@ export const UserRight: React.FC<UserRightProps> = ({
   ordersData,
   addressesData,
   promotionsData,
+  wishlistData,
+  wishlistPagination,
   onRetryFetch,
   onPageChange,
 }) => {
@@ -1932,6 +2102,15 @@ export const UserRight: React.FC<UserRightProps> = ({
           isLoading={isLoading}
           error={errorMessage}
           onRetry={handleRetry} // Sử dụng hàm local để gọi callback từ prop
+        />
+      )}
+      {activeTab === "wishlist" && (
+        <Wishlist
+          data={wishlistData}
+          isLoading={isLoading}
+          error={errorMessage}
+          onRetry={handleRetry}
+          pagination={wishlistPagination}
         />
       )}
       {activeTab === "promotions" && <Promotions data={promotionsData} />}

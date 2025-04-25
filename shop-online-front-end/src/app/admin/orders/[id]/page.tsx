@@ -10,6 +10,7 @@ import { API_BASE_URL } from "@/config/apiConfig";
 import { formatDateDisplay } from "@/utils/dateUtils";
 import { Order } from "@/types/order";
 import CancelOrderModal from "@/components/admin/dashboard/CancelOrderModal";
+import { formatCurrency } from "@/utils/currencyUtils";
 
 export default function OrderDetailPage() {
   const { id } = useParams() as { id: string };
@@ -109,16 +110,6 @@ export default function OrderDetailPage() {
       availableStatuses.find((s: Status) => s.value === status)?.color ||
       "bg-gray-500"
     );
-  };
-
-  // Format currency
-  const formatCurrency = (value: number): string => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
   };
 
   // Xử lý thay đổi trạng thái đơn hàng

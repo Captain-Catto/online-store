@@ -35,6 +35,7 @@ export const useToast = () => {
     null
   );
 
+  // Lớp CSS cho các loại toast
   const getToastClasses = () => {
     switch (type) {
       case "success":
@@ -52,6 +53,7 @@ export const useToast = () => {
     }
   };
 
+  // Icon cho từng loại toast
   const getToastIcon = () => {
     switch (type) {
       case "success":
@@ -123,13 +125,11 @@ export const useToast = () => {
   useEffect(() => {
     if (typeof window !== "undefined") {
       let container = document.getElementById("toast-portal");
-
       if (!container) {
         container = document.createElement("div");
         container.id = "toast-portal";
         document.body.appendChild(container);
       }
-
       setPortalContainer(container);
 
       return () => {
@@ -139,35 +139,30 @@ export const useToast = () => {
   }, [timeoutId]);
 
   const showToast = (msg: string, options: ToastOptions = {}) => {
-    // Clear any existing timeout
     if (timeoutId) clearTimeout(timeoutId);
-
-    // Set toast properties
     setMessage(msg);
     setType(options.type || "info");
     setProductInfo(options.product || null);
     setIsVisible(true);
 
-    // Set timeout to hide toast
     const id = setTimeout(() => {
       setIsVisible(false);
     }, options.duration || 5000);
-
     setTimeoutId(id);
   };
 
-  // Hàm đóng toast
   const closeToast = () => {
     setIsVisible(false);
     if (timeoutId) clearTimeout(timeoutId);
   };
 
-  // Cart Toast Component
+  // Component hiển thị toast cho giỏ hàng
   const CartToast = () => {
     if (!productInfo) return null;
 
     return (
       <div className="notify-product flex flex-col items-start gap-3">
+        {/* Header thông báo */}
         <div className="flex justify-between items-center w-full">
           <span className="text-green-600 font-medium">
             Đã thêm vào giỏ hàng
@@ -188,37 +183,58 @@ export const useToast = () => {
               strokeLinecap="round"
               strokeLinejoin="round"
             >
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
         </div>
-        <div className="w-full h-[1px] bg-gray-200"></div>
-        <div className="flex items-center gap-4">
+
+        {/* Divider */}
+        <div className="w-full h-[1px] bg-gray-200" />
+
+        {/* Nội dung sản phẩm */}
+        <div className="flex items-stretch gap-3 w-full">
+          {/* Hình ảnh sản phẩm */}
           {productInfo.image && (
-            <div className="notify-product__image w-full h-20 overflow-hidden rounded-md border border-gray-200 mb-2">
+            <div className="notify-product__image flex-shrink-0 w-16 overflow-hidden rounded-md border border-gray-200">
               <Image
                 src={productInfo.image}
                 alt={productInfo.name}
                 className="w-full h-full object-contain"
-                width={160}
-                height={160}
+                width={64}
+                height={64}
                 onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = "/images/placeholder.jpg";
+                  (e.target as HTMLImageElement).src =
+                    "/images/placeholder.jpg";
                 }}
               />
             </div>
           )}
-          <div className="notify-product__content flex-1">
-            <span className="notify-product__title font-medium text-sm line-clamp-2">
-              {productInfo.name}
-            </span>
-            <span className="notify-product__option text-gray-500 text-xs mt-1">
-              Màu: {colorToVietnamese[productInfo.color || ""]} | Size:{" "}
-              {productInfo.size}
-            </span>
-            <div className="notify-product__prices text-sm mt-1 flex items-center gap-2">
+
+          {/* Thông tin sản phẩm */}
+          <div className="notify-product__content flex-1 flex flex-col gap-1 justify-between">
+            {/* Tên sản phẩm và thông tin chi tiết */}
+            <div>
+              <span className="notify-product__title font-medium text-sm line-clamp-1 block">
+                {productInfo.name}
+              </span>
+              <div className="flex flex-col gap-0.5 text-gray-500 text-xs">
+                {productInfo.color && (
+                  <span className="notify-product__option block">
+                    Màu sắc:{" "}
+                    {colorToVietnamese[productInfo.color] || productInfo.color}
+                  </span>
+                )}
+                {productInfo.size && (
+                  <span className="notify-product__option block">
+                    Kích thước: {productInfo.size}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Giá sản phẩm */}
+            <div className="notify-product__prices text-sm flex items-center gap-2 whitespace-nowrap">
               <span className="text-red-600 font-semibold">
                 {productInfo.price?.toLocaleString("vi-VN")}đ
               </span>
@@ -235,7 +251,7 @@ export const useToast = () => {
     );
   };
 
-  // Toast component với portal
+  // Component Toast chính với portal
   const Toast =
     isVisible && portalContainer && typeof window !== "undefined"
       ? createPortal(
@@ -244,6 +260,7 @@ export const useToast = () => {
           >
             <div className="notify__content">
               {type === "cart" ? (
+                // Toast cho giỏ hàng
                 <div>
                   <CartToast />
                   <a
@@ -254,6 +271,7 @@ export const useToast = () => {
                   </a>
                 </div>
               ) : (
+                // Toast thông thường
                 <div className="flex items-start justify-between">
                   <div className="flex items-start">
                     {getToastIcon()}
@@ -287,8 +305,8 @@ export const useToast = () => {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     >
-                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
                     </svg>
                   </button>
                 </div>

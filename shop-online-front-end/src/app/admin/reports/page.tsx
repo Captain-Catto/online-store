@@ -5,6 +5,7 @@ import Chart from "chart.js/auto";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
 import Link from "next/link";
+import { formatCurrency } from "@/utils/currencyUtils";
 
 export default function ReportsPage() {
   const [dateRange, setDateRange] = useState("week");
@@ -226,14 +227,6 @@ export default function ReportsPage() {
     { label: "Trang chủ", href: "/admin" },
     { label: "Báo cáo & Thống kê", active: true },
   ];
-
-  // Format currency
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(value);
-  };
 
   // Update time labels when orderTimeRange changes
   useEffect(() => {
