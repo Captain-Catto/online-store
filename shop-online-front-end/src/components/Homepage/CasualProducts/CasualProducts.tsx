@@ -60,7 +60,7 @@ const CasualProducts: React.FC = () => {
         const initialColors: { [key: number]: string } = {};
         const initialImages: { [key: number]: string } = {};
         const initialSecondaryImages: { [key: number]: string } = {};
-
+        console.log("san pham", response.products);
         // Xử lý dữ liệu từ API
         response.products.forEach((product: Product) => {
           if (product.colors && product.colors.length > 0) {
@@ -199,6 +199,7 @@ const CasualProducts: React.FC = () => {
               featured: product.featured,
               colors: product.colors,
               variants: product.variants,
+              price: product.variants[color]?.price || 0,
             };
 
             return (

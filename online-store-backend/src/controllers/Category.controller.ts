@@ -495,14 +495,11 @@ export const getProductsByCategorySlug = async (
 
       // Tính giá thấp nhất, cao nhất
       const prices = productData.details.map((detail: any) => detail.price);
+      const originalPrices = productData.details.map(
+        (detail: any) => detail.originalPrice
+      );
       const minProductPrice = Math.min(...prices);
       const maxProductPrice = Math.max(...prices);
-
-      // Kiểm tra xem sản phẩm có giảm giá không
-      const hasDiscount = productData.details.some(
-        (detail: any) =>
-          detail.originalPrice && detail.originalPrice > detail.price
-      );
 
       return {
         id: productData.id,
@@ -516,6 +513,7 @@ export const getProductsByCategorySlug = async (
         mainImage,
         subImage,
         price: prices.length === 1 ? prices[0] : null,
+        originalPrice: originalPrices.length === 1 ? originalPrices[0] : null,
         priceRange:
           prices.length > 1
             ? {
@@ -523,7 +521,6 @@ export const getProductsByCategorySlug = async (
                 max: maxProductPrice,
               }
             : null,
-        hasDiscount,
         colors,
         sizes,
         categories: productData.categories,

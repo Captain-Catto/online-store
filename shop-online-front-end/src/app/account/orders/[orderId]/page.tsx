@@ -7,6 +7,7 @@ import Header from "@/components/Header/Header";
 import Footer from "@/components/Footer/Footer";
 import { OrderService } from "@/services/OrderService";
 import Image from "next/image";
+import { getColorName } from "@/utils/colorUtils";
 
 export default function Page() {
   const params = useParams();
@@ -419,7 +420,7 @@ export default function Page() {
                     {item.product.name}
                   </Link>
                   <div className="mt-1 text-sm text-gray-500">
-                    <p>Màu sắc: {item.color}</p>
+                    <p>Màu sắc: {getColorName(item.color)}</p>
                     <p>Kích thước: {item.size}</p>
                     <p>Số lượng: {item.quantity}</p>
                   </div>

@@ -31,7 +31,6 @@ export interface Product {
   subImage: ProductImage[];
   price: number | null;
   priceRange?: { min: number; max: number } | null;
-  hasDiscount: boolean;
   colors: string[];
   sizes: string[];
   categories: Array<{ id: number; name: string; slug: string }>;
@@ -40,10 +39,7 @@ export interface Product {
 }
 
 export interface SimpleProduct
-  extends Pick<
-    Product,
-    "id" | "name" | "featured" | "colors" | "price" | "hasDiscount"
-  > {
+  extends Pick<Product, "id" | "name" | "featured" | "colors" | "price"> {
   variants: Record<string, VariantDetail>;
 }
 

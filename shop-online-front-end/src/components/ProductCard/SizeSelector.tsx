@@ -35,9 +35,7 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
     try {
       // Xác định giá từ variant hoặc từ product
       const price = variant?.price ?? product.price ?? 0;
-      const originalPrice =
-        variant?.originalPrice ?? (product.hasDiscount ? price * 1.1 : price);
-
+      const originalPrice = variant?.originalPrice ?? price;
       // Tạo ID duy nhất cho cartItem
       const cartItemId = `${product.id}-${selectedColor}-${size}`;
 

@@ -11,6 +11,7 @@ import { useToast } from "@/utils/useToast";
 import { ProductService } from "@/services/ProductService";
 import { getColorCode } from "@/utils/colorUtils";
 import WishlistButton from "@/components/Product/WishlistButton";
+import ProductDescription from "@/components/Product/ProductDescription";
 
 interface ProductParams {
   id: string;
@@ -40,6 +41,7 @@ export default function Home({ params }: { params: unknown }) {
 
         // Gọi API để lấy dữ liệu sản phẩm
         const productData = await ProductService.getProductById(productId);
+        console.log("Product data:", productData);
 
         if (!productData) {
           setError("Không tìm thấy sản phẩm");
@@ -158,7 +160,11 @@ export default function Home({ params }: { params: unknown }) {
     ) {
       const price = product.variants[selectedColor].price;
       const originalPrice = product.variants[selectedColor].originalPrice;
-      return Math.round(100 - (price / originalPrice) * 100);
+
+      // Chỉ tính toán khi originalPrice lớn hơn price
+      if (originalPrice > price) {
+        return Math.round(100 - (price / originalPrice) * 100);
+      }
     }
     return 0;
   };
@@ -404,7 +410,9 @@ export default function Home({ params }: { params: unknown }) {
               <div className="flex items-center gap-2">
                 {product.variants &&
                   selectedColor &&
-                  product.variants[selectedColor]?.originalPrice && (
+                  product.variants[selectedColor]?.originalPrice &&
+                  product.variants[selectedColor].originalPrice >
+                    product.variants[selectedColor].price && (
                     <del className="text-base text-gray-500">
                       {product.variants[
                         selectedColor
@@ -413,6 +421,7 @@ export default function Home({ params }: { params: unknown }) {
                     </del>
                   )}
               </div>
+
               <div className="flex items-center gap-2">
                 {product.variants && selectedColor && (
                   <ins className="text-xl font-bold text-gray-800 no-underline">
@@ -422,10 +431,13 @@ export default function Home({ params }: { params: unknown }) {
                     đ
                   </ins>
                 )}
+
                 {product.variants &&
                   selectedColor &&
-                  product.variants[selectedColor].price &&
-                  product.variants[selectedColor].originalPrice && (
+                  product.variants[selectedColor]?.price &&
+                  product.variants[selectedColor]?.originalPrice &&
+                  product.variants[selectedColor].originalPrice >
+                    product.variants[selectedColor].price && (
                     <span className="text-sm px-2 py-0.5 bg-[#ff33331a] rounded-full text-[#F33]">
                       -{calculateDiscount()}%
                     </span>
@@ -574,7 +586,12 @@ export default function Home({ params }: { params: unknown }) {
             </div>
           </div>
         </div>
-
+        <ProductDescription
+          description={product.description}
+          material={product.material}
+          brand={product.brand}
+          sku={product.sku}
+        />
         {/* Thêm phần đề xuất sản phẩm tương tự ở đây nếu cần */}
       </main>
       <Footer />

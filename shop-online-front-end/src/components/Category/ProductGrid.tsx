@@ -107,11 +107,6 @@ export default function ProductGrid({
         };
       }
 
-      // Tính toán hasDiscount
-      const hasDiscount = Object.values(variants).some(
-        (variant) => variant.originalPrice > variant.price
-      );
-
       // Lấy giá nhỏ nhất để hiển thị mặc định
       const price = Object.values(variants).reduce(
         (min, variant) => Math.min(min, variant.price || Infinity),
@@ -125,7 +120,6 @@ export default function ProductGrid({
         featured: product.featured,
         colors,
         price: minPrice,
-        hasDiscount,
         variants,
         colorToImage,
       };
@@ -215,6 +209,10 @@ export default function ProductGrid({
                 ? product.colorToImage[product.colors[1]]
                 : "";
 
+            // lấy price và originalPrice
+            const price = product.price;
+            const originalPrice = product.originalPrice;
+
             return (
               <ProductCard
                 key={product.id}
@@ -223,6 +221,8 @@ export default function ProductGrid({
                 productImage={productImage}
                 secondaryImage={secondaryImage}
                 onColorSelect={onColorSelect}
+                price={price}
+                originalPrice={originalPrice}
               />
             );
           })}

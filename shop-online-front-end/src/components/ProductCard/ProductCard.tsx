@@ -37,9 +37,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
       : null;
 
   const price = currentVariant?.price ?? product.price ?? 0;
-  const originalPrice =
-    currentVariant?.originalPrice ??
-    (product.hasDiscount ? price * 1.1 : price);
+  const originalPrice = currentVariant?.originalPrice ?? price;
+  console.log("Product price:", price, "Original price:", originalPrice);
 
   const { showToast, Toast } = useToast();
 
@@ -157,7 +156,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           <span className="font-semibold">
             {price.toLocaleString("vi-VN")}đ
           </span>
-          {product.hasDiscount && originalPrice > price && (
+          {originalPrice > price && (
             <>
               <span className="text-sm text-red-600 font-medium bg-red-50 px-2 py-1 rounded mr-2">
                 -{Math.round(((originalPrice - price) / originalPrice) * 100)}%

@@ -185,7 +185,6 @@ const LatestProducts: React.FC = () => {
                   colors: product.colors,
                   variants: product.variants,
                   price: product.price,
-                  hasDiscount: product.hasDiscount,
                 }}
                 selectedColor={selectedColors[product.id] || product.colors[0]}
                 productImage={productImages[product.id] || ""}

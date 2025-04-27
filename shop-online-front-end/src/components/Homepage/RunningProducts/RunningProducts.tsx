@@ -197,6 +197,7 @@ const RunningProducts: React.FC = () => {
               featured: product.featured,
               colors: product.colors,
               variants: product.variants,
+              price: product.variants[color]?.price || 0,
             };
 
             return (

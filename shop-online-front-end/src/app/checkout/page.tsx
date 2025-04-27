@@ -394,9 +394,10 @@ export default function CheckoutPage() {
       }
 
       const orderData = JSON.parse(orderDataString);
+      console.log("orderData trong checkout", orderData);
 
       const orderItems = orderData.items.map((item: CartItem) => ({
-        productId: Number(item.id),
+        productId: Number(item.productId),
         color: item.color,
         size: item.size,
         quantity: item.quantity,
@@ -1116,7 +1117,7 @@ export default function CheckoutPage() {
                   </span>
                 </div>
               </div>
-              {/* Order Summary - thêm phần này trước nút đặt hàng */}
+              {/* Order Summary */}
               {orderError && (
                 <div
                   className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative mb-4"

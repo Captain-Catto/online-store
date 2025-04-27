@@ -73,8 +73,12 @@ export default function AdminSidebar({
           path: "/admin/navigation",
           icon: "fas fa-bars",
         },
-        // Các menu khác...
       ],
+    },
+    {
+      title: "Quản lý phù hợp",
+      path: "/admin/suitabilities",
+      icon: "fas fa-user-shield",
     },
   ];
 
