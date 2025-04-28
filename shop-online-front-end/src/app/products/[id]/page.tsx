@@ -352,7 +352,7 @@ export default function Home({ params }: { params: unknown }) {
             {/* Container chính - flex-col dưới 640px, flex-row trên 640px */}
             <div className="flex gap-1 w-full h-full flex-col sm:flex-row">
               {/* Container hình nhỏ - ngang dưới 640px, dọc trên 640px */}
-              <div className="flex gap-2 flex-row sm:flex-col sm:w-1/6 order-last sm:order-first">
+              <div className="flex gap-2 flex-row sm:flex-col sm:w-1/16 md:w-1/12 lg:w-1/8 order-last sm:order-first">
                 {colorImages.map((image, index) => (
                   <div
                     key={index}
@@ -372,7 +372,7 @@ export default function Home({ params }: { params: unknown }) {
               </div>
 
               {/* Hình ảnh chính - full width ở mọi kích thước màn hình */}
-              <div className=" relative h-[400px] sm:h-[500px] mb-3 sm:mb-0 w-full">
+              <div className="relative h-[400px] sm:h-auto mb-3 sm:mb-0 w-full">
                 <Image
                   src={currentImage}
                   alt={product.name}
@@ -511,7 +511,7 @@ export default function Home({ params }: { params: unknown }) {
             <div className="h-[1px] w-full border border-[#0000001A]"></div>
 
             {/* Số lượng và thêm vào giỏ hàng */}
-            <div className="flex gap-5 w-full">
+            <div className="flex flex-wrap gap-5 w-full">
               <div className="px-5 py-4 flex-1 flex items-center justify-between gap-4 bg-[#F0F0F0] rounded-full">
                 <button
                   className="disabled:opacity-50 cursor-pointer"

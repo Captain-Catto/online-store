@@ -9,6 +9,7 @@ import Category from "../models/Category";
 import { getPublicUrl, deleteFile } from "../services/imageUpload";
 import { Op, FindOptions } from "sequelize";
 import Suitability from "../models/Suitability";
+import ProductSuitability from "../models/ProductSuitability";
 
 interface ExtendedFindOptions extends FindOptions {
   distinct?: boolean;
@@ -76,16 +77,39 @@ export const createProductWithDetails = async (
         featured: featured === "true" || featured === true,
         status: status || "draft",
         tags: typeof tags === "string" ? JSON.parse(tags) : tags,
-        suitability:
-          typeof suitability === "string"
-            ? JSON.parse(suitability)
-            : suitability,
       },
       { transaction: t }
     );
 
     // Map to track which images belong to which color
     const colorImageMap = new Map();
+
+    if (suitability) {
+      const suitabilityNames =
+        typeof suitability === "string"
+          ? JSON.parse(suitability)
+          : Array.isArray(suitability)
+          ? suitability
+          : [];
+
+      for (const suitName of suitabilityNames) {
+        // Tìm hoặc tạo suitability
+        const [suitabilityRecord] = await Suitability.findOrCreate({
+          where: { name: suitName },
+          defaults: { name: suitName },
+          transaction: t,
+        });
+
+        // Thêm liên kết
+        await ProductSuitability.create(
+          {
+            productId: newProduct.id,
+            suitabilityId: suitabilityRecord.id,
+          },
+          { transaction: t }
+        );
+      }
+    }
 
     // Process uploaded files if any - group by color
     if (files && files.length > 0) {
@@ -148,13 +172,30 @@ export const createProductWithDetails = async (
       }
     }
 
-    // Add product to categories if specified
+    // Sau khi xử lý categories từ request
     if (categoriesData && categoriesData.length > 0) {
-      const categoryEntries = categoriesData.map((categoryId: number) => ({
-        productId: newProduct.id,
-        categoryId,
-      }));
+      // Map để theo dõi các danh mục đã xử lý để tránh trùng lặp
+      const processedCategories = new Set<number>();
+      const categoryEntries = [];
 
+      for (const categoryId of categoriesData) {
+        const categoryIdNum = parseInt(categoryId.toString());
+
+        if (!processedCategories.has(categoryIdNum)) {
+          // Thêm danh mục vào danh sách để tạo liên kết
+          categoryEntries.push({
+            productId: newProduct.id,
+            categoryId: categoryIdNum,
+          });
+
+          processedCategories.add(categoryIdNum);
+
+          // KHÔNG lưu danh mục cha nếu đã chọn danh mục con
+          // Chỉ lưu ID danh mục được chọn trực tiếp
+        }
+      }
+
+      // Tạo các liên kết giữa sản phẩm và danh mục
       await ProductCategory.bulkCreate(categoryEntries, { transaction: t });
     }
 
@@ -264,9 +305,13 @@ export const getProductsWithVariants = async (
       where.brand = brand;
     }
     if (suitabilities.length > 0) {
-      where[Op.and] = suitabilities.map((suit) => ({
-        suitability: { [Op.like]: `%${suit}%` },
-      }));
+      include.push({
+        model: Suitability,
+        as: "suitabilities",
+        where: { name: { [Op.in]: suitabilities } },
+        through: { attributes: [] }, // Không lấy thông tin bảng trung gian
+        required: true, // Bắt buộc phải có
+      });
     }
 
     if (featured === true) {
@@ -286,6 +331,15 @@ export const getProductsWithVariants = async (
     }
 
     include.push(categoryInclude);
+
+    // Thêm Suitability include vào đây, ngay cả khi không dùng để filter
+    include.push({
+      model: Suitability,
+      as: "suitabilities",
+      attributes: ["id", "name"],
+      through: { attributes: [] },
+      required: false, // Không bắt buộc có
+    });
 
     // ProductDetail include với lọc
     const detailsInclude: any = {
@@ -435,10 +489,8 @@ export const getProductsWithVariants = async (
           : typeof product.tags === "string"
           ? JSON.parse(product.tags)
           : [],
-        suitability: Array.isArray(product.suitability)
-          ? product.suitability
-          : typeof product.suitability === "string"
-          ? JSON.parse(product.suitability)
+        suitability: product.suitabilities
+          ? product.suitabilities.map((s: { name: string }) => s.name)
           : [],
         colors: uniqueColors,
         sizes: uniqueSizes,
@@ -527,6 +579,12 @@ export const getProductById = async (
           as: "categories",
           attributes: ["id", "name"],
           through: { attributes: [] },
+        },
+        {
+          model: Suitability,
+          as: "suitabilities",
+          attributes: ["id", "name"],
+          through: { attributes: [] }, // Ẩn bảng liên kết
         },
       ],
     });
@@ -834,9 +892,13 @@ export const getProductsByCategory = async (
 
     // Add suitability filter if present
     if (suitabilities.length > 0) {
-      where[Op.and] = suitabilities.map((suit) => ({
-        suitability: { [Op.like]: `%${suit}%` },
-      }));
+      include.push({
+        model: Suitability,
+        as: "suitabilities",
+        where: { name: { [Op.in]: suitabilities } },
+        through: { attributes: [] }, // Không lấy thông tin bảng trung gian
+        required: true, // Bắt buộc phải có
+      });
     }
 
     // ProductDetail include with filtering
@@ -989,10 +1051,8 @@ export const getProductsByCategory = async (
           : typeof product.tags === "string"
           ? JSON.parse(product.tags)
           : [],
-        suitability: Array.isArray(product.suitability)
-          ? product.suitability
-          : typeof product.suitability === "string"
-          ? JSON.parse(product.suitability)
+        suitability: product.suitabilities
+          ? product.suitabilities.map((s: { name: string }) => s.name)
           : [],
         colors: uniqueColors,
         sizes: uniqueSizes,
@@ -1057,13 +1117,12 @@ export const getSuitabilities = async (
   res: Response
 ): Promise<void> => {
   try {
-    // Lấy tất cả suitabilities từ bảng mới
     const suitabilities = await Suitability.findAll({
-      attributes: ["id", "name", "description"],
-      order: [["name", "ASC"]],
+      order: [
+        ["sortOrder", "ASC"],
+        ["name", "ASC"],
+      ],
     });
-
-    // Trả về danh sách suitabilities
     res.status(200).json(suitabilities);
   } catch (error: any) {
     console.error("Error getting suitabilities:", error);
@@ -1103,7 +1162,7 @@ export const getSubtypes = async (
         },
       });
     } else {
-      // Nếu không có categoryId, lấy tất cả (giữ lại chức năng cũ)
+      // Nếu không có categoryId, lấy tất cả
       products = await Product.findAll({
         attributes: ["subtype"],
         where: {
@@ -1166,6 +1225,12 @@ export const getProductVariantsById = async (
           as: "categories",
           attributes: ["id", "name"],
           through: { attributes: [] }, // Ẩn bảng trung gian
+        },
+        {
+          model: Suitability,
+          as: "suitabilities",
+          attributes: ["id", "name"],
+          through: { attributes: [] }, // Ẩn bảng liên kết
         },
       ],
     });
@@ -1235,7 +1300,51 @@ export const updateProductBasicInfo = async (
 
     // Update categories if provided
     if (categories && categories.length > 0) {
-      // Remove existing categories
+      // Kiểm tra xem có đang cố gắng cập nhật đầy đủ categories hay không
+      // Nếu chỉ có 1 category được gửi lên (category chính), giữ lại subcategories hiện tại
+      if (categories.length === 1) {
+        // Tìm các category hiện tại của sản phẩm
+        const existingCategories = await ProductCategory.findAll({
+          where: { productId: id },
+          transaction: t,
+        });
+
+        // Kiểm tra xem category được gửi lên có phải là category cha không
+        const existingCategoryIds = existingCategories.map((cat) =>
+          cat.getDataValue("categoryId")
+        );
+        const mainCategoryId = categories[0];
+
+        // Nếu category được gửi lên là category cha và sản phẩm đã có nhiều hơn 1 category (có subcategory)
+        // thì chỉ cập nhật category cha và giữ nguyên subcategory
+        if (existingCategories.length > 1) {
+          // Tìm category cha hiện tại
+          const parentCategory = await Category.findOne({
+            where: {
+              id: { [Op.in]: existingCategoryIds },
+              parentId: null,
+            },
+            transaction: t,
+          });
+
+          if (parentCategory && parentCategory.id !== mainCategoryId) {
+            // Chỉ cập nhật category cha, giữ nguyên các subcategories
+            await ProductCategory.update(
+              { categoryId: mainCategoryId },
+              {
+                where: {
+                  productId: id,
+                  categoryId: parentCategory.id,
+                },
+                transaction: t,
+              }
+            );
+            return; // Không thực hiện code dưới đây
+          }
+        }
+      }
+
+      // Trường hợp thông thường - xóa và thêm lại tất cả
       await ProductCategory.destroy({
         where: { productId: id },
         transaction: t,
@@ -1802,8 +1911,47 @@ export const updateProductVariants = async (
       return;
     }
 
+    // Validate variants data
+    if (!Array.isArray(variants)) {
+      await t.rollback();
+      res.status(400).json({ message: "Dữ liệu biến thể không hợp lệ" });
+      return;
+    }
+
+    // Check for duplicate colors in the request
+    const colors = variants.map((v) => v.color);
+    const duplicateColors = colors.filter(
+      (color, index) => colors.indexOf(color) !== index
+    );
+
+    if (duplicateColors.length > 0) {
+      await t.rollback();
+      res.status(400).json({
+        message: `Phát hiện màu trùng lặp: ${duplicateColors.join(", ")}`,
+        duplicateColors,
+      });
+      return;
+    }
+
+    // Get all existing product details for this product
+    const existingDetails = await ProductDetail.findAll({
+      where: { productId: Number(id) },
+      transaction: t,
+    });
+
+    // Create map of existing colors for quick lookup
+    const existingColorMap = new Map();
+    existingDetails.forEach((detail) => {
+      existingColorMap.set(detail.getDataValue("color"), detail);
+    });
+
+    console.log(
+      `Found ${existingDetails.length} existing details for product ${id}`
+    );
+
     // Process each variant
     for (const variant of variants) {
+      // Handle case where variant has an ID (update existing)
       if (variant.id) {
         // Update existing variant
         const productDetail = await ProductDetail.findByPk(variant.id, {
@@ -1812,6 +1960,22 @@ export const updateProductVariants = async (
         });
 
         if (productDetail) {
+          // Ensure we're not creating a color conflict
+          const existingWithSameColor = existingDetails.find(
+            (d) =>
+              d.getDataValue("id") !== variant.id &&
+              d.getDataValue("color") === variant.color
+          );
+
+          if (existingWithSameColor) {
+            await t.rollback();
+            res.status(400).json({
+              message: `Màu "${variant.color}" đã tồn tại trong biến thể khác`,
+              conflictingDetailId: existingWithSameColor.getDataValue("id"),
+            });
+            return;
+          }
+
           // Update variant information
           await productDetail.update(
             {
@@ -1825,7 +1989,6 @@ export const updateProductVariants = async (
             { transaction: t }
           );
 
-          // Update sizes/inventory if provided
           // Update sizes/inventory if provided
           if (variant.sizes && Array.isArray(variant.sizes)) {
             // Get existing inventories
@@ -1873,29 +2036,104 @@ export const updateProductVariants = async (
           }
         }
       } else {
-        // Create new variant
-        const newVariant = await ProductDetail.create(
-          {
-            productId: Number(id),
-            color: variant.color,
-            price: variant.price || 0,
-            originalPrice: variant.originalPrice || variant.price || 0,
-          },
-          { transaction: t }
-        );
+        // Handle case where variant has no ID (create new or update existing with same color)
 
-        // Add sizes if provided
-        if (variant.sizes && Array.isArray(variant.sizes)) {
-          for (const size of variant.sizes) {
-            await ProductInventory.create(
-              {
-                productDetailId: newVariant.id,
-                size: size.size,
-                stock: size.stock || 0,
-              },
-              { transaction: t }
+        // Check if a variant with this color already exists
+        const existingDetail = existingColorMap.get(variant.color);
+
+        if (existingDetail) {
+          // Update existing detail with this color instead of creating a new one
+          console.log(`Updating existing detail for color ${variant.color}`);
+
+          await existingDetail.update(
+            {
+              price: variant.price || existingDetail.getDataValue("price"),
+              originalPrice:
+                variant.originalPrice ||
+                variant.price ||
+                existingDetail.getDataValue("originalPrice"),
+            },
+            { transaction: t }
+          );
+
+          // Update or add sizes
+          if (variant.sizes && Array.isArray(variant.sizes)) {
+            // Get existing inventories
+            const existingInventories = await ProductInventory.findAll({
+              where: { productDetailId: existingDetail.getDataValue("id") },
+              transaction: t,
+            });
+
+            // Create map for quick lookup
+            const inventoryMap = new Map();
+            existingInventories.forEach((inv) => {
+              inventoryMap.set(inv.getDataValue("size"), inv);
+            });
+
+            // Update or create inventory items
+            for (const sizeInfo of variant.sizes) {
+              const existing = inventoryMap.get(sizeInfo.size);
+
+              if (existing) {
+                // Update existing inventory
+                await existing.update(
+                  { stock: sizeInfo.stock },
+                  { transaction: t }
+                );
+              } else {
+                // Create new inventory
+                await ProductInventory.create(
+                  {
+                    productDetailId: existingDetail.getDataValue("id"),
+                    size: sizeInfo.size,
+                    stock: sizeInfo.stock || 0,
+                  },
+                  { transaction: t }
+                );
+              }
+            }
+
+            // Delete sizes not in the update
+            const updatedSizes: string[] = variant.sizes.map(
+              (s: { size: string }) => s.size
             );
+            for (const inv of existingInventories) {
+              if (!updatedSizes.includes(inv.getDataValue("size"))) {
+                await inv.destroy({ transaction: t });
+              }
+            }
           }
+        } else if (variant.color) {
+          // Only create if color is defined
+          // Create new variant
+          console.log(`Creating new detail for color ${variant.color}`);
+
+          const newVariant = await ProductDetail.create(
+            {
+              productId: Number(id),
+              color: variant.color,
+              price: variant.price || 0,
+              originalPrice: variant.originalPrice || variant.price || 0,
+            },
+            { transaction: t }
+          );
+
+          // Add sizes if provided
+          if (variant.sizes && Array.isArray(variant.sizes)) {
+            for (const size of variant.sizes) {
+              await ProductInventory.create(
+                {
+                  productDetailId: newVariant.id,
+                  size: size.size,
+                  stock: size.stock || 0,
+                },
+                { transaction: t }
+              );
+            }
+          }
+        } else {
+          // Skip creating variants with undefined color
+          console.log("[Warning] Skipping variant with undefined color");
         }
       }
     }

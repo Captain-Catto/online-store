@@ -146,121 +146,6 @@ export const ProductService = {
     }
   },
 
-  // Cập nhật sản phẩm
-  // Add this new method to ProductService
-  updateProductWithImages: async (
-    productId: string | number,
-    product: Partial<ProductCreate>,
-    newImages: Array<{ file: File; color: string; isMain: boolean }> = [],
-    removedImageIds: number[] = [],
-    removedDetailIds: number[] = []
-  ) => {
-    // lấy token từ sessionStorage
-    const token = sessionStorage.getItem("authToken");
-    console.log("thông tin sản phẩm", product);
-    console.log("thông tin ảnh", newImages);
-    console.log("thông tin ảnh đã xóa", removedImageIds);
-    console.log("thông tin chi tiết đã xóa", removedDetailIds);
-    console.log("thông tin sản phẩm ID", productId);
-
-    if (!token) {
-      throw new Error("Token không hợp lệ hoặc đã hết hạn.");
-    }
-
-    try {
-      const formData = new FormData();
-
-      // Thêm thông tin cơ bản của sản phẩm
-      if (product.name) formData.append("name", product.name);
-      if (product.sku) formData.append("sku", product.sku);
-      if (product.description)
-        formData.append("description", product.description);
-      if (product.brand) formData.append("brand", product.brand);
-      if (product.material) formData.append("material", product.material);
-      if (product.featured !== undefined)
-        formData.append("featured", product.featured.toString());
-      if (product.status) formData.append("status", product.status);
-
-      // Arrays need to be JSON stringified
-      if (product.tags) formData.append("tags", JSON.stringify(product.tags));
-      if (product.suitability)
-        formData.append("suitability", JSON.stringify(product.suitability));
-      if (product.categories)
-        formData.append("categories", JSON.stringify(product.categories));
-
-      // Details information
-      if (product.details)
-        formData.append("details", JSON.stringify(product.details));
-
-      // Tracking changes - IDs of existing details that should be kept
-      const existingDetailIds =
-        product.details?.filter((d) => d.id).map((d) => d.id) || [];
-      formData.append("existingDetailIds", JSON.stringify(existingDetailIds));
-
-      // IDs of details to be removed
-      formData.append("removedDetailIds", JSON.stringify(removedDetailIds));
-
-      // IDs of images to be removed
-      formData.append("removedImageIds", JSON.stringify(removedImageIds));
-
-      // Image metadata
-      const imageColors: Record<number, string> = {};
-      const imageIsMain: Record<number, boolean> = {};
-
-      // Add new images if any
-      newImages.forEach((img, index) => {
-        formData.append("images", img.file);
-        imageColors[index] = img.color;
-        imageIsMain[index] = img.isMain;
-      });
-
-      formData.append("imageColors", JSON.stringify(imageColors));
-      formData.append("imageIsMain", JSON.stringify(imageIsMain));
-
-      console.log("Product data to update:", {
-        id: productId,
-        name: product.name,
-        sku: product.sku,
-        details: product.details,
-        existingDetailIds: product.details
-          ?.filter((d) => d.id)
-          .map((d) => d.id),
-        removedDetailIds,
-        removedImageIds,
-        imageCount: newImages.length,
-      });
-
-      // Send the request
-      const response = await fetch(
-        `${API_BASE_URL}/products/${productId}/with-details`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        }
-      );
-
-      if (response.status === 401) {
-        throw new Error(
-          "Bạn chưa đăng nhập hoặc phiên làm việc đã hết hạn. Vui lòng đăng nhập lại."
-        );
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          `Lỗi cập nhật sản phẩm: ${response.status} ${response.statusText}`
-        );
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error("Error updating product:", error);
-      throw error;
-    }
-  },
-
   // Xóa sản phẩm
   deleteProduct: async (id: string) => {
     try {
@@ -576,23 +461,44 @@ export const ProductService = {
   },
 
   // Thêm phương thức mới để lấy sản phẩm theo slug
+  // Trong src/services/CategoryService.ts
   getProductsByCategorySlug: async (
     categorySlug: string,
-    filters: Record<string, string> = {}
+    page: number = 1,
+    limit: number = 12,
+    filters: Record<string, string | number | boolean | string[]> = {}
   ) => {
     try {
-      // Chuyển filters thành query string
-      const queryString = new URLSearchParams(filters).toString();
+      const queryParams = new URLSearchParams();
 
-      // Gọi API endpoint mới sử dụng slug
+      // Đảm bảo rằng mọi filter được truyền đúng
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          if (Array.isArray(value)) {
+            if (value.length > 0) {
+              queryParams.append(key, value.join(","));
+            }
+          } else {
+            queryParams.append(key, value.toString());
+          }
+        }
+      });
+
+      // Thêm page và limit
+      if (!filters.page) queryParams.append("page", page.toString());
+      if (!filters.limit) queryParams.append("limit", limit.toString());
+
+      // Log để kiểm tra URL
+      console.log(
+        `API URL: ${API_BASE_URL}/categories/slug/${categorySlug}/products?${queryParams.toString()}`
+      );
+
       const response = await fetch(
-        `${API_BASE_URL}/categories/slug/${categorySlug}/products${
-          queryString ? `?${queryString}` : ""
-        }`
+        `${API_BASE_URL}/categories/slug/${categorySlug}/products?${queryParams.toString()}`
       );
 
       if (!response.ok) {
-        throw new Error("Không thể lấy sản phẩm theo danh mục");
+        throw new Error(`HTTP error! Status: ${response.status}`);
       }
 
       return await response.json();

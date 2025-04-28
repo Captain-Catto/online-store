@@ -17,44 +17,42 @@ export const createSuitability = async (
   }
 };
 
-// update thứ tự suitability
 export const updateSuitabilityOrder = async (
   req: Request,
   res: Response
 ): Promise<void> => {
+  const t = await sequelize.transaction();
+
   try {
     const { items } = req.body;
 
     if (!Array.isArray(items)) {
+      await t.rollback();
       res.status(400).json({ message: "Items phải là một mảng" });
       return;
     }
 
-    // Thực hiện cập nhật theo transaction để đảm bảo tính nhất quán
-    await sequelize.transaction(async (t) => {
-      for (const item of items) {
-        if (!item.id || typeof item.sortOrder !== "number") {
-          continue; // Bỏ qua các item không hợp lệ
-        }
-
-        await Suitability.update(
-          { sortOrder: item.sortOrder },
-          {
-            where: { id: item.id },
-            transaction: t,
-          }
-        );
+    // Sử dụng bulkCreate với updateOnDuplicate để hiệu quả hơn
+    await Suitability.bulkCreate(
+      items.map((item) => ({
+        id: item.id,
+        sortOrder: item.sortOrder,
+      })),
+      {
+        updateOnDuplicate: ["sortOrder"],
+        transaction: t,
       }
-    });
+    );
 
+    await t.commit();
     res.status(200).json({ message: "Cập nhật thứ tự thành công" });
   } catch (error: any) {
+    await t.rollback();
     console.error("Lỗi khi cập nhật thứ tự:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Cập nhật hàm getAllSuitabilities để sắp xếp theo sortOrder
 export const getAllSuitabilities = async (
   req: Request,
   res: Response

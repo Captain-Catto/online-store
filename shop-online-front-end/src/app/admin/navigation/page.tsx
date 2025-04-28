@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import React from "react";
 import {
   DndContext,
   closestCenter,
@@ -57,6 +58,11 @@ export default function NavigationManagement() {
     megaMenu: false,
   });
 
+  // Thêm state cho các menu đang được mở rộng
+  const [expandedMenuItems, setExpandedMenuItems] = useState<Set<string>>(
+    new Set()
+  );
+
   // Cấu hình sensors cho drag and drop
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -89,6 +95,13 @@ export default function NavigationManagement() {
                 : category.id,
           }))
         );
+
+        // Mặc định mở rộng tất cả menu cha
+        const parentMenuIds = menuData
+          .filter((item) => !item.parentId)
+          .map((item) => item.id.toString());
+        setExpandedMenuItems(new Set(parentMenuIds));
+
         setError(null);
       } catch (error) {
         console.error("Lỗi khi tải dữ liệu:", error);
@@ -191,29 +204,44 @@ export default function NavigationManagement() {
     setActiveId(event.active.id.toString());
   };
 
-  // Xử lý kéo thả để sắp xếp menu
+  // Cập nhật hàm handleDragEnd để xử lý kéo thả trong cấu trúc phân cấp
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
 
     if (!over || active.id === over.id) return;
 
-    // Tìm index của các item trong mảng
-    const oldIndex = menuItems.findIndex(
+    // Tìm các item liên quan
+    const draggedItem = menuItems.find(
       (item) => item.id.toString() === active.id
     );
-    const newIndex = menuItems.findIndex(
-      (item) => item.id.toString() === over.id
-    );
+    const targetItem = menuItems.find((item) => item.id.toString() === over.id);
 
-    // Cập nhật mảng theo thứ tự mới
-    const updatedItems = arrayMove(menuItems, oldIndex, newIndex);
+    if (!draggedItem || !targetItem) return;
 
-    // Cập nhật state
-    setMenuItems(updatedItems);
+    // Không cho phép kéo menu cha thành con của menu khác
+    if (
+      !draggedItem.parentId &&
+      targetItem.parentId &&
+      !window.confirm("Bạn đang di chuyển menu cha thành menu con. Tiếp tục?")
+    ) {
+      return;
+    }
 
     try {
-      setLoading(true); // Thêm loading state để người dùng biết đang xử lý
+      setLoading(true);
+
+      // Xác định chỉ số và tạo mảng mới
+      const oldIndex = menuItems.findIndex(
+        (item) => item.id.toString() === active.id
+      );
+      const newIndex = menuItems.findIndex(
+        (item) => item.id.toString() === over.id
+      );
+      const updatedItems = arrayMove(menuItems, oldIndex, newIndex);
+
+      // Cập nhật state
+      setMenuItems(updatedItems);
 
       // Cập nhật thứ tự trong database
       const promises = updatedItems.map((item, index) =>
@@ -222,10 +250,8 @@ export default function NavigationManagement() {
 
       await Promise.all(promises);
 
-      // Cập nhật Menu trong context
+      // Cập nhật menu trong context
       updateMenuItems(updatedItems);
-
-      // Tải lại menu từ API sau khi cập nhật
       await refreshNavigation();
 
       showToast("Đã thay đổi vị trí menu thành công", { type: "success" });
@@ -241,6 +267,29 @@ export default function NavigationManagement() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // hàm để mở rộng hoặc thu gọn menu con
+  const toggleMenuExpansion = (menuId: string) => {
+    setExpandedMenuItems((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(menuId)) {
+        newSet.delete(menuId);
+      } else {
+        newSet.add(menuId);
+      }
+      return newSet;
+    });
+  };
+
+  // Hàm lấy danh sách menu cha (root menu items)
+  const getParentMenuItems = () => {
+    return menuItems.filter((item) => !item.parentId);
+  };
+
+  // Hàm lấy danh sách menu con theo parentId
+  const getChildMenuItems = (parentId: number) => {
+    return menuItems.filter((item) => item.parentId === parentId);
   };
 
   return (
@@ -462,16 +511,62 @@ export default function NavigationManagement() {
                           strategy={verticalListSortingStrategy}
                         >
                           <tbody>
-                            {menuItems.map((item) => (
-                              <SortableTableRow
-                                key={item.id}
-                                item={item}
-                                isParentItem={!item.parentId}
-                                isActive={activeId === item.id.toString()}
-                                onEdit={handleEdit}
-                                onDelete={handleDelete}
-                              />
-                            ))}
+                            {loading ? (
+                              <tr>
+                                <td colSpan={6} className="text-center">
+                                  Đang tải...
+                                </td>
+                              </tr>
+                            ) : menuItems.length === 0 ? (
+                              <tr>
+                                <td colSpan={6} className="text-center">
+                                  Không có dữ liệu
+                                </td>
+                              </tr>
+                            ) : (
+                              getParentMenuItems().map((parentItem) => (
+                                <React.Fragment key={parentItem.id}>
+                                  {/* Menu cha */}
+                                  <SortableTableRow
+                                    item={parentItem}
+                                    isParentItem={true}
+                                    isActive={
+                                      activeId === parentItem.id.toString()
+                                    }
+                                    onEdit={handleEdit}
+                                    onDelete={handleDelete}
+                                    onToggleExpand={() =>
+                                      toggleMenuExpansion(
+                                        parentItem.id.toString()
+                                      )
+                                    }
+                                    isExpanded={expandedMenuItems.has(
+                                      parentItem.id.toString()
+                                    )}
+                                  />
+
+                                  {/* Menu con (hiển thị khi menu cha được mở rộng) */}
+                                  {expandedMenuItems.has(
+                                    parentItem.id.toString()
+                                  ) &&
+                                    getChildMenuItems(parentItem.id).map(
+                                      (childItem) => (
+                                        <SortableTableRow
+                                          key={childItem.id}
+                                          item={childItem}
+                                          isParentItem={false}
+                                          isActive={
+                                            activeId === childItem.id.toString()
+                                          }
+                                          onEdit={handleEdit}
+                                          onDelete={handleDelete}
+                                          isChild={true}
+                                        />
+                                      )
+                                    )}
+                                </React.Fragment>
+                              ))
+                            )}
                           </tbody>
                         </SortableContext>
                       </table>

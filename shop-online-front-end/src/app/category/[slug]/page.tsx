@@ -13,6 +13,7 @@ import FilterSidebar from "@/components/Category/FilterSidebar";
 import ProductGrid from "@/components/Category/ProductGrid";
 import Pagination from "@/components/Category/Pagination";
 import { CategoryService } from "@/services/CategoryService";
+import { ProductService } from "@/services/ProductService";
 import { Product } from "@/types/product";
 
 // Định nghĩa interface cho thông tin danh mục
@@ -120,6 +121,29 @@ export default function CategoryDetailPage() {
     void fetchAllCategories();
   }, []);
 
+  // Thêm một useEffect mới để gọi API lấy danh sách suitabilities
+  useEffect(() => {
+    const fetchSuitabilities = async () => {
+      try {
+        const suitabilitiesData = await ProductService.getSuitabilities();
+        console.log("Suitabilities data:", suitabilitiesData);
+
+        // Chuyển đổi dữ liệu sang định dạng phù hợp
+        if (Array.isArray(suitabilitiesData)) {
+          // Lấy danh sách các giá trị name từ API response
+          const formattedSuitabilities = suitabilitiesData.map(
+            (item) => item.name
+          );
+          setAvailableSuitability(formattedSuitabilities);
+        }
+      } catch (error) {
+        console.error("Không thể tải danh sách phù hợp:", error);
+      }
+    };
+
+    fetchSuitabilities();
+  }, []);
+
   // Fetch category and its children from slug
   useEffect(() => {
     const fetchCategoryFromSlug = async (): Promise<void> => {
@@ -193,6 +217,7 @@ export default function CategoryDetailPage() {
           page: currentPage.toString(),
           limit: itemsPerPage.toString(),
         };
+        console.log("API filters:", apiFilters);
 
         // Add other filters
         if (filters.color) apiFilters.color = filters.color;

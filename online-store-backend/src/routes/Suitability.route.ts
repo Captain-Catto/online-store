@@ -17,12 +17,6 @@ router.post("/", authMiddleware, roleMiddleware([1]), createSuitability);
 // Lấy tất cả suitabilities
 router.get("/", getAllSuitabilities);
 
-// Cập nhật suitability (chỉ admin)
-router.put("/:id", authMiddleware, roleMiddleware([1]), updateSuitability);
-
-// Xóa suitability (chỉ admin)
-router.delete("/:id", authMiddleware, roleMiddleware([1]), deleteSuitability);
-
 // Cập nhật order của suitabilities
 router.put(
   "/reorder",
@@ -30,5 +24,11 @@ router.put(
   roleMiddleware([1]),
   updateSuitabilityOrder
 );
+
+// Cập nhật suitability (chỉ admin)
+router.put("/:id", authMiddleware, roleMiddleware([1]), updateSuitability);
+
+// Xóa suitability (chỉ admin)
+router.delete("/:id", authMiddleware, roleMiddleware([1]), deleteSuitability);
 
 export default router;

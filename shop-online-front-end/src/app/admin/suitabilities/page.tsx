@@ -7,17 +7,27 @@ import { useToast } from "@/utils/useToast";
 import { API_BASE_URL } from "@/config/apiConfig";
 import { AuthClient } from "@/services/AuthClient";
 import {
-  DragDropContext,
-  Droppable,
-  Draggable,
-  DropResult,
-} from "react-beautiful-dnd";
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import SortableSuitabilityRow from "@/components/admin/suitability/SortableSuitabilityRow";
 
 interface Suitability {
   id: number;
   name: string;
   description: string;
-  sortOrder: number;
 }
 
 export default function SuitabilitiesManagement() {
@@ -36,7 +46,23 @@ export default function SuitabilitiesManagement() {
   const [submitting, setSubmitting] = useState(false);
   // thêm state xử lý drag end
   const [reordering, setReordering] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5, // Kích hoạt drag sau khi di chuyển 5px
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Xử lý bắt đầu kéo
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id.toString());
+  };
   // Breadcrumb
   const breadcrumbItems = [
     { label: "Trang chủ", href: "/admin" },
@@ -169,35 +195,39 @@ export default function SuitabilitiesManagement() {
   };
 
   // Hàm xử lý khi kéo thả hoàn tất
-  const handleDragEnd = async (result: DropResult) => {
-    if (!result.destination) return;
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
 
-    // Sắp xếp lại mảng
-    const items = Array.from(suitabilities);
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
+    if (!over || active.id === over.id) return;
 
-    // Cập nhật lại sortOrder
-    const updatedItems = items.map((item, index) => ({
-      ...item,
-      sortOrder: index * 10, // Nhảy mỗi 10 để dễ chèn giữa nếu cần
-    }));
+    // Tìm index của các item trong mảng
+    const oldIndex = suitabilities.findIndex(
+      (item) => item.id.toString() === active.id
+    );
+    const newIndex = suitabilities.findIndex(
+      (item) => item.id.toString() === over.id
+    );
 
-    // Cập nhật state UI trước
+    // Cập nhật mảng theo thứ tự mới
+    const updatedItems = arrayMove(suitabilities, oldIndex, newIndex);
+
+    // Cập nhật state
     setSuitabilities(updatedItems);
 
     // Gửi cập nhật lên server
     try {
       setReordering(true);
+      console.log("Reordering items:", updatedItems);
       const response = await AuthClient.fetchWithAuth(
         `${API_BASE_URL}/suitabilities/reorder`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            items: updatedItems.map((item) => ({
+            items: updatedItems.map((item, index) => ({
               id: item.id,
-              sortOrder: item.sortOrder,
+              sortOrder: index * 10,
             })),
           }),
         }
@@ -343,86 +373,50 @@ export default function SuitabilitiesManagement() {
                       </div>
                     </div>
                   ) : (
-                    <DragDropContext onDragEnd={handleDragEnd}>
-                      <Droppable
-                        droppableId="suitabilities"
-                        isDropDisabled={false}
-                      >
-                        {(provided) => (
-                          <table
-                            className="table table-hover"
-                            {...provided.droppableProps}
-                            ref={provided.innerRef}
-                          >
-                            <thead>
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragStart={handleDragStart}
+                      onDragEnd={handleDragEnd}
+                    >
+                      <table className="table table-hover">
+                        <thead>
+                          <tr>
+                            <th style={{ width: "10px" }}></th>
+                            <th style={{ width: "10%" }}>#</th>
+                            <th>Tên</th>
+                            <th>Mô tả</th>
+                            <th style={{ width: "20%" }}>Thao tác</th>
+                          </tr>
+                        </thead>
+                        <SortableContext
+                          items={suitabilities.map((item) =>
+                            item.id.toString()
+                          )}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <tbody>
+                            {suitabilities.length === 0 ? (
                               <tr>
-                                <th style={{ width: "10px" }}></th>
-                                <th style={{ width: "10%" }}>#</th>
-                                <th>Tên</th>
-                                <th>Mô tả</th>
-                                <th style={{ width: "20%" }}>Thao tác</th>
+                                <td colSpan={5} className="text-center py-4">
+                                  Không có dữ liệu
+                                </td>
                               </tr>
-                            </thead>
-                            <tbody>
-                              {suitabilities.length === 0 ? (
-                                <tr>
-                                  <td colSpan={5} className="text-center py-4">
-                                    Không có dữ liệu
-                                  </td>
-                                </tr>
-                              ) : (
-                                suitabilities.map((item, index) => (
-                                  <Draggable
-                                    key={item.id.toString()}
-                                    draggableId={item.id.toString()}
-                                    index={index}
-                                  >
-                                    {(provided, snapshot) => (
-                                      <tr
-                                        ref={provided.innerRef}
-                                        {...provided.draggableProps}
-                                        className={
-                                          snapshot.isDragging ? "bg-light" : ""
-                                        }
-                                      >
-                                        <td
-                                          {...provided.dragHandleProps}
-                                          className="text-center"
-                                        >
-                                          <i className="fas fa-grip-lines"></i>
-                                        </td>
-                                        <td>{item.id}</td>
-                                        <td>{item.name}</td>
-                                        <td>
-                                          {item.description || "Không có mô tả"}
-                                        </td>
-                                        <td>
-                                          <button
-                                            className="btn btn-sm btn-info mr-1"
-                                            onClick={() => handleEdit(item)}
-                                          >
-                                            <i className="fas fa-edit"></i> Sửa
-                                          </button>
-                                          <button
-                                            className="btn btn-sm btn-danger"
-                                            onClick={() =>
-                                              handleDelete(item.id)
-                                            }
-                                          >
-                                            <i className="fas fa-trash"></i> Xóa
-                                          </button>
-                                        </td>
-                                      </tr>
-                                    )}
-                                  </Draggable>
-                                ))
-                              )}
-                              {provided.placeholder}
-                            </tbody>
-                          </table>
-                        )}
-                      </Droppable>
-                    </DragDropContext>
+                            ) : (
+                              suitabilities.map((item) => (
+                                <SortableSuitabilityRow
+                                  key={item.id}
+                                  item={item}
+                                  isActive={activeId === item.id.toString()}
+                                  onEdit={handleEdit}
+                                  onDelete={handleDelete}
+                                />
+                              ))
+                            )}
+                          </tbody>
+                        </SortableContext>
+                      </table>
+                    </DndContext>
                   )}
                 </div>
               </div>

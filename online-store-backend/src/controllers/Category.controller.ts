@@ -338,6 +338,7 @@ export const getProductsByCategorySlug = async (
 
     const suitabilityParam = req.query.suitability as string;
     const suitabilities = suitabilityParam ? suitabilityParam.split(",") : [];
+    const childCategorySlug = req.query.childCategory as string;
 
     // Tìm category theo slug
     const category = await Category.findOne({
@@ -358,16 +359,49 @@ export const getProductsByCategorySlug = async (
     }
 
     // Lấy tất cả ID danh mục (bao gồm danh mục con)
-    const categoryIds = [category.id];
+    let categoryIds = [category.id];
+    console.log("Request query params:", req.query);
+    console.log("Child Category Slug:", childCategorySlug);
+    console.log("Filter Category IDs:", categoryIds);
 
-    // Nếu là danh mục cha, thêm tất cả danh mục con
+    // Xử lý childCategorySlug
     if (category.parentId === null) {
-      const childCategories = await Category.findAll({
-        where: { parentId: category.id, isActive: true },
-        attributes: ["id"],
-      });
+      // Nếu là danh mục cha
+      if (childCategorySlug) {
+        // Tìm danh mục con theo slug
+        const childCategory = await Category.findOne({
+          where: {
+            slug: childCategorySlug,
+            parentId: category.id,
+            isActive: true,
+          },
+        });
 
-      categoryIds.push(...childCategories.map((child) => child.id));
+        if (childCategory) {
+          // Nếu tìm thấy, chỉ lọc theo danh mục con này
+          console.log(
+            `Tìm thấy danh mục con: ${childCategory.name} (ID: ${childCategory.id})`
+          );
+          categoryIds = [childCategory.id];
+        } else {
+          console.log(
+            `Không tìm thấy danh mục con với slug: ${childCategorySlug}`
+          );
+        }
+      } else {
+        // Nếu không có childCategorySlug, lấy tất cả sản phẩm của danh mục cha và con
+        const childCategories = await Category.findAll({
+          where: { parentId: category.id, isActive: true },
+          attributes: ["id"],
+        });
+        categoryIds = [
+          category.id,
+          ...childCategories.map((child) => child.id),
+        ];
+      }
+    } else {
+      // Nếu là danh mục con, chỉ lấy sản phẩm của danh mục này
+      categoryIds = [category.id];
     }
 
     // Xây dựng điều kiện lọc cho sản phẩm
@@ -418,9 +452,9 @@ export const getProductsByCategorySlug = async (
         {
           model: Category,
           as: "categories",
+          where: { id: { [Op.in]: categoryIds } },
           attributes: ["id", "name", "slug"],
           through: { attributes: [] },
-          where: { id: { [Op.in]: categoryIds } },
         },
         {
           model: ProductDetail,

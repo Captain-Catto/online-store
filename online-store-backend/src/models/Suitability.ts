@@ -5,7 +5,7 @@ class Suitability extends Model {
   public id!: number;
   public name!: string;
   public description?: string;
-  public sortOrder!: number;
+  public sortOrder?: number;
 }
 
 Suitability.init(
@@ -26,6 +26,7 @@ Suitability.init(
     },
     sortOrder: {
       type: DataTypes.INTEGER,
+      allowNull: true,
       defaultValue: 0,
     },
   },

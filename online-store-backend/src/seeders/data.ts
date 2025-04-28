@@ -148,7 +148,7 @@ const products = [
     featured: true,
     status: "active",
     tags: JSON.stringify(["áo thun", "nam", "cotton", "basic"]),
-    suitability: JSON.stringify(["casual", "daily"]),
+
     subtype: "T-SHIRT",
     isNew: true,
   },
@@ -199,7 +199,7 @@ const products = [
     featured: true,
     status: "active",
     tags: JSON.stringify(["áo khoác", "denim", "unisex", "vintage"]),
-    suitability: JSON.stringify(["casual", "daily"]),
+
     subtype: "JACKET",
   },
   {
@@ -211,7 +211,7 @@ const products = [
     featured: false,
     status: "active",
     tags: JSON.stringify(["áo khoác", "bomber", "da", "nam"]),
-    suitability: JSON.stringify(["casual", "daily"]),
+
     subtype: "JACKET",
   },
   {
@@ -224,7 +224,6 @@ const products = [
     featured: false,
     status: "active",
     tags: JSON.stringify(["quần jean", "nam", "straight fit"]),
-    suitability: JSON.stringify(["casual", "daily"]),
     subtype: "PANTS",
   },
   {
@@ -248,7 +247,7 @@ const products = [
     featured: false,
     status: "active",
     tags: JSON.stringify(["quần short", "jean", "rách", "nam"]),
-    suitability: JSON.stringify(["casual", "daily"]),
+
     subtype: "SHORTS",
   },
   {
