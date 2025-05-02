@@ -6,6 +6,7 @@ import { useNavigation } from "@/contexts/NavigationContext";
 
 export default function NavBar() {
   const { menuItems, loading } = useNavigation();
+  console.log("Menu Items:", menuItems); // Debugging log
   const [hoverMenuId, setHoverMenuId] = useState<number | null>(null);
 
   const renderMenuItem = (item: NavigationMenuItem) => {
@@ -37,10 +38,11 @@ export default function NavBar() {
                 <li key={child.id}>
                   <Link
                     href={{
-                      pathname:
-                        item.link ||
-                        `/category/${item.category?.slug || item.slug}`,
-                      query: { childCategory: child.slug },
+                      pathname: item.link || `/category/${child.slug}`,
+                      // query: { childCategory: child.slug },
+                      // bỏ vì ko phù hợp, nếu muốn đổi thì có thể
+                      // thêm query vào link và thay thành
+                      // `/category/${item.category?.slug || item.slug}`
                     }}
                     className="block py-2 px-4 hover:bg-gray-100"
                   >
@@ -75,9 +77,10 @@ export default function NavBar() {
                           <Link
                             href={{
                               pathname:
-                                item.link ||
-                                `/category/${item.category?.slug || item.slug}`,
-                              query: { childCategory: grandChild.slug },
+                                item.link || `/category/${grandChild.slug}`,
+                              // tương tự như trên
+                              // query: { childCategory: grandChild.slug },
+                              // `/category/${item.category?.slug || item.slug}`,
                             }}
                             className="text-gray-600 hover:text-blue-600"
                           >

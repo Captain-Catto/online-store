@@ -193,7 +193,7 @@ const ImagesTab: React.FC<ImagesTabProps> = ({
                         {availableColors.find((c) => c.key === color)?.label ||
                           color}
                       </td>
-                      <td>{colorImages[color]?.length || 0}/3</td>
+                      <td>{colorImages[color]?.length || 0}/10</td>
                       <td>
                         {!colorImages[color] ||
                         colorImages[color].length === 0 ? (

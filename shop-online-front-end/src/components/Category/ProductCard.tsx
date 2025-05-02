@@ -10,9 +10,9 @@ interface ProductCardProps {
   selectedColor: string;
   productImage: string;
   secondaryImage?: string;
-  availableSizes: string[]; // Thêm prop availableSizes
-  price: number; // Thêm prop price
-  originalPrice: number; // Thêm prop originalPrice
+  availableSizes: string[]; // Kích thước khả dụng từ variants
+  price: number;
+  originalPrice: number;
   onColorSelect: (productId: number, color: string) => void;
 }
 
@@ -21,12 +21,11 @@ export default function ProductCard({
   selectedColor,
   productImage,
   secondaryImage = "",
-  availableSizes = [],
+  availableSizes,
   price,
   originalPrice,
   onColorSelect,
 }: ProductCardProps) {
-  console.log("ProductCard render", product.id, selectedColor, productImage);
   const [isHovered, setIsHovered] = useState(false);
   const [showSizeSelector, setShowSizeSelector] = useState(false);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
@@ -35,13 +34,14 @@ export default function ProductCard({
   const handleColorClick = (e: React.MouseEvent, color: string) => {
     e.preventDefault();
     onColorSelect(product.id, color);
+    setSelectedSize(null); // Reset kích thước khi đổi màu
   };
 
   const handleAddToCart = () => {
     if (availableSizes.length > 0) {
       setShowSizeSelector(true);
     } else {
-      showToast("Sản phẩm này không có kích thước khả dụng", { type: "error" });
+      showToast("Màu này không có kích thước khả dụng", { type: "error" });
     }
   };
 
@@ -55,12 +55,25 @@ export default function ProductCard({
       return;
     }
 
+    // Kiểm tra xem kích thước có còn hàng không
+    const variant = product.variants?.[selectedColor];
+    if (
+      !variant ||
+      !variant.inventory[selectedSize] ||
+      variant.inventory[selectedSize] <= 0
+    ) {
+      showToast("Kích thước này không khả dụng hoặc đã hết hàng", {
+        type: "error",
+      });
+      return;
+    }
+
     const cartItem = {
-      id: product.id.toString(),
+      id: `${product.id}-${selectedColor}-${selectedSize}`,
       productId: product.id,
       name: product.name,
-      price: price,
-      originalPrice: originalPrice,
+      price,
+      originalPrice,
       quantity: 1,
       color: selectedColor,
       size: selectedSize,
@@ -70,8 +83,8 @@ export default function ProductCard({
     addToCart(cartItem);
     showToast(`Đã thêm ${product.name} vào giỏ hàng!`, { type: "success" });
     setShowSizeSelector(false);
+    setSelectedSize(null); // Reset kích thước sau khi thêm vào giỏ hàng
 
-    // Cập nhật số lượng trong giỏ hàng
     const event = new CustomEvent("cart-updated", {
       detail: { count: getCartItemCount() },
     });
@@ -80,7 +93,6 @@ export default function ProductCard({
 
   return (
     <div className="group relative">
-      {/* Card content */}
       <div className="relative overflow-hidden aspect-[3/4]">
         <Link href={`/products/${product.id}`} className="block w-full h-full">
           <div
@@ -99,7 +111,6 @@ export default function ProductCard({
           </div>
         </Link>
 
-        {/* Quick action buttons - Add to cart */}
         <button
           className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black text-white py-2 px-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-[80%]"
           onClick={handleAddToCart}
@@ -108,7 +119,6 @@ export default function ProductCard({
         </button>
       </div>
 
-      {/* Product info */}
       <div className="mt-4">
         <Link href={`/products/${product.id}`}>
           <h3 className="text-sm font-medium line-clamp-2">{product.name}</h3>
@@ -126,7 +136,6 @@ export default function ProductCard({
             )}
           </div>
 
-          {/* Color selector */}
           <div className="flex space-x-1">
             {product.colors?.map((color) => (
               <button
@@ -143,7 +152,6 @@ export default function ProductCard({
         </div>
       </div>
 
-      {/* Size selector modal */}
       {showSizeSelector && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg max-w-sm w-full">

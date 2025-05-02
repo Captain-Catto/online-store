@@ -38,6 +38,7 @@ interface FilterSidebarProps {
   availableSuitability: string[];
   childCategories: CategoryInfo[];
   mainCategories: CategoryInfo[];
+  showCategoryFilters?: boolean;
 
   // Thêm các props mới mà bạn đang sử dụng
   availableColors: string[];
@@ -58,30 +59,40 @@ export default function FilterSidebar({
   availableSuitability,
   childCategories,
   mainCategories,
+  showCategoryFilters = true,
+  availableColors, // Thêm props mới
+  availableSizes, // Thêm props này để khắc phục lỗi
+  availableBrands, // Thêm props mới
+  priceRange, // Thêm props mới
 }: FilterSidebarProps) {
   return (
     <div className="lg:w-1/4">
       <div className="sticky top-24">
         <h2 className="text-2xl font-bold mb-6">Bộ lọc</h2>
-
-        {/* Sử dụng MainCategoryFilter */}
-        <MainCategoryFilter
-          isOpen={filtersOpen.mainCategory ?? false}
-          activeCategory={activeFilters.category}
-          onToggle={() => toggleFilter("mainCategory")}
-          onFilterChange={handleCategoryFilter}
-          categories={mainCategories || []}
-        />
-        {/* Sử dụng ChildCategoryFilter thay vì SubtypeFilter */}
-        {childCategories && childCategories.length > 0 && (
-          <ChildCategoryFilter
-            isOpen={filtersOpen.categories}
-            activeChildCategory={activeFilters.childCategory || ""}
-            onToggle={() => toggleFilter("categories")}
-            onFilterChange={handleChildCategoryFilter}
-            childCategories={childCategories}
-          />
+        {showCategoryFilters && (
+          <>
+            {/* Sử dụng MainCategoryFilter */}
+            <MainCategoryFilter
+              isOpen={filtersOpen.mainCategory ?? false}
+              activeCategory={activeFilters.category}
+              onToggle={() => toggleFilter("mainCategory")}
+              onFilterChange={handleCategoryFilter}
+              categories={mainCategories || []}
+            />
+            {/* Sử dụng ChildCategoryFilter thay vì SubtypeFilter */}
+            {childCategories && childCategories.length > 0 && (
+              <ChildCategoryFilter
+                isOpen={filtersOpen.categories}
+                activeChildCategory={activeFilters.childCategory || ""}
+                onToggle={() => toggleFilter("categories")}
+                onFilterChange={handleChildCategoryFilter}
+                childCategories={childCategories}
+              />
+            )}
+          </>
         )}
+
+        {/* Các bộ lọc khác */}
 
         <SuitabilityFilter
           isOpen={filtersOpen.suitability}
@@ -96,6 +107,7 @@ export default function FilterSidebar({
           activeFilters={activeFilters.size}
           onToggle={() => toggleFilter("size")}
           onFilterChange={handleSizeFilter}
+          availableSizes={availableSizes || []}
         />
 
         <ColorFilter

@@ -1,81 +1,107 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import aoThun from "../../../assets/imgs/categories/ao-thun-cate_86.webp";
-import aoSoMi from "../../../assets/imgs/categories/so-mi-cate_10.webp";
-import aoKhoac from "../../../assets/imgs/categories/ao-khoac-cate_16.webp";
-import quanDai from "../../../assets/imgs/categories/quan-dai-cate_24.webp";
-import quanShort from "../../../assets/imgs/categories/quan-short-cate_36.webp";
-import { CategoryGroup } from "@/types/category";
+import { CategoryService } from "@/services/CategoryService";
+
+// Định nghĩa interface cho danh mục con
+interface Category {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  image: string | null;
+  parentId: number | null;
+  isActive: boolean;
+}
+
+// Định nghĩa interface cho danh mục cha (từ API)
+interface CategoryGroup {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  image: string | null;
+  parentId: number | null;
+  isActive: boolean;
+  children: Category[];
+}
 
 const Categories: React.FC = () => {
-  // Dữ liệu danh mục
-  const categoryGroups: CategoryGroup[] = [
-    {
-      id: "nam",
-      categories: [
-        {
-          id: "ao-thun-nam",
-          label: "ÁO THUN",
-          href: "/category/1?subtype=1",
-          image: aoThun,
-        },
-        {
-          id: "ao-so-mi-nam",
-          label: "SƠ MI",
-          href: "/category/1?subtype=5",
-          image: aoSoMi,
-        },
-        {
-          id: "ao-khoac-nam",
-          label: "ÁO KHOÁC",
-          href: "/category/1?subtype=4",
-          image: aoKhoac,
-        },
-        {
-          id: "quan-dai-nam",
-          label: "QUẦN DÀI",
-          href: "/category/2?subtype=14",
-          image: quanDai,
-        },
-        {
-          id: "quan-short-nam",
-          label: "QUẦN SHORT",
-          href: "/category/2?subtype=12",
-          image: quanShort,
-        },
-      ],
-    },
-  ];
+  // State để lưu danh sách danh mục con
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Gọi API để lấy danh mục
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setLoading(true);
+        const categoryGroups: CategoryGroup[] =
+          await CategoryService.getAllCategories();
+
+        // Lấy tất cả danh mục con từ các danh mục cha
+        const childCategories = categoryGroups.flatMap(
+          (group) => group.children
+        );
+
+        setCategories(childCategories);
+      } catch (err) {
+        console.error("Lỗi khi lấy danh mục:", err);
+        setError("Không thể tải danh mục. Vui lòng thử lại sau.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  // Hiển thị trạng thái loading
+  if (loading) {
+    return (
+      <div className="container mx-auto max-w-7xl px-4 mt-10 md:mt-16 mb-6">
+        <p className="text-center">Đang tải danh mục...</p>
+      </div>
+    );
+  }
+
+  // Hiển thị trạng thái lỗi
+  if (error) {
+    return (
+      <div className="container mx-auto max-w-7xl px-4 mt-10 md:mt-16 mb-6">
+        <p className="text-center text-red-500">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto max-w-7xl px-4 mt-10 md:mt-16 mb-6 space-y-4">
       {/* Scrollable Categories */}
       <div className="overflow-hidden">
         <div className="flex overflow-x-auto no-scrollbar snap-x">
-          {categoryGroups.map((group) =>
-            group.categories.map((category) => (
-              <Link
-                key={category.id}
-                href={category.href}
-                className="min-w-0 shrink-0 grow-0 snap-start basis-[40%] sm:basis-1/3 md:basis-1/4 lg:basis-1/5 px-2 group"
-              >
-                <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg">
-                  <Image
-                    src={category.image}
-                    alt={category.label}
-                    placeholder="blur"
-                    className="h-full w-full object-cover transform duration-500 group-hover:scale-105"
-                  />
-                </div>
-                <div className="font-medium text-sm md:text-base mt-2 group-hover:text-blue-600 text-black transition-colors duration-300 text-center uppercase">
-                  {category.label}
-                </div>
-              </Link>
-            ))
-          )}
+          {categories.map((category) => (
+            <Link
+              key={category.id}
+              href={`/category/${category.slug}`} // Sử dụng slug để tạo link
+              className="min-w-0 shrink-0 grow-0 snap-start basis-[40%] sm:basis-1/3 md:basis-1/4 lg:basis-1/5 px-2 group"
+            >
+              <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg">
+                <Image
+                  src={category.image || "/placeholder-image.jpg"} // Sử dụng ảnh mặc định nếu image là null
+                  alt={category.name}
+                  width={300} // Thêm width và height để cải thiện hiệu suất
+                  height={400}
+                  className="h-full w-full object-cover transform duration-500 group-hover:scale-105"
+                />
+              </div>
+              <div className="font-medium text-sm md:text-base mt-2 group-hover:text-blue-600 text-black transition-colors duration-300 text-center uppercase">
+                {category.name}
+              </div>
+            </Link>
+          ))}
         </div>
       </div>
     </div>

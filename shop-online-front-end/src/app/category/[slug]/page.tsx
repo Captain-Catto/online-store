@@ -84,6 +84,10 @@ export default function CategoryDetailPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [sizesByCategory, setSizesByCategory] = useState<Record<string, Array>>(
+    {}
+  );
+
   // Filter open states
   const [filtersOpen, setFiltersOpen] = useState<FiltersOpenState>({
     suitability: true,
@@ -106,6 +110,10 @@ export default function CategoryDetailPage() {
       childCategory: searchParams.get("childCategory") || childSlug || "",
     };
   });
+
+  // Thêm state để theo dõi nếu danh mục hiện tại là danh mục con
+  const [isCurrentCategoryChild, setIsCurrentCategoryChild] =
+    useState<boolean>(false);
 
   // Fetch all categories for navigation
   useEffect(() => {
@@ -145,15 +153,39 @@ export default function CategoryDetailPage() {
   }, []);
 
   // Fetch category and its children from slug
+  // Trong useEffect fetchCategoryFromSlug
   useEffect(() => {
     const fetchCategoryFromSlug = async (): Promise<void> => {
       try {
         const category = await CategoryService.getCategoryBySlug(categorySlug);
-        setCategoryId(category.id.toString());
-        setCategoryName(category.name);
 
-        if (category.children && category.children.length > 0) {
-          setChildCategories(category.children);
+        // Kiểm tra xem đây có phải là danh mục con không
+        const isChildCategory =
+          category.parentId !== null && category.parentId !== undefined;
+
+        // Cập nhật state để biết đây là danh mục con hay cha
+        setIsCurrentCategoryChild(isChildCategory);
+
+        if (isChildCategory) {
+          // Đây là danh mục con, cần lấy thông tin danh mục cha
+          const parentCategory = await CategoryService.getCategoryById(
+            category.parentId
+          );
+          setCategoryId(category.id.toString()); // Sửa đổi: lưu ID của danh mục con
+          setCategoryName(category.name); // Sửa đổi: lưu tên của danh mục con
+
+          // Không cần thiết lập danh mục con làm filter vì URL đã là danh mục con
+
+          // Không cần thiết lập childCategories vì ta sẽ ẩn filter danh mục con
+          setChildCategories([]);
+        } else {
+          // Đây là danh mục cha, giữ nguyên logic cũ
+          setCategoryId(category.id.toString());
+          setCategoryName(category.name);
+
+          if (category.children && category.children.length > 0) {
+            setChildCategories(category.children);
+          }
         }
       } catch (error) {
         console.error("Không thể lấy thông tin danh mục:", error);
@@ -165,6 +197,68 @@ export default function CategoryDetailPage() {
       void fetchCategoryFromSlug();
     }
   }, [categorySlug]);
+
+  // Trong useEffect của CategoryDetailPage
+  useEffect(() => {
+    const fetchSizes = async () => {
+      try {
+        const sizesData = await ProductService.getSizes();
+
+        // Nhóm kích thước theo loại sản phẩm và loại kích thước
+        const sizesByCategory: Record<
+          string,
+          Record<string, Array<string>>
+        > = {};
+
+        sizesData.forEach((size) => {
+          if (!size.active) return;
+
+          if (!sizesByCategory[size.category]) {
+            sizesByCategory[size.category] = {};
+          }
+
+          if (!sizesByCategory[size.category][size.sizeType]) {
+            sizesByCategory[size.category][size.sizeType] = [];
+          }
+
+          sizesByCategory[size.category][size.sizeType].push({
+            value: size.value,
+            displayName: size.displayName,
+            displayOrder: size.displayOrder,
+          });
+        });
+
+        // Sắp xếp các kích thước theo displayOrder
+        Object.keys(sizesByCategory).forEach((category) => {
+          Object.keys(sizesByCategory[category]).forEach((type) => {
+            sizesByCategory[category][type].sort(
+              (a, b) => a.displayOrder - b.displayOrder
+            );
+          });
+        });
+
+        setSizesByCategory(sizesByCategory);
+
+        // Tạo danh sách các kích thước có sẵn dựa trên danh mục hiện tại
+        const currentCategory = "clothing"; // Thay bằng logic lấy danh mục hiện tại
+        const availableSizeValues = [];
+
+        if (sizesByCategory[currentCategory]) {
+          Object.keys(sizesByCategory[currentCategory]).forEach((type) => {
+            sizesByCategory[currentCategory][type].forEach((size) => {
+              availableSizeValues.push(size.value);
+            });
+          });
+        }
+
+        setAvailableSizes(availableSizeValues);
+      } catch (error) {
+        console.error("Không thể tải kích thước:", error);
+      }
+    };
+
+    void fetchSizes();
+  }, []);
 
   // Chuyển hướng đến trang danh mục khác
   const handleCategoryFilter = useCallback(
@@ -212,20 +306,16 @@ export default function CategoryDetailPage() {
       try {
         setLoading(true);
 
-        // Create filter object
         const apiFilters: Record<string, string> = {
           page: currentPage.toString(),
           limit: itemsPerPage.toString(),
         };
-        console.log("API filters:", apiFilters);
 
-        // Add other filters
         if (filters.color) apiFilters.color = filters.color;
         if (filters.size.length > 0) apiFilters.size = filters.size.join(",");
         if (filters.suitability.length > 0) {
           apiFilters.suitability = filters.suitability.join(",");
         }
-        // Thêm childCategory vào filters nếu có
         if (filters.childCategory) {
           apiFilters.childCategory = filters.childCategory;
         }
@@ -237,28 +327,37 @@ export default function CategoryDetailPage() {
           apiFilters
         );
 
-        console.log("Đã lấy sản phẩm:", response);
-
-        // Destructure dữ liệu từ response
         const {
           products: productsData,
           pagination,
           filters: responseFilters,
           category: categoryData,
-          availableSuitability: suitabilityData,
         } = response;
 
-        // Cập nhật state với dữ liệu từ API
-        setProducts(productsData);
+        // Lọc sản phẩm phía client để đảm bảo thỏa mãn bộ lọc kích thước
+        const filteredProducts = productsData.filter((product: Product) => {
+          if (!filters.size.length) return true;
+          return product.colors.some((color) => {
+            const variant = product.variants?.[color];
+            return (
+              variant &&
+              filters.size.some(
+                (size) =>
+                  variant.availableSizes.includes(size) &&
+                  variant.inventory[size] > 0
+              )
+            );
+          });
+        });
+
+        setProducts(filteredProducts);
         setTotalItems(pagination.total);
 
-        // Cập nhật thông tin category nếu có
         if (categoryData) {
           setCategoryName(categoryData.name);
           setCategoryId(categoryData.id.toString());
         }
 
-        // Cập nhật các filter có sẵn từ response
         if (responseFilters) {
           setAvailableColors(responseFilters.availableColors || []);
           setAvailableSizes(responseFilters.availableSizes || []);
@@ -266,26 +365,37 @@ export default function CategoryDetailPage() {
           setAvailableBrands(responseFilters.brands || []);
         }
 
-        if (suitabilityData) {
-          setAvailableSuitability(suitabilityData);
-        }
-
-        // Khởi tạo hình ảnh và màu sắc cho sản phẩm
         const images: Record<string, string> = {};
         const colors: Record<string, string> = {};
 
-        productsData.forEach((product: Product) => {
-          // Sử dụng hình ảnh chính nếu có
-          if (product.mainImage) {
-            images[product.id] = product.mainImage;
-          } else if (product.subImage && product.subImage.length > 0) {
-            // Fallback to first subImage if available
-            images[product.id] = product.subImage[0].url;
+        filteredProducts.forEach((product: Product) => {
+          if (!product) return;
+
+          let availableColors = product.colors;
+          if (filters.size.length > 0) {
+            availableColors = product.colors.filter((color) => {
+              const variant = product.variants?.[color];
+              return (
+                variant &&
+                filters.size.some(
+                  (size) =>
+                    variant.availableSizes.includes(size) &&
+                    variant.inventory[size] > 0
+                )
+              );
+            });
           }
 
-          // Nếu có màu sắc, sử dụng màu đầu tiên
-          if (product.colors && product.colors.length > 0) {
-            colors[product.id] = product.colors[0];
+          const firstAvailableColor =
+            availableColors.length > 0 ? availableColors[0] : product.colors[0];
+
+          if (firstAvailableColor) {
+            const mainImageForColor =
+              product.variants?.[firstAvailableColor]?.images?.find(
+                (img) => img.isMain
+              )?.url || product.mainImage;
+            images[product.id] = mainImageForColor;
+            colors[product.id] = firstAvailableColor;
           }
         });
 
@@ -355,35 +465,47 @@ export default function CategoryDetailPage() {
   // Child category filter handler
   const handleChildCategoryFilter = useCallback(
     (childCategorySlug: string): void => {
-      console.log("Child category slug:", childCategorySlug);
-      // If already selected, deselect it
-      if (filters.childCategory === childCategorySlug) {
+      // Log để debug
+      console.log("Current categoryId:", categoryId);
+      console.log("Current categorySlug:", categorySlug);
+      console.log("Selected childSlug:", childCategorySlug);
+      console.log("Current filters:", filters);
+
+      if (!childCategorySlug) {
+        // Khi người dùng chọn "Tất cả" trong bộ lọc danh mục con
+        // KHÔNG chuyển hướng đến URL mới, chỉ cập nhật query params
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete("childCategory"); // Xóa tham số childCategory
+
+        // Cập nhật URL với các tham số còn lại, giữ nguyên slug danh mục hiện tại
+        const newUrl = `${pathname}${
+          params.toString() ? `?${params.toString()}` : ""
+        }`;
+        console.log("New URL after selecting All:", newUrl);
+        router.push(newUrl, { scroll: false });
+
+        // Cập nhật state filters
         setFilters((prev) => ({
           ...prev,
           childCategory: "",
         }));
-        // Chỉ cập nhật URL mà không thay đổi route
-        const params = new URLSearchParams(searchParams.toString());
-        params.delete("childCategory");
-        const newUrl = `${pathname}${
-          params.size > 0 ? `?${params.toString()}` : ""
-        }`;
-        router.push(newUrl, { scroll: false });
       } else {
-        // Select the child category
+        // Khi chọn một danh mục con cụ thể
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("childCategory", childCategorySlug);
+
+        const newUrl = `${pathname}?${params.toString()}`;
+        console.log("New URL after selecting child:", newUrl);
+        router.push(newUrl, { scroll: false });
+
+        // Cập nhật state filters
         setFilters((prev) => ({
           ...prev,
           childCategory: childCategorySlug,
         }));
-        // Thay vì chuyển route, thêm childCategory vào query params
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("childCategory", childCategorySlug);
-        const newUrl = `${pathname}?${params.toString()}`;
-        router.push(newUrl, { scroll: false });
       }
-      setCurrentPage(1);
     },
-    [filters.childCategory, pathname, router, searchParams]
+    [categorySlug, pathname, router, searchParams]
   );
 
   // Handle color selection for product display
@@ -415,12 +537,12 @@ export default function CategoryDetailPage() {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Filter sidebar */}
           <FilterSidebar
             filtersOpen={filtersOpen}
             activeFilters={{
               ...filters,
               category: categoryId ? parseInt(categoryId) : undefined,
+              childCategory: filters.childCategory,
             }}
             toggleFilter={toggleFilter}
             handleSuitabilityFilter={handleSuitabilityFilter}
@@ -435,9 +557,9 @@ export default function CategoryDetailPage() {
             availableSizes={availableSizes}
             availableBrands={availableBrands}
             priceRange={priceRange}
+            showCategoryFilters={!isCurrentCategoryChild}
           />
 
-          {/* Product grid and pagination */}
           <div className="lg:w-3/4">
             <ProductGrid
               products={products}
@@ -447,6 +569,7 @@ export default function CategoryDetailPage() {
               loading={loading}
               error={error}
               category={categoryName}
+              activeFilters={filters}
               currentPage={currentPage}
               itemsPerPage={itemsPerPage}
               totalItems={totalItems}

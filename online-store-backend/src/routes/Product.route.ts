@@ -15,6 +15,12 @@ import {
   setMainProductImage,
   updateProductVariants,
 } from "../controllers/Product.controller";
+import {
+  getAllSizes,
+  createSize,
+  updateSize,
+  deleteSize,
+} from "../controllers/ProductSizes.controller";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { roleMiddleware } from "../middlewares/roleMiddleware";
 import { upload } from "../services/imageUpload";
@@ -27,6 +33,7 @@ router.get("/suitabilities", getSuitabilities);
 router.get("/variants/:id", getProductVariantsById);
 router.get("/category/:categoryId", getProductsByCategory);
 router.get("/subtypes", getSubtypes);
+router.get("/sizes", getAllSizes);
 // luôn để route này ở dưới cùng vì khi để /subtypes thì nó đang hiểu là
 // id = subtypes và ko tìm ra
 router.get("/:id", getProductById);
@@ -39,6 +46,9 @@ router.post(
   upload.array("images", 50),
   createProductWithDetails
 );
+router.post("/sizes", authMiddleware, roleMiddleware([1]), createSize);
+router.put("/sizes/:id", authMiddleware, roleMiddleware([1]), updateSize);
+router.delete("/sizes/:id", authMiddleware, roleMiddleware([1]), deleteSize);
 // Thêm các route mới cho update sản phẩm theo từng phần
 // Basic info
 router.patch(

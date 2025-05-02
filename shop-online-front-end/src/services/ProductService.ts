@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "@/config/apiConfig";
+import { AuthClient } from "@/services/AuthClient";
 
 export interface ProductDetail {
   id?: number;
@@ -504,6 +505,98 @@ export const ProductService = {
       return await response.json();
     } catch (error) {
       console.error("Lỗi khi lấy sản phẩm theo danh mục:", error);
+      throw error;
+    }
+  },
+
+  // Lấy tất cả kích thước
+  getSizes: async (): Promise<any[]> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/products/sizes`);
+      if (!response.ok) {
+        throw new Error("Không thể lấy danh sách kích thước");
+      }
+      return await response.json();
+    } catch (error) {
+      console.error("Lỗi khi lấy kích thước:", error);
+      return [];
+    }
+  },
+
+  // Thêm kích thước mới (Admin)
+  createSize: async (sizeData: {
+    value: string;
+    displayName?: string;
+    category?: string;
+    sizeType?: string;
+    displayOrder?: number;
+  }): Promise<any> => {
+    try {
+      const response = await AuthClient.fetchWithAuth(
+        `${API_BASE_URL}/products/sizes`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(sizeData),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Không thể tạo kích thước");
+      }
+      return await response.json();
+    } catch (error) {
+      console.error("Lỗi khi tạo kích thước:", error);
+      throw error;
+    }
+  },
+
+  // Cập nhật kích thước (Admin)
+  updateSize: async (
+    id: number,
+    sizeData: {
+      value?: string;
+      displayName?: string;
+      category?: string;
+      displayOrder?: number;
+      active?: boolean;
+    }
+  ): Promise<any> => {
+    try {
+      const response = await AuthClient.fetchWithAuth(
+        `${API_BASE_URL}/products/sizes/${id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(sizeData),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Không thể cập nhật kích thước");
+      }
+      return await response.json();
+    } catch (error) {
+      console.error("Lỗi khi cập nhật kích thước:", error);
+      throw error;
+    }
+  },
+
+  // Xóa kích thước (Admin)
+  deleteSize: async (id: number): Promise<void> => {
+    try {
+      const response = await AuthClient.fetchWithAuth(
+        `${API_BASE_URL}/products/sizes/${id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Không thể xóa kích thước");
+      }
+    } catch (error) {
+      console.error("Lỗi khi xóa kích thước:", error);
       throw error;
     }
   },

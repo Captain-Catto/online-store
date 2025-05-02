@@ -38,6 +38,8 @@ interface InventoryTabProps {
   product: Product; // Sử dụng kiểu Product thay vì ProductInventory
   setProduct: React.Dispatch<React.SetStateAction<Product>>;
   availableColors: { key: string; label: string }[];
+  availableSizes: Array<{ value: string; label: string }>;
+
   newVariant: ProductVariant;
   setNewVariant: React.Dispatch<React.SetStateAction<ProductVariant>>;
 }
@@ -46,6 +48,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
   product,
   setProduct,
   availableColors,
+  availableSizes,
   newVariant,
   setNewVariant,
 }) => {

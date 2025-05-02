@@ -32,14 +32,12 @@ export default function MainCategoryFilter({
           height="20"
           viewBox="0 0 21 20"
           fill="none"
-          className={`transition-transform ${
-            isOpen ? "transform rotate-180" : ""
-          }`}
+          className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
         >
           <path
             d="M5.5 7.5L10.5 12.5L15.5 7.5"
-            stroke="black"
-            strokeWidth="1.5"
+            stroke="currentColor"
+            strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
@@ -47,19 +45,25 @@ export default function MainCategoryFilter({
       </div>
 
       {isOpen && categories && categories.length > 0 && (
-        <div className="pl-2 space-y-2">
-          {categories.map((category) => (
-            <div key={category.id} className="flex items-center">
-              <button
+        <div className="mt-3">
+          <div className="space-y-2">
+            {categories.map((category) => (
+              <div
+                key={category.id}
+                className={`
+                  p-2 cursor-pointer rounded-md hover:bg-gray-100
+                  ${
+                    activeCategory === Number(category.id)
+                      ? "bg-gray-100 font-medium"
+                      : ""
+                  }
+                `}
                 onClick={() => onFilterChange(category.slug)}
-                className={`text-sm hover:text-pink-500 transition ${
-                  activeCategory === category.id ? "font-bold" : ""
-                }`}
               >
                 {category.name}
-              </button>
-            </div>
-          ))}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

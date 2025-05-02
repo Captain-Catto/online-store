@@ -1,20 +1,3 @@
-import React from "react";
-
-interface ChildCategory {
-  id: string | number;
-  name: string;
-  slug: string;
-  parentId?: string | number;
-}
-
-interface ChildCategoryFilterProps {
-  isOpen: boolean;
-  activeChildCategory: string;
-  childCategories: ChildCategory[];
-  onToggle: () => void;
-  onFilterChange: (childSlug: string) => void;
-}
-
 export default function ChildCategoryFilter({
   isOpen,
   activeChildCategory,
@@ -22,15 +5,9 @@ export default function ChildCategoryFilter({
   onFilterChange,
   childCategories,
 }: ChildCategoryFilterProps) {
-  // Don't render anything if there are no child categories
   if (!childCategories || childCategories.length === 0) {
     return null;
   }
-
-  // Sort child categories by name for easier reading
-  const sortedCategories = [...childCategories].sort((a, b) =>
-    a.name.localeCompare(b.name)
-  );
 
   return (
     <div className="mb-6">
@@ -48,7 +25,7 @@ export default function ChildCategoryFilter({
           className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
         >
           <path
-            d="M5.95825 7.91699L10.9583 12.917L15.9583 7.91699"
+            d="M5.5 7.5L10.5 12.5L15.5 7.5"
             stroke="currentColor"
             strokeWidth="2"
             strokeLinecap="round"
@@ -57,32 +34,29 @@ export default function ChildCategoryFilter({
         </svg>
       </div>
 
-      {isOpen && (
+      {isOpen && childCategories && childCategories.length > 0 && (
         <div className="mt-3">
           <div className="space-y-2">
             <div
-              className={`
-                p-2 cursor-pointer rounded-md hover:bg-gray-100 
-                ${activeChildCategory === "" ? "bg-gray-100 font-medium" : ""}
-              `}
+              className={`p-2 cursor-pointer rounded-md hover:bg-gray-100 ${
+                activeChildCategory === "" ? "bg-gray-100 font-medium" : ""
+              }`}
               onClick={() => onFilterChange("")}
             >
               Tất cả
             </div>
-            {sortedCategories.map((child) => (
+
+            {childCategories.map((category) => (
               <div
-                key={child.id}
-                className={`
-                  p-2 cursor-pointer rounded-md hover:bg-gray-100 
-                  ${
-                    activeChildCategory === child.slug
-                      ? "bg-gray-100 font-medium"
-                      : ""
-                  }
-                `}
-                onClick={() => onFilterChange(child.slug)}
+                key={category.id}
+                className={`p-2 cursor-pointer rounded-md hover:bg-gray-100 ${
+                  activeChildCategory === category.slug
+                    ? "bg-gray-100 font-medium"
+                    : ""
+                }`}
+                onClick={() => onFilterChange(category.slug)}
               >
-                {child.name}
+                {category.name}
               </div>
             ))}
           </div>

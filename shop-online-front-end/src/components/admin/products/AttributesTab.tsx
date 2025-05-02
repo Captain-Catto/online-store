@@ -45,7 +45,7 @@ interface AttributesTabProps {
   suitabilities: Suitability[];
   suitabilityLoading: boolean;
   availableColors: { key: string; label: string }[];
-  availableSizes: string[];
+  availableSizes: Array<{ value: string; label: string }>;
   tagInput: string;
   setTagInput: React.Dispatch<React.SetStateAction<string>>;
 }
@@ -74,12 +74,12 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
   const handleSizesChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedOptions = Array.from(
       e.target.selectedOptions,
-      (option) => option.value
+      (option) => option.value // Lấy giá trị 'value' của option
     );
-    setProduct({
-      ...product,
-      sizes: selectedOptions,
-    });
+    setProduct((prevProduct) => ({
+      ...prevProduct,
+      sizes: selectedOptions, // Cập nhật mảng string các size đã chọn
+    }));
   };
 
   const handleTagsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -139,17 +139,25 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
           <select
             multiple
             className="form-control"
-            value={product.sizes}
+            value={product.sizes} // product.sizes là string[] chứa các value đã chọn
             onChange={handleSizesChange}
+            style={{ height: "150px" }} // Tăng chiều cao để dễ chọn
           >
-            {availableSizes.map((size) => (
-              <option key={size} value={size}>
-                {size}
+            {/* SỬA Ở ĐÂY: Lặp qua availableSizes (mảng object) */}
+            {availableSizes.map((sizeOption) => (
+              <option key={sizeOption.value} value={sizeOption.value}>
+                {sizeOption.label} {/* Hiển thị label */}
               </option>
             ))}
           </select>
+          {availableSizes.length === 0 && !suitabilityLoading && (
+            <small className="form-text text-muted">
+              Không có kích thước phù hợp cho danh mục đã chọn hoặc kích thước
+              chưa được tải. Vui lòng kiểm tra cài đặt kích thước.
+            </small>
+          )}
           <small className="form-text text-muted">
-            Giữ Ctrl để chọn nhiều kích thước
+            Giữ Ctrl (hoặc Cmd trên Mac) để chọn nhiều kích thước.
           </small>
         </div>
       </div>

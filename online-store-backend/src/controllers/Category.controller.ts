@@ -559,6 +559,40 @@ export const getProductsByCategorySlug = async (
         sizes,
         categories: productData.categories,
         suitabilities: productData.suitabilities || [],
+        variants: productData.details.reduce((acc: any, detail: any) => {
+          // Map các kích thước và tồn kho cho mỗi màu
+          const sizeInventory = detail.inventories.reduce(
+            (invAcc: any, inv: any) => {
+              invAcc[inv.size] = inv.stock;
+              return invAcc;
+            },
+            {}
+          );
+
+          // Lấy danh sách các kích thước có sẵn (còn hàng)
+          const availableSizes = detail.inventories
+            .filter((inv: any) => inv.stock > 0)
+            .map((inv: any) => inv.size);
+
+          // Lấy hình ảnh cho màu này
+          const colorImages = detail.images.map((img: any) => ({
+            id: img.id,
+            url: img.url,
+            isMain: img.isMain,
+          }));
+
+          // Thêm thông tin variant vào object
+          acc[detail.color] = {
+            id: detail.id,
+            price: detail.price,
+            originalPrice: detail.originalPrice,
+            availableSizes,
+            inventory: sizeInventory,
+            images: colorImages,
+          };
+
+          return acc;
+        }, {}),
       };
     });
 

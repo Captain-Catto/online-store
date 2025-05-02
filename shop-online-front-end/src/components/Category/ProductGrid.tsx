@@ -17,6 +17,7 @@ interface ProductGridProps {
   totalItems: number;
   loading?: boolean;
   error?: string | null;
+  activeFilters?: { size: string[] }; // Thêm activeFilters để lọc kích thước
 }
 
 export default function ProductGrid({
@@ -30,6 +31,7 @@ export default function ProductGrid({
   totalItems,
   loading = false,
   error = null,
+  activeFilters,
 }: ProductGridProps) {
   const [processedProducts, setProcessedProducts] = useState<
     ProcessedProduct[]
@@ -43,29 +45,35 @@ export default function ProductGrid({
     }
 
     const processed = products.map((product) => {
-      // Lấy danh sách màu từ API
       const colors = product.colors || [];
-
-      // Tạo colorToImage mapping
       const colorToImage: Record<string, string> = {};
-
-      // Tạo variants với cấu trúc ProductCard mong đợi
       const variants: Record<string, VariantDetail> = {};
 
       // Xử lý variants cho từng màu
       colors.forEach((color) => {
-        // Tìm hình ảnh chính cho màu này
-        const mainImage = product.mainImage || "";
+        const variant = product.variants?.[color];
+        const mainImage =
+          variant?.images?.find((img) => img.isMain)?.url ||
+          product.mainImage ||
+          "";
         if (mainImage) {
           colorToImage[color] = mainImage;
         }
 
-        // Tạo variant cho màu này
+        // Lấy danh sách kích thước khả dụng và tồn kho từ variants
+        const availableSizes = variant?.availableSizes || [];
+        const inventory = variant?.inventory || {};
+
         variants[color] = {
-          detailId: 0, // Giá trị mặc định vì không có details
-          price: product.priceRange?.min || product.price || 0,
-          originalPrice: product.priceRange?.max || product.price || 0,
-          images: [
+          detailId: variant?.id || 0,
+          price:
+            variant?.price || product.priceRange?.min || product.price || 0,
+          originalPrice:
+            variant?.originalPrice ||
+            product.priceRange?.max ||
+            product.price ||
+            0,
+          images: variant?.images || [
             { id: 0, url: mainImage, isMain: true },
             ...(product.subImage?.map((img) => ({
               id: img.id,
@@ -73,15 +81,12 @@ export default function ProductGrid({
               isMain: false,
             })) || []),
           ],
-          availableSizes: product.sizes || [],
-          inventory: (product.sizes || []).reduce(
-            (acc, size) => ({ ...acc, [size]: 1 }), // Giả định mỗi kích thước có sẵn 1 sản phẩm
-            {}
-          ) as Record<string, number>,
-          variants: (product.sizes || []).map((size) => ({
+          availableSizes, // Sử dụng availableSizes từ variants
+          inventory, // Sử dụng inventory từ variants
+          variants: availableSizes.map((size) => ({
             color,
             size,
-            stock: 1, // Giả định stock mặc định
+            stock: inventory[size] || 0, // Lấy stock từ inventory
           })),
         };
       });
@@ -135,10 +140,21 @@ export default function ProductGrid({
     processedProducts.forEach((product) => {
       const productId = product.id.toString();
       if (!selectedColors[productId] && product.colors.length > 0) {
-        onColorSelect(product.id, product.colors[0]);
+        // Chọn màu đầu tiên có kích thước khả dụng nếu đang lọc kích thước
+        const validColor =
+          product.colors.find((color) => {
+            const variant = product.variants[color];
+            if (!variant || !activeFilters?.size?.length) return true;
+            return activeFilters.size.some(
+              (size) =>
+                variant.availableSizes.includes(size) &&
+                variant.inventory[size] > 0
+            );
+          }) || product.colors[0];
+        onColorSelect(product.id, validColor);
       }
     });
-  }, [processedProducts, selectedColors, onColorSelect]);
+  }, [processedProducts, selectedColors, onColorSelect, activeFilters]);
 
   // Trạng thái loading
   if (loading) {
@@ -187,7 +203,7 @@ export default function ProductGrid({
         </div>
       ) : (
         /* Grid sản phẩm */
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 ">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {processedProducts.map((product) => {
             const productId = product.id.toString();
             const hasColors = product.colors && product.colors.length > 0;
@@ -209,9 +225,11 @@ export default function ProductGrid({
                 ? product.colorToImage[product.colors[1]]
                 : "";
 
-            // lấy price và originalPrice
-            const price = product.price;
-            const originalPrice = product.originalPrice;
+            // Lấy price và originalPrice từ variant của màu đã chọn
+            const price =
+              product.variants[selectedColor]?.price || product.price;
+            const originalPrice =
+              product.variants[selectedColor]?.originalPrice || product.price;
 
             return (
               <ProductCard
@@ -223,6 +241,9 @@ export default function ProductGrid({
                 onColorSelect={onColorSelect}
                 price={price}
                 originalPrice={originalPrice}
+                availableSizes={
+                  product.variants[selectedColor]?.availableSizes || []
+                }
               />
             );
           })}
