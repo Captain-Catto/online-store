@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { createPortal } from "react-dom";
 import { colorToVietnamese } from "@/utils/colorUtils";
@@ -28,9 +28,9 @@ export const useToast = () => {
   const [productInfo, setProductInfo] = useState<
     ToastOptions["product"] | null
   >(null);
-  const [timeoutId, setTimeoutId] = useState<ReturnType<
-    typeof setTimeout
-  > | null>(null);
+
+  // Sử dụng useRef thay vì useState cho timeoutId
+  const timeoutIdRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(
     null
   );
@@ -131,30 +131,37 @@ export const useToast = () => {
         document.body.appendChild(container);
       }
       setPortalContainer(container);
-
-      return () => {
-        if (timeoutId) clearTimeout(timeoutId);
-      };
     }
-  }, [timeoutId]);
+    // Cleanup function
+    return () => {
+      if (timeoutIdRef.current) {
+        clearTimeout(timeoutIdRef.current);
+      }
+    };
+  }, []);
 
-  const showToast = (msg: string, options: ToastOptions = {}) => {
-    if (timeoutId) clearTimeout(timeoutId);
+  const showToast = useCallback((msg: string, options: ToastOptions = {}) => {
+    if (timeoutIdRef.current) {
+      clearTimeout(timeoutIdRef.current);
+    }
+
     setMessage(msg);
     setType(options.type || "info");
     setProductInfo(options.product || null);
     setIsVisible(true);
 
-    const id = setTimeout(() => {
+    timeoutIdRef.current = setTimeout(() => {
       setIsVisible(false);
-    }, options.duration || 5000);
-    setTimeoutId(id);
-  };
+    }, options.duration || 3500);
+  }, []);
 
-  const closeToast = () => {
+  const closeToast = useCallback(() => {
     setIsVisible(false);
-    if (timeoutId) clearTimeout(timeoutId);
-  };
+    if (timeoutIdRef.current) {
+      clearTimeout(timeoutIdRef.current);
+      timeoutIdRef.current = null;
+    }
+  }, []);
 
   // Component hiển thị toast cho giỏ hàng
   const CartToast = () => {

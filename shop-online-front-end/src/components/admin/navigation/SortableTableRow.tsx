@@ -1,31 +1,16 @@
 import React from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { NavigationMenuItem } from "@/services/NaviagationService";
 
 interface SortableTableRowProps {
-  item: {
-    id: number;
-    name: string;
-    link: string | null;
-    categoryId: number | null;
-    parentId: number | null;
-    isActive: boolean;
-    megaMenu: boolean;
-  };
+  item: NavigationMenuItem;
   isParentItem: boolean;
   isActive: boolean;
   isChild?: boolean;
   isExpanded?: boolean;
-  onEdit: (item: {
-    id: number;
-    name: string;
-    link: string | null;
-    categoryId: number | null;
-    parentId: number | null;
-    isActive: boolean;
-    megaMenu: boolean;
-  }) => void;
-  onDelete: (id: number) => void;
+  onEdit: (item: NavigationMenuItem) => void;
+  onDelete: (item: NavigationMenuItem) => void;
   onToggleExpand?: () => void;
 }
 
@@ -107,7 +92,7 @@ const SortableTableRow = ({
           <i className="fas fa-edit"></i> Sửa
         </button>
         <button
-          onClick={() => onDelete(item.id)}
+          onClick={() => onDelete(item)}
           className="btn btn-sm btn-danger"
         >
           <i className="fas fa-trash"></i> Xóa

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ProductService } from "@/services/ProductService";
 import { useToast } from "@/utils/useToast";
+import ConfirmModal from "@/components/admin/shared/ConfirmModal";
 
 interface Size {
   id: number;
@@ -36,7 +37,19 @@ const SizeManager: React.FC = () => {
   });
 
   const [editId, setEditId] = useState<number | null>(null);
-  const { showToast } = useToast();
+
+  // State quản lý xác nhận xóa
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    id: number | null;
+    sizeName: string;
+  }>({
+    isOpen: false,
+    id: null,
+    sizeName: "",
+  });
+
+  const { showToast, Toast } = useToast();
 
   const categories = [
     { value: "clothing", label: "Quần áo" },
@@ -93,10 +106,11 @@ const SizeManager: React.FC = () => {
         value: "",
         displayName: "",
         category: "clothing",
+        sizeType: "letter",
         displayOrder: 0,
       });
       loadSizes();
-    } catch (err) {
+    } catch {
       showToast("Không thể thêm kích thước", { type: "error" });
     }
   };
@@ -117,21 +131,42 @@ const SizeManager: React.FC = () => {
       showToast("Cập nhật kích thước thành công", { type: "success" });
       setEditId(null);
       loadSizes();
-    } catch (err) {
+    } catch {
       showToast("Không thể cập nhật kích thước", { type: "error" });
     }
   };
 
-  // Xử lý xóa
-  const handleDeleteSize = async (id: number) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa kích thước này?")) return;
+  // Hàm để mở modal xác nhận xóa
+  const handleDeleteRequest = (size: Size) => {
+    setDeleteConfirmation({
+      isOpen: true,
+      id: size.id,
+      sizeName: size.displayName || size.value,
+    });
+  };
+
+  // Hàm để đóng modal
+  const handleCancelDelete = () => {
+    setDeleteConfirmation({
+      isOpen: false,
+      id: null,
+      sizeName: "",
+    });
+  };
+
+  // Hàm thực hiện xóa sau khi đã xác nhận
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmation.id) return;
 
     try {
-      await ProductService.deleteSize(id);
+      await ProductService.deleteSize(deleteConfirmation.id);
       showToast("Xóa kích thước thành công", { type: "success" });
       loadSizes();
-    } catch (err) {
+    } catch {
       showToast("Không thể xóa kích thước", { type: "error" });
+    } finally {
+      // Đóng modal sau khi hoàn tất
+      handleCancelDelete();
     }
   };
 
@@ -401,7 +436,7 @@ const SizeManager: React.FC = () => {
                         </button>
                         <button
                           className="btn btn-sm btn-danger"
-                          onClick={() => handleDeleteSize(size.id)}
+                          onClick={() => handleDeleteRequest(size)}
                         >
                           <i className="fas fa-trash"></i> Xóa
                         </button>
@@ -421,6 +456,20 @@ const SizeManager: React.FC = () => {
           </table>
         </div>
       </div>
+      {/* Modal xác nhận xóa */}
+      <ConfirmModal
+        isOpen={deleteConfirmation.isOpen}
+        title="Xác nhận xóa"
+        message={`Bạn có chắc chắn muốn xóa kích thước "${deleteConfirmation.sizeName}"?`}
+        confirmLabel="Xóa"
+        cancelLabel="Hủy"
+        confirmButtonClass="btn-danger"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
+
+      {/* Thông báo */}
+      {Toast}
     </div>
   );
 };

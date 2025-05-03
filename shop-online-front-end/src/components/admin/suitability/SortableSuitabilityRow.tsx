@@ -12,7 +12,7 @@ interface SortableSuitabilityRowProps {
   item: Suitability;
   isActive: boolean;
   onEdit: (item: Suitability) => void;
-  onDelete: (id: number) => void;
+  onDelete: (item: Suitability) => void;
 }
 
 const SortableSuitabilityRow = ({
@@ -47,7 +47,7 @@ const SortableSuitabilityRow = ({
         </button>
         <button
           className="btn btn-sm btn-danger"
-          onClick={() => onDelete(item.id)}
+          onClick={() => onDelete(item)}
         >
           <i className="fas fa-trash"></i> Xóa
         </button>

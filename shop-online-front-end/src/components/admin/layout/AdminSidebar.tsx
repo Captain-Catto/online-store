@@ -2,85 +2,70 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import logo from "@/assets/imgs/logo-coolmate-new-mobile-v2.svg";
-interface MenuItem {
-  title: string;
-  path: string;
-  icon: string;
-  children?: MenuItem[];
-}
+import { useAdminMenu, HierarchicalMenuItem } from "@/hooks/useAdminMenu"; // Import hook và interface mới
+
+// Interface MenuItem gốc không cần nữa nếu dùng HierarchicalMenuItem
 
 interface AdminSidebarProps {
-  openMenus: string[];
-  toggleMenu: (path: string) => void;
+  openMenuIds: number[]; // Thay đổi từ strings sang numbers
+  toggleMenu: (id: number) => void; // Thay đổi từ path sang id
 }
 
 export default function AdminSidebar({
-  openMenus,
+  openMenuIds,
   toggleMenu,
 }: AdminSidebarProps) {
   const pathname = usePathname();
+  const { hierarchicalMenu, loading, error } = useAdminMenu(); // Sử dụng hook
 
-  const menuItems: MenuItem[] = [
-    {
-      title: "Dashboard",
-      path: "/admin",
-      icon: "fas fa-tachometer-alt",
-    },
-    {
-      title: "Quản lý sản phẩm",
-      path: "/admin/products",
-      icon: "fas fa-tshirt",
-      children: [
-        {
-          title: "Danh sách sản phẩm",
-          path: "/admin/products",
-          icon: "fas fa-list",
-        },
-        {
-          title: "Thêm sản phẩm",
-          path: "/admin/products/add",
-          icon: "fas fa-plus",
-        },
-        {
-          title: "Danh mục",
-          path: "/admin/categories",
-          icon: "fas fa-tags",
-        },
-      ],
-    },
-    {
-      title: "Quản lý đơn hàng",
-      path: "/admin/orders",
-      icon: "fas fa-shopping-cart",
-    },
-    {
-      title: "Quản lý người dùng",
-      path: "/admin/users",
-      icon: "fas fa-users",
-    },
-    {
-      title: "Báo cáo & Thống kê",
-      path: "/admin/reports",
-      icon: "fas fa-chart-bar",
-    },
-    {
-      title: "Cấu hình website",
-      path: "/admin/settings",
-      icon: "fas fa-cog",
-      children: [
-        {
-          title: "Menu điều hướng",
-          path: "/admin/navigation",
-          icon: "fas fa-bars",
-        },
-      ],
-    },
-    {
-      title: "Quản lý phù hợp",
-      path: "/admin/suitabilities",
-      icon: "fas fa-user-shield",
-    },
-  ];
+  // Hàm render menu item (có thể tách ra component riêng nếu phức tạp)
+  const renderMenuItem = (item: HierarchicalMenuItem) => {
+    const isActive =
+      pathname === item.path ||
+      (item.children && item.children.some((child) => child.path === pathname));
+    const isOpen = openMenuIds.includes(item.id) || isActive;
+
+    return (
+      <li
+        key={item.id} // Sử dụng ID từ DB làm key
+        className={`nav-item ${
+          item.children.length > 0 ? "has-treeview" : ""
+        } ${isOpen ? "menu-open" : ""}`}
+      >
+        {item.children.length > 0 ? (
+          <a
+            href="#"
+            className={`nav-link ${isActive ? "active" : ""}`}
+            onClick={(e) => {
+              e.preventDefault();
+              toggleMenu(item.id);
+            }}
+          >
+            <i className={`nav-icon ${item.icon}`}></i>
+            <p>
+              {item.title}
+              <i className="right fas fa-angle-left"></i>
+            </p>
+          </a>
+        ) : (
+          <Link
+            href={item.path}
+            className={`nav-link ${pathname === item.path ? "active" : ""}`}
+          >
+            <i className={`nav-icon ${item.icon}`}></i>
+            <p>{item.title}</p>
+          </Link>
+        )}
+
+        {item.children.length > 0 && (
+          <ul className="nav nav-treeview">
+            {item.children.map((child) => renderMenuItem(child))}{" "}
+            {/* Đệ quy để render children */}
+          </ul>
+        )}
+      </li>
+    );
+  };
 
   return (
     <aside className="main-sidebar sidebar-dark-primary elevation-4">
@@ -91,7 +76,7 @@ export default function AdminSidebar({
 
       {/* Sidebar */}
       <div className="sidebar">
-        {/* Sidebar user panel */}
+        {/* Sidebar user panel (giữ nguyên hoặc cập nhật động) */}
         <div className="user-panel mt-3 pb-3 mb-3 d-flex">
           <div className="image">
             <Image
@@ -104,82 +89,25 @@ export default function AdminSidebar({
           </div>
           <div className="info">
             <a href="#" className="d-block">
-              Admin Name
+              Admin Name {/* Có thể lấy tên user động */}
             </a>
           </div>
         </div>
+
         {/* Sidebar Menu */}
         <nav className="mt-2">
-          <ul
-            className="nav nav-pills nav-sidebar flex-column"
-            data-widget="treeview"
-            role="menu"
-          >
-            {menuItems.map((item, index) => (
-              <li
-                key={index}
-                className={`nav-item ${item.children ? "has-treeview" : ""} ${
-                  openMenus.includes(item.path) ||
-                  item.path === pathname ||
-                  (item.children &&
-                    item.children.some((child) => child.path === pathname))
-                    ? "menu-open"
-                    : ""
-                }`}
-              >
-                {item.children ? (
-                  <a
-                    href="#"
-                    className={`nav-link ${
-                      item.path === pathname ||
-                      (item.children &&
-                        item.children.some((child) => child.path === pathname))
-                        ? "active"
-                        : ""
-                    }`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      toggleMenu(item.path);
-                    }}
-                  >
-                    <i className={`nav-icon ${item.icon}`}></i>
-                    <p>
-                      {item.title}
-                      <i className="right fas fa-angle-left"></i>
-                    </p>
-                  </a>
-                ) : (
-                  <Link
-                    href={item.path}
-                    className={`nav-link ${
-                      item.path === pathname ? "active" : ""
-                    }`}
-                  >
-                    <i className={`nav-icon ${item.icon}`}></i>
-                    <p>{item.title}</p>
-                  </Link>
-                )}
-
-                {item.children && (
-                  <ul className="nav nav-treeview">
-                    {item.children.map((child, childIndex) => (
-                      <li key={childIndex} className="nav-item">
-                        <Link
-                          href={child.path}
-                          className={`nav-link ${
-                            child.path === pathname ? "active" : ""
-                          }`}
-                        >
-                          <i className={`nav-icon ${child.icon}`}></i>
-                          <p>{child.title}</p>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            ))}
-          </ul>
+          {loading && <p className="text-light p-3">Đang tải menu...</p>}
+          {error && <p className="text-danger p-3">{error}</p>}
+          {!loading && !error && (
+            <ul
+              className="nav nav-pills nav-sidebar flex-column"
+              data-widget="treeview"
+              role="menu"
+              data-accordion="false" // Quan trọng: để quản lý đóng/mở bằng state React
+            >
+              {hierarchicalMenu.map((item) => renderMenuItem(item))}
+            </ul>
+          )}
         </nav>
       </div>
     </aside>

@@ -39,6 +39,7 @@ import UserNoteRoutes from "./routes/UserNotes.route";
 import navigationMenuRoutes from "./routes/NaviagationMenu.route";
 import wishlistRoutes from "./routes/Wishlist.route";
 import suitabilityRoutes from "./routes/Suitability.route";
+import AdminMenuItemRoutes from "./routes/AdminMenu.route";
 
 dotenv.config();
 
@@ -72,6 +73,8 @@ app.use("/api/user-notes", UserNoteRoutes);
 app.use("/api/navigation", navigationMenuRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/suitabilities", suitabilityRoutes);
+app.use("/api/admin-menu", AdminMenuItemRoutes);
+
 // Middleware xử lý lỗi
 
 // Kết nối DB

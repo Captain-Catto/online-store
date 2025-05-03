@@ -308,7 +308,6 @@ export default function AddProductPage() {
 
   // Tải kích thước dựa trên danh mục
   useEffect(() => {
-    // Tránh gọi lại nếu category không thay đổi
     if (!product.category || categoryList.length === 0) {
       return;
     }
@@ -330,21 +329,47 @@ export default function AddProductPage() {
 
         setAvailableSizeOptions(sizeOptions);
 
-        // Tránh vòng lặp useEffect bằng cách kiểm tra trước khi cập nhật
+        // Kiểm tra các size đã chọn, giữ lại những gì vẫn hợp lệ với danh mục mới
         const validSelectedSizes = product.sizes.filter((selectedSize) =>
           sizeOptions.some((option) => option.value === selectedSize)
         );
 
-        // Chỉ cập nhật khi có sự thay đổi thực sự
+        // Kiểm tra xem có sự thay đổi thực sự nào không
         const sizesChanged =
           validSelectedSizes.length !== product.sizes.length ||
           !validSelectedSizes.every((size) => product.sizes.includes(size));
 
-        if (sizesChanged && !updatingProductRef.current) {
-          updatingProductRef.current = true;
+        // Nếu sizes thay đổi, cập nhật cả sizes và variants
+        if (sizesChanged) {
           setProduct((prev) => {
-            updatingProductRef.current = false;
-            return { ...prev, sizes: validSelectedSizes };
+            // Lọc ra các biến thể có size vẫn còn hợp lệ
+            const validVariants = prev.stock.variants.filter((variant) =>
+              validSelectedSizes.includes(variant.size)
+            );
+
+            // Tính lại tổng tồn kho
+            const newTotal = validVariants.reduce(
+              (sum, variant) => sum + variant.stock,
+              0
+            );
+
+            // Hiển thị thông báo nếu có variants bị xóa
+            if (validVariants.length < prev.stock.variants.length) {
+              showToast(
+                "Một số biến thể đã bị xóa do không còn phù hợp với danh mục mới",
+                { type: "warning" }
+              );
+            }
+
+            return {
+              ...prev,
+              sizes: validSelectedSizes,
+              stock: {
+                ...prev.stock,
+                variants: validVariants,
+                total: newTotal,
+              },
+            };
           });
         }
       } catch (error) {
@@ -355,7 +380,7 @@ export default function AddProductPage() {
     };
 
     loadSizes();
-  }, [product.category, getSizeCategory]); // Giảm dependencies
+  }, [product.category, getSizeCategory, showToast, categoryList]);
 
   // Các hàm xử lý (hầu hết đã tốt, thêm useCallback nếu cần)
   const handleImageChange = useCallback(

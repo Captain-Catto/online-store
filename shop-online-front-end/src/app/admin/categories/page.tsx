@@ -6,6 +6,7 @@ import AdminLayout from "@/components/admin/layout/AdminLayout";
 import { CategoryService } from "@/services/CategoryService";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
 import Image from "next/image";
+import ConfirmModal from "@/components/admin/shared/ConfirmModal";
 
 // Define interfaces outside the component
 interface Category {
@@ -72,6 +73,13 @@ export default function CategoriesManagement() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const childFileInputRef = useRef<HTMLInputElement>(null);
+
+  // State để theo dõi xác nhận xóa
+  const [deleteConfirmation, setDeleteConfirmation] = useState({
+    isOpen: false,
+    itemId: null as string | number | null,
+    itemName: "", // Lưu tên để hiển thị trong xác nhận
+  });
 
   // Fetch categories on component mount
   useEffect(() => {
@@ -392,22 +400,6 @@ export default function CategoriesManagement() {
     setShowChildForm(false);
   };
 
-  // Handler to delete category
-  const handleDeleteCategory = async (id: string | number) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa danh mục này?")) return;
-
-    try {
-      await CategoryService.deleteCategory(id);
-      showToast("Xóa danh mục thành công", { type: "success" });
-      const data = await CategoryService.getAllCategories();
-      const flattenedData = flattenCategories(data);
-      setCategories(flattenedData);
-    } catch (error) {
-      console.error("Error deleting category:", error);
-      showToast("Lỗi khi xóa danh mục", { type: "error" });
-    }
-  };
-
   // Reset all forms
   const resetForm = () => {
     setEditingCategory(null);
@@ -456,6 +448,43 @@ export default function CategoriesManagement() {
 
     // Otherwise, prepend base URL
     return `${process.env.NEXT_PUBLIC_API_URL || ""}${relativePath}`;
+  };
+
+  // Handler để mở modal xác nhận xóa
+  const handleDeleteRequest = (category: Category) => {
+    setDeleteConfirmation({
+      isOpen: true,
+      itemId: category.id,
+      itemName: category.name,
+    });
+  };
+
+  // Handler để đóng modal
+  const handleCancelDelete = () => {
+    setDeleteConfirmation({
+      isOpen: false,
+      itemId: null,
+      itemName: "",
+    });
+  };
+
+  // Handler thực hiện xóa
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmation.itemId) return;
+
+    try {
+      await CategoryService.deleteCategory(deleteConfirmation.itemId);
+      showToast("Xóa danh mục thành công", { type: "success" });
+      const data = await CategoryService.getAllCategories();
+      const flattenedData = flattenCategories(data);
+      setCategories(flattenedData);
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      showToast("Lỗi khi xóa danh mục", { type: "error" });
+    } finally {
+      // Đóng modal sau khi hoàn tất
+      handleCancelDelete();
+    }
   };
 
   return (
@@ -1037,7 +1066,7 @@ export default function CategoriesManagement() {
                                   </button>
                                   <button
                                     onClick={() =>
-                                      handleDeleteCategory(parentCategory.id)
+                                      handleDeleteRequest(parentCategory)
                                     }
                                     className="btn btn-sm btn-danger"
                                     title="Xóa"
@@ -1121,9 +1150,7 @@ export default function CategoriesManagement() {
                                         </button>
                                         <button
                                           onClick={() =>
-                                            handleDeleteCategory(
-                                              childCategory.id
-                                            )
+                                            handleDeleteRequest(childCategory)
                                           }
                                           className="btn btn-sm btn-danger"
                                           title="Xóa"
@@ -1145,6 +1172,16 @@ export default function CategoriesManagement() {
           </div>
         </div>
       </section>
+      <ConfirmModal
+        isOpen={deleteConfirmation.isOpen}
+        title="Xác nhận xóa"
+        message={`Bạn có chắc chắn muốn xóa danh mục "${deleteConfirmation.itemName}"?`}
+        confirmLabel="Xóa"
+        cancelLabel="Hủy"
+        confirmButtonClass="btn-danger"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
       {/* toast noti */}
       {Toast}
     </AdminLayout>

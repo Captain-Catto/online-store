@@ -13,6 +13,8 @@ import BasicInfoForm from "./BasicInfoForm";
 import AttributesTab from "./AttributesTab";
 import InventoryTab from "./InventoryTab";
 import ImagesTab from "./ImagesTab";
+import ConfirmModal from "@/components/admin/shared/ConfirmModal";
+import { colorToVietnamese } from "@/utils/colorUtils";
 
 // Định nghĩa các kiểu dữ liệu
 interface ProductDetail {
@@ -124,6 +126,7 @@ interface ProductApiResponse {
   status: string;
   tags: string[] | string;
   suitability: string[] | string;
+  suitabilities?: Array<{ id: number; name: string }>;
   createdAt: string;
   updatedAt: string;
   details: ProductDetailApiResponse[];
@@ -183,6 +186,20 @@ const ProductDetailPage: FC = () => {
   const [suitabilityLoading, setSuitabilityLoading] = useState(false);
   const [selectedImageColor, setSelectedImageColor] = useState<string>("");
 
+  // Thêm vào danh sách state
+  const [imageDeleteConfirmation, setImageDeleteConfirmation] = useState({
+    isOpen: false,
+    imageId: null as number | string | null,
+    imageColor: "",
+  });
+
+  // State quản lý xác nhận xóa biến thể
+  const [variantDeleteConfirmation, setVariantDeleteConfirmation] = useState({
+    isOpen: false,
+    variantIndex: -1,
+    variantColor: "",
+  });
+
   // Danh sách màu sắc và kích thước mẫu
   const availableColors = [
     { key: "black", label: "Đen" },
@@ -213,10 +230,15 @@ const ProductDetailPage: FC = () => {
         ? JSON.parse(productData.tags as string)
         : productData.tags;
 
-    const suitability =
-      typeof productData.suitability === "string"
-        ? JSON.parse(productData.suitability as string)
-        : productData.suitability;
+    // Thay đổi đoạn code trong formatProductData
+    const suitability = Array.isArray(productData.suitabilities)
+      ? productData.suitabilities.map((item) => item.name)
+      : typeof productData.suitability === "string"
+      ? JSON.parse(productData.suitability as string)
+      : productData.suitability || [];
+
+    console.log("API suitabilities format:", productData.suitabilities);
+    console.log("Formatted suitability:", suitability);
 
     const totalStock = productData.details.reduce((total, detail) => {
       return (
@@ -329,6 +351,7 @@ const ProductDetailPage: FC = () => {
       try {
         setLoading(true);
         const productData = await ProductService.getProductVariants(id);
+        console.log("Product data:", productData);
 
         // Set biến thể sản phẩm
         setProductVariants(
@@ -559,20 +582,48 @@ const ProductDetailPage: FC = () => {
     });
   };
 
-  // Hàm xóa hình ảnh
-  const handleRemoveImage = (imageId: number | string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa hình ảnh này?")) return;
+  // Hàm để mở modal xác nhận xóa hình ảnh
+  const handleImageDeleteRequest = (imageId: number | string) => {
+    const imageToDelete = product?.images.find((img) => img.id === imageId);
+    if (!imageToDelete) return;
+
+    setImageDeleteConfirmation({
+      isOpen: true,
+      imageId: imageId,
+      imageColor: imageToDelete.color,
+    });
+  };
+
+  // Hàm để đóng modal
+  const handleCancelImageDelete = () => {
+    setImageDeleteConfirmation({
+      isOpen: false,
+      imageId: null,
+      imageColor: "",
+    });
+  };
+
+  // Hàm thực hiện xóa sau khi đã xác nhận
+  const handleConfirmImageDelete = () => {
+    if (!imageDeleteConfirmation.imageId) return;
 
     setProduct((prev) => {
       if (!prev) return prev;
-      const updatedImages = prev.images.filter((img) => img.id !== imageId);
+      const updatedImages = prev.images.filter(
+        (img) => img.id !== imageDeleteConfirmation.imageId
+      );
 
       // Nếu hình ảnh bị xóa đã tồn tại trong DB (id là số), thêm vào danh sách removedImageIds
-      if (typeof imageId === "number") {
-        setRemovedImageIds((prev) => [...prev, imageId]);
+      if (typeof imageDeleteConfirmation.imageId === "number") {
+        setRemovedImageIds((prev) => [
+          ...prev,
+          imageDeleteConfirmation.imageId as number,
+        ]);
       }
 
-      const color = prev.images.find((img) => img.id === imageId)?.color;
+      const color = prev.images.find(
+        (img) => img.id === imageDeleteConfirmation.imageId
+      )?.color;
       if (color) {
         const imagesForColor = updatedImages.filter(
           (img) => img.color === color
@@ -590,6 +641,65 @@ const ProductDetailPage: FC = () => {
         images: updatedImages,
       };
     });
+
+    // Đóng modal sau khi hoàn tất
+    handleCancelImageDelete();
+  };
+
+  // Hàm để mở modal xác nhận xóa biến thể
+  const handleVariantDeleteRequest = (variantIndex: number) => {
+    const variant = productVariants[variantIndex];
+    if (!variant) return;
+
+    setVariantDeleteConfirmation({
+      isOpen: true,
+      variantIndex: variantIndex,
+      variantColor: variant.color,
+    });
+  };
+
+  // Hàm để đóng modal xác nhận xóa biến thể
+  const handleCancelVariantDelete = () => {
+    setVariantDeleteConfirmation({
+      isOpen: false,
+      variantIndex: -1,
+      variantColor: "",
+    });
+  };
+
+  // Hàm thực hiện xóa biến thể sau khi đã xác nhận
+  const handleConfirmVariantDelete = () => {
+    if (variantDeleteConfirmation.variantIndex < 0) return;
+
+    const variantIndex = variantDeleteConfirmation.variantIndex;
+    const newVariants = [...productVariants];
+    const removedColor = newVariants[variantIndex].color;
+
+    if (newVariants[variantIndex].id) {
+      setRemovedDetailIds((prev) => [...prev, newVariants[variantIndex].id!]);
+    }
+
+    newVariants.splice(variantIndex, 1);
+    setProductVariants(newVariants);
+
+    // Cập nhật product.colors và xóa ảnh liên quan
+    setProduct((prev) => {
+      if (!prev) return prev;
+      const updatedColors = prev.colors.filter(
+        (color) => color !== removedColor
+      );
+      const updatedImages = prev.images.filter(
+        (img) => img.color !== removedColor
+      );
+      return {
+        ...prev,
+        colors: updatedColors,
+        images: updatedImages,
+      };
+    });
+
+    // Đóng modal sau khi hoàn tất
+    handleCancelVariantDelete();
   };
 
   // Hàm kiểm tra dữ liệu trước khi lưu
@@ -740,7 +850,11 @@ const ProductDetailPage: FC = () => {
       console.log("[Debug] Variants data to update:", productVariants);
 
       // Call the API endpoint to update variants
-      await ProductService.updateProductVariants(product.id, productVariants);
+      if (product) {
+        await ProductService.updateProductVariants(product.id, productVariants);
+      } else {
+        console.error("Product is null. Cannot update product variants.");
+      }
 
       // Update modification history
       const newHistoryItem = {
@@ -830,18 +944,18 @@ const ProductDetailPage: FC = () => {
       // 1. Cập nhật thông tin cơ bản
       console.log("[Debug] Updating basic product info");
       const basicInfoData = {
-        name: product.name,
-        sku: product.sku,
-        description: product.description,
-        brand: product.brand,
-        material: product.material,
-        featured: product.featured,
-        status: product.status,
-        tags: product.tags,
-        suitability: product.suitability,
+        name: product?.name || "",
+        sku: product?.sku || "",
+        description: product?.description || "",
+        brand: product?.brand || "",
+        material: product?.material || "",
+        featured: !!product?.featured,
+        status: product?.status || "",
+        tags: product?.tags || "",
+        suitability: product?.suitability || "",
         categories: [
-          parseInt(String(product.category), 10),
-          ...(product.subtype ? [parseInt(String(product.subtype), 10)] : []),
+          parseInt(String(product?.category || ""), 10),
+          ...(product?.subtype ? [parseInt(String(product.subtype), 10)] : []),
         ],
       };
       console.log("[Debug] Basic info payload:", basicInfoData);
@@ -866,7 +980,19 @@ const ProductDetailPage: FC = () => {
         return;
       }
 
-      await ProductService.updateProductBasicInfo(product.id, basicInfoData);
+      if (product) {
+        await ProductService.updateProductBasicInfo(product.id, {
+          ...basicInfoData,
+          tags: Array.isArray(basicInfoData.tags) ? basicInfoData.tags : [],
+          suitability: Array.isArray(basicInfoData.suitability)
+            ? basicInfoData.suitability
+            : typeof basicInfoData.suitability === "string"
+            ? [basicInfoData.suitability]
+            : [],
+        });
+      } else {
+        console.error("Product is null. Cannot update basic info.");
+      }
       showToast("Cập nhật thông tin cơ bản thành công!", { type: "success" });
 
       // 2. Cập nhật tồn kho
@@ -889,7 +1015,11 @@ const ProductDetailPage: FC = () => {
         };
       });
 
-      await ProductService.updateProductInventory(product.id, inventoryData);
+      if (product?.id !== undefined) {
+        await ProductService.updateProductInventory(product.id, inventoryData);
+      } else {
+        console.error("Product ID is undefined. Cannot update inventory.");
+      }
       showToast("Cập nhật tồn kho thành công!", { type: "success" });
 
       // 3. Cập nhật biến thể
@@ -994,39 +1124,6 @@ const ProductDetailPage: FC = () => {
       return {
         ...prev,
         colors: updatedColors,
-      };
-    });
-  };
-
-  // Xóa biến thể
-  const removeVariant = (variantIndex: number): void => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa biến thể này không?")) {
-      return;
-    }
-
-    const newVariants = [...productVariants];
-    const removedColor = newVariants[variantIndex].color;
-
-    if (newVariants[variantIndex].id) {
-      setRemovedDetailIds((prev) => [...prev, newVariants[variantIndex].id!]);
-    }
-
-    newVariants.splice(variantIndex, 1);
-    setProductVariants(newVariants);
-
-    // Cập nhật product.colors và xóa ảnh liên quan
-    setProduct((prev) => {
-      if (!prev) return prev;
-      const updatedColors = prev.colors.filter(
-        (color) => color !== removedColor
-      );
-      const updatedImages = prev.images.filter(
-        (img) => img.color !== removedColor
-      );
-      return {
-        ...prev,
-        colors: updatedColors,
-        images: updatedImages,
       };
     });
   };
@@ -1641,65 +1738,134 @@ const ProductDetailPage: FC = () => {
                     </>
                   ) : (
                     <>
-                      <div className="form-group">
-                        <label>Mô tả sản phẩm</label>
-                        <p>{product.description || "Chưa có mô tả"}</p>
-                      </div>
-                      <div className="row">
-                        <div className="col-md-6 form-group">
-                          <label>Màu sắc</label>
-                          <div>
-                            {product.colors.map((color, index) => (
-                              <div
-                                key={index}
-                                className="d-inline-flex align-items-center mr-2 mb-2"
-                              >
-                                <div
-                                  className="mr-1"
-                                  style={{
-                                    backgroundColor: color.toLowerCase(),
-                                    width: "20px",
-                                    height: "20px",
-                                    border: "1px solid #ddd",
-                                    display: "inline-block",
-                                  }}
-                                ></div>
-                                <span className="badge badge-primary">
-                                  {color}
-                                </span>
+                      <div className="card card-body mb-3">
+                        <h5 className="mb-3 border-bottom pb-2">
+                          Thông tin sản phẩm
+                        </h5>
+
+                        <div className="form-group">
+                          <label className="font-weight-bold">
+                            Mô tả sản phẩm
+                          </label>
+                          <div className="p-2 bg-light rounded">
+                            {product.description ? (
+                              <p className="mb-0">{product.description}</p>
+                            ) : (
+                              <p className="text-muted mb-0 font-italic">
+                                Chưa có mô tả
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="row mt-4">
+                          <div className="col-md-6">
+                            <div className="form-group">
+                              <label className="font-weight-bold">
+                                <i className="fas fa-palette mr-1"></i> Màu sắc
+                              </label>
+                              <div className="d-flex flex-wrap">
+                                {product.colors.length > 0 ? (
+                                  product.colors.map((color, index) => (
+                                    <div
+                                      key={index}
+                                      className="d-inline-flex align-items-center mr-2 mb-2 bg-white p-1 rounded border"
+                                    >
+                                      <div
+                                        className="mr-1"
+                                        style={{
+                                          backgroundColor: color.toLowerCase(),
+                                          width: "20px",
+                                          height: "20px",
+                                          borderRadius: "3px",
+                                          border: "1px solid #ddd",
+                                          display: "inline-block",
+                                        }}
+                                      ></div>
+                                      <span className="badge badge-light">
+                                        {color}
+                                      </span>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <span className="text-muted">
+                                    Chưa có màu sắc
+                                  </span>
+                                )}
                               </div>
-                            ))}
+                            </div>
+                          </div>
+
+                          <div className="col-md-6">
+                            <div className="form-group">
+                              <label className="font-weight-bold">
+                                <i className="fas fa-ruler mr-1"></i> Kích thước
+                              </label>
+                              <div>
+                                {product.sizes.length > 0 ? (
+                                  product.sizes.map((size, index) => (
+                                    <span
+                                      key={index}
+                                      className="badge badge-info mr-2 mb-2 p-2"
+                                      style={{ fontSize: "90%" }}
+                                    >
+                                      {size}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="text-muted">
+                                    Chưa có kích thước
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
-                        <div className="col-md-6 form-group">
-                          <label>Kích thước</label>
+
+                        <div className="form-group mt-2">
+                          <label className="font-weight-bold">
+                            <i className="fas fa-check-circle mr-1"></i> Phù hợp
+                            cho
+                          </label>
                           <div>
-                            {product.sizes.map((size, index) => (
-                              <span
-                                key={index}
-                                className="badge badge-info mr-1"
-                              >
-                                {size}
+                            {product?.suitability &&
+                            product.suitability.length > 0 ? (
+                              product.suitability.map((item, index) => (
+                                <span
+                                  key={index}
+                                  className="badge badge-info mr-2 mb-2 p-2"
+                                  style={{ fontSize: "90%" }}
+                                >
+                                  <i className="fas fa-tag mr-1"></i> {item}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-muted">
+                                Chưa có thông tin phù hợp
                               </span>
-                            ))}
+                            )}
                           </div>
                         </div>
-                      </div>
-                      <div className="form-group">
-                        <label>Tags</label>
-                        <div>
-                          {product.tags.length > 0 ? (
-                            product.tags.map((tag, index) => (
-                              <span
-                                key={index}
-                                className="badge badge-secondary mr-1"
-                              >
-                                {tag}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-muted">Chưa có tag</span>
-                          )}
+
+                        <div className="form-group mt-2">
+                          <label className="font-weight-bold">
+                            <i className="fas fa-tags mr-1"></i> Tags
+                          </label>
+                          <div>
+                            {product.tags.length > 0 ? (
+                              product.tags.map((tag, index) => (
+                                <span
+                                  key={index}
+                                  className="badge badge-secondary mr-2 mb-2 p-2"
+                                  style={{ fontSize: "90%" }}
+                                >
+                                  {tag}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-muted">Chưa có tag</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </>
@@ -1882,7 +2048,7 @@ const ProductDetailPage: FC = () => {
                         e.target.value = "";
                       }}
                       handleSetMainImage={handleSetMainImage}
-                      handleRemoveImage={handleRemoveImage}
+                      handleRemoveImage={handleImageDeleteRequest}
                     />
                   ) : (
                     <ImagesTab
@@ -2052,7 +2218,9 @@ const ProductDetailPage: FC = () => {
                               <td>
                                 <button
                                   className="btn btn-sm btn-danger"
-                                  onClick={() => removeVariant(index)}
+                                  onClick={() =>
+                                    handleVariantDeleteRequest(index)
+                                  }
                                 >
                                   <i className="fas fa-trash"></i> Xóa
                                 </button>
@@ -2153,7 +2321,7 @@ const ProductDetailPage: FC = () => {
               <div className="modal-body">
                 <p>
                   Bạn có chắc chắn muốn xóa sản phẩm{" "}
-                  <strong>"{productToDelete.name}"</strong>?
+                  <strong>&quot;{productToDelete.name}&quot;</strong>?
                 </p>
                 <p className="mb-0 text-danger">
                   <i className="fas fa-info-circle mr-1"></i>
@@ -2201,6 +2369,38 @@ const ProductDetailPage: FC = () => {
           </div>
         </div>
       )}
+
+      {/* Modal xác nhận xóa ảnh */}
+      <ConfirmModal
+        isOpen={imageDeleteConfirmation.isOpen}
+        title="Xác nhận xóa"
+        message={`Bạn có chắc chắn muốn xóa hình ảnh này của màu ${
+          colorToVietnamese[imageDeleteConfirmation.imageColor] ||
+          imageDeleteConfirmation.imageColor
+        }?`}
+        confirmLabel="Xóa"
+        cancelLabel="Hủy"
+        confirmButtonClass="btn-danger"
+        onConfirm={handleConfirmImageDelete}
+        onCancel={handleCancelImageDelete}
+      />
+
+      {/* Modal xác nhận xóa biến thể */}
+      <ConfirmModal
+        isOpen={variantDeleteConfirmation.isOpen}
+        title="Xác nhận xóa biến thể"
+        message={`Bạn có chắc chắn muốn xóa biến thể màu ${
+          colorToVietnamese[variantDeleteConfirmation.variantColor] ||
+          variantDeleteConfirmation.variantColor
+        }? Hình ảnh và dữ liệu tồn kho liên quan cũng sẽ bị xóa.`}
+        confirmLabel="Xóa"
+        cancelLabel="Hủy"
+        confirmButtonClass="btn-danger"
+        onConfirm={handleConfirmVariantDelete}
+        onCancel={handleCancelVariantDelete}
+      />
+
+      {Toast}
       {Toast}
     </AdminLayout>
   );

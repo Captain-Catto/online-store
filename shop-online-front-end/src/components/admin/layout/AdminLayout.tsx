@@ -17,7 +17,7 @@ export default function AdminLayout({
   title = "Admin Dashboard",
 }: AdminLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [openMenus, setOpenMenus] = useState<string[]>([]);
+  const [openMenuIds, setOpenMenuIds] = useState<number[]>([]);
   const { isMobile, isTablet } = useDevice();
 
   // Automatically collapse sidebar on mobile
@@ -38,12 +38,16 @@ export default function AdminLayout({
     setSidebarCollapsed(!sidebarCollapsed);
   };
 
-  const toggleMenu = (menuPath: string) => {
-    setOpenMenus((prev) => {
-      if (prev.includes(menuPath)) {
-        return prev.filter((path) => path !== menuPath);
-      } else {
-        return [...prev, menuPath];
+  // Toggle menu bằng cách thêm/xóa ID từ array
+  const toggleMenu = (id: number) => {
+    setOpenMenuIds((prev) => {
+      // Nếu id đã tồn tại, xóa nó (đóng menu)
+      if (prev.includes(id)) {
+        return prev.filter((item) => item !== id);
+      }
+      // Nếu chưa có, thêm vào (mở menu)
+      else {
+        return [...prev, id];
       }
     });
   };
@@ -87,7 +91,7 @@ export default function AdminLayout({
       >
         <AdminNavbar toggleSidebar={toggleSidebar} />
         {/* Conditionally render sidebar based on screen size */}
-        <AdminSidebar openMenus={openMenus} toggleMenu={toggleMenu} />
+        <AdminSidebar openMenuIds={openMenuIds} toggleMenu={toggleMenu} />
 
         {/* Content Wrapper */}
         <div className="content-wrapper">{children}</div>

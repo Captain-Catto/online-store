@@ -23,6 +23,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import SortableSuitabilityRow from "@/components/admin/suitability/SortableSuitabilityRow";
+import ConfirmModal from "@/components/admin/shared/ConfirmModal";
 
 interface Suitability {
   id: number;
@@ -47,6 +48,13 @@ export default function SuitabilitiesManagement() {
   // thêm state xử lý drag end
   const [reordering, setReordering] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+
+  // State để theo dõi xác nhận xóa
+  const [deleteConfirmation, setDeleteConfirmation] = useState({
+    isOpen: false,
+    itemId: null as number | null,
+    itemName: "",
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -158,14 +166,31 @@ export default function SuitabilitiesManagement() {
     setEditingId(suitability.id);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa?")) {
-      return;
-    }
+  // Hàm để mở modal xác nhận xóa
+  const handleDeleteRequest = (suitability: Suitability) => {
+    setDeleteConfirmation({
+      isOpen: true,
+      itemId: suitability.id,
+      itemName: suitability.name,
+    });
+  };
+
+  // Hàm để đóng modal
+  const handleCancelDelete = () => {
+    setDeleteConfirmation({
+      isOpen: false,
+      itemId: null,
+      itemName: "",
+    });
+  };
+
+  // Hàm thực hiện xóa sau khi đã xác nhận
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmation.itemId) return;
 
     try {
       const response = await AuthClient.fetchWithAuth(
-        `${API_BASE_URL}/suitabilities/${id}`,
+        `${API_BASE_URL}/suitabilities/${deleteConfirmation.itemId}`,
         {
           method: "DELETE",
         }
@@ -185,6 +210,9 @@ export default function SuitabilitiesManagement() {
           type: "error",
         }
       );
+    } finally {
+      // Đóng modal sau khi hoàn tất
+      handleCancelDelete();
     }
   };
 
@@ -409,7 +437,7 @@ export default function SuitabilitiesManagement() {
                                   item={item}
                                   isActive={activeId === item.id.toString()}
                                   onEdit={handleEdit}
-                                  onDelete={handleDelete}
+                                  onDelete={handleDeleteRequest}
                                 />
                               ))
                             )}
@@ -424,6 +452,16 @@ export default function SuitabilitiesManagement() {
           </div>
         </div>
       </section>
+      <ConfirmModal
+        isOpen={deleteConfirmation.isOpen}
+        title="Xác nhận xóa"
+        message={`Bạn có chắc chắn muốn xóa "${deleteConfirmation.itemName}"?`}
+        confirmLabel="Xóa"
+        cancelLabel="Hủy"
+        confirmButtonClass="btn-danger"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
       {Toast}
     </AdminLayout>
   );

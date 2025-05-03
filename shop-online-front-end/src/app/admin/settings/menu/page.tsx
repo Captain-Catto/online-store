@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import React from "react";
 import {
   DndContext,
@@ -20,55 +20,41 @@ import {
 } from "@dnd-kit/sortable";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
-import {
-  NavigationService,
-  NavigationMenuItem,
-} from "@/services/NaviagationService";
-import { CategoryService } from "@/services/CategoryService";
-import SortableTableRow from "@/components/admin/navigation/SortableTableRow";
-import { useNavigation } from "@/contexts/NavigationContext";
+import { AdminMenuService } from "@/services/AdminMenuService";
+import { MenuItemData } from "@/hooks/useAdminMenu";
+import SortableTableRow from "@/components/admin/settings/SortableMenuRow";
 import { useToast } from "@/utils/useToast";
 import ConfirmModal from "@/components/admin/shared/ConfirmModal";
 
-export default function NavigationManagement() {
+export default function AdminMenuManagement() {
   const { showToast, Toast } = useToast();
 
-  const [menuItems, setMenuItems] = useState<NavigationMenuItem[]>([]);
-  interface Category {
-    id: number;
-    name: string;
-  }
-
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [menuItems, setMenuItems] = useState<MenuItemData[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const { refreshNavigation, updateMenuItems } = useNavigation();
 
   // Form state
   const [formMode, setFormMode] = useState<"add" | "edit">("add");
-  const [editingItem, setEditingItem] = useState<NavigationMenuItem | null>(
-    null
-  );
+  const [editingItem, setEditingItem] = useState<MenuItemData | null>(null);
   const [formData, setFormData] = useState({
-    name: "",
-    link: "",
-    categoryId: "",
+    title: "",
+    path: "",
+    icon: "",
     parentId: "",
-    isActive: true,
-    megaMenu: false,
+    displayOrder: 0,
   });
 
-  // state cho các menu đang được mở rộng
-  const [expandedMenuItems, setExpandedMenuItems] = useState<Set<string>>(
+  // State để theo dõi các menu đang được mở rộng
+  const [expandedMenuIds, setExpandedMenuIds] = useState<Set<string>>(
     new Set()
   );
 
-  // Thêm state cho modal xác nhận xóa
+  // State để theo dõi xác nhận xóa
   const [deleteConfirmation, setDeleteConfirmation] = useState({
     isOpen: false,
     itemId: null as number | null,
-    itemName: "", // Lưu tên để hiển thị trong xác nhận
+    itemName: "", // tên mục menu để hiển thị trong modal
   });
 
   // Cấu hình sensors cho drag and drop
@@ -83,119 +69,105 @@ export default function NavigationManagement() {
     })
   );
 
-  // Tải danh sách menu và categories
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        const [menuData, categoryData] = await Promise.all([
-          NavigationService.getAllMenuItems(),
-          CategoryService.getAllCategories(),
-        ]);
+  // Load menu items từ API
+  const loadMenuItems = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await AdminMenuService.getAllMenuItems();
+      setMenuItems(data);
 
-        setMenuItems(menuData);
-        setCategories(
-          categoryData.map((category) => ({
-            ...category,
-            id:
-              typeof category.id === "string"
-                ? parseInt(category.id, 10)
-                : category.id,
-          }))
-        );
+      // Mặc định mở rộng tất cả menu cha
+      const parentMenuIds = data
+        .filter((item) => !item.parentId)
+        .map((item) => item.id.toString());
+      setExpandedMenuIds(new Set(parentMenuIds));
 
-        // Mặc định mở rộng tất cả menu cha
-        const parentMenuIds = menuData
-          .filter((item) => !item.parentId)
-          .map((item) => item.id.toString());
-        setExpandedMenuItems(new Set(parentMenuIds));
-
-        setError(null);
-      } catch (error) {
-        console.error("Lỗi khi tải dữ liệu:", error);
-        setError("Không thể tải dữ liệu. Vui lòng thử lại sau.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
+      setError(null);
+    } catch (err) {
+      console.error("Lỗi khi tải menu:", err);
+      setError("Không thể tải danh sách menu");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadMenuItems();
+  }, [loadMenuItems]);
 
   // Xử lý form submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const submitData = {
+        title: formData.title,
+        path: formData.path,
+        icon: formData.icon,
+        parentId: formData.parentId ? parseInt(formData.parentId) : null,
+        displayOrder: formData.displayOrder,
+      };
+
       if (formMode === "add") {
-        await NavigationService.createMenuItem({
-          name: formData.name,
-          link: formData.link || null,
-          categoryId: formData.categoryId
-            ? parseInt(formData.categoryId)
-            : null,
-          parentId: formData.parentId ? parseInt(formData.parentId) : null,
-          order: menuItems.length,
-          isActive: formData.isActive,
-          megaMenu: formData.megaMenu,
-        });
+        await AdminMenuService.createMenuItem(submitData);
+        showToast("Thêm menu thành công!", { type: "success" });
       } else if (formMode === "edit" && editingItem) {
-        await NavigationService.updateMenuItem(editingItem.id, {
-          name: formData.name,
-          link: formData.link,
-          categoryId: formData.categoryId
-            ? parseInt(formData.categoryId)
-            : null,
-          parentId: formData.parentId ? parseInt(formData.parentId) : null,
-          isActive: formData.isActive,
-          megaMenu: formData.megaMenu,
-        });
+        await AdminMenuService.updateMenuItem(editingItem.id, submitData);
+        showToast("Cập nhật menu thành công!", { type: "success" });
       }
 
       resetForm();
-      // Tải lại danh sách menu
-      const menuData = await NavigationService.getAllMenuItems();
-      setMenuItems(menuData);
-      await refreshNavigation();
-    } catch (error) {
-      console.error("Lỗi khi lưu menu:", error);
-      setError("Không thể lưu menu. Vui lòng thử lại.");
+      await loadMenuItems();
+    } catch (err) {
+      console.error("Lỗi khi lưu menu:", err);
+      showToast("Lỗi khi lưu mục menu", { type: "error" });
     }
   };
 
   // Reset form
   const resetForm = () => {
     setFormData({
-      name: "",
-      link: "",
-      categoryId: "",
+      title: "",
+      path: "",
+      icon: "",
       parentId: "",
-      isActive: true,
-      megaMenu: false,
+      displayOrder: 0,
     });
     setFormMode("add");
     setEditingItem(null);
   };
 
   // Edit menu item
-  const handleEdit = (item: NavigationMenuItem) => {
+  const handleEdit = (item: MenuItemData) => {
     setFormMode("edit");
     setEditingItem(item);
     setFormData({
-      name: item.name,
-      link: item.link || "",
-      categoryId: item.categoryId ? item.categoryId.toString() : "",
+      title: item.title,
+      path: item.path,
+      icon: item.icon,
       parentId: item.parentId ? item.parentId.toString() : "",
-      isActive: item.isActive,
-      megaMenu: item.megaMenu,
+      displayOrder: item.displayOrder,
+    });
+  };
+
+  // Toggle mở/đóng các menu con
+  const toggleMenuExpansion = (menuId: string) => {
+    setExpandedMenuIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(menuId)) {
+        newSet.delete(menuId);
+      } else {
+        newSet.add(menuId);
+      }
+      return newSet;
     });
   };
 
   // Hàm để mở modal xác nhận xóa
-  const handleDeleteRequest = (item: NavigationMenuItem) => {
+  const handleDeleteRequest = (item: MenuItemData) => {
     setDeleteConfirmation({
       isOpen: true,
       itemId: item.id,
-      itemName: item.name,
+      itemName: item.title,
     });
   };
 
@@ -213,19 +185,11 @@ export default function NavigationManagement() {
     if (!deleteConfirmation.itemId) return;
 
     try {
-      await NavigationService.deleteMenuItem(deleteConfirmation.itemId);
-      // Tải lại danh sách menu
-      const menuData = await NavigationService.getAllMenuItems();
-      setMenuItems(menuData);
-
-      // Cập nhật navbar
-      await refreshNavigation();
-
-      // Hiển thị thông báo thành công
-      showToast("Xóa mục menu thành công", { type: "success" });
-    } catch (error) {
-      console.error("Lỗi khi xóa menu:", error);
-      setError("Không thể xóa menu. Vui lòng thử lại.");
+      await AdminMenuService.deleteMenuItem(deleteConfirmation.itemId);
+      showToast("Xóa mục menu thành công!", { type: "success" });
+      await loadMenuItems();
+    } catch (err) {
+      console.error("Lỗi khi xóa menu:", err);
       showToast("Không thể xóa menu", { type: "error" });
     } finally {
       // Đóng modal sau khi hoàn tất
@@ -238,7 +202,7 @@ export default function NavigationManagement() {
     setActiveId(event.active.id.toString());
   };
 
-  // Cập nhật hàm handleDragEnd để xử lý kéo thả trong cấu trúc phân cấp
+  // Xử lý khi kéo thả hoàn tất
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
@@ -253,66 +217,43 @@ export default function NavigationManagement() {
 
     if (!draggedItem || !targetItem) return;
 
-    // Không cho phép kéo menu cha thành con của menu khác
-    if (!draggedItem.parentId && targetItem.parentId) {
-      showToast("Không thể di chuyển menu cha thành menu con", {
-        type: "warning",
-      });
-      return; // Dừng hành động kéo thả
-    }
-
     try {
       setLoading(true);
 
-      // Xác định chỉ số và tạo mảng mới
+      // Xác định index mới cho các item
       const oldIndex = menuItems.findIndex(
-        (item) => item.id.toString() === active.id
+        (item) => item.id === draggedItem.id
       );
-      const newIndex = menuItems.findIndex(
-        (item) => item.id.toString() === over.id
-      );
-      const updatedItems = arrayMove(menuItems, oldIndex, newIndex);
+      const newIndex = menuItems.findIndex((item) => item.id === targetItem.id);
 
-      // Cập nhật state
+      // Tạo mảng mới với thứ tự đã được thay đổi
+      const newItems = arrayMove(menuItems, oldIndex, newIndex);
+
+      // Cập nhật displayOrder cho các phần tử
+      const updatedItems = newItems.map((item, index) => ({
+        ...item,
+        displayOrder: index + 1,
+      }));
+
       setMenuItems(updatedItems);
 
-      // Cập nhật thứ tự trong database
-      const promises = updatedItems.map((item, index) =>
-        NavigationService.updateMenuItem(item.id, { order: index })
+      // Gọi API để cập nhật thứ tự trên server
+      await AdminMenuService.updateMenuOrder(
+        updatedItems.map((item) => ({
+          id: item.id,
+          displayOrder: item.displayOrder,
+        }))
       );
 
-      await Promise.all(promises);
-
-      // Cập nhật menu trong context
-      updateMenuItems(updatedItems);
-      await refreshNavigation();
-
-      showToast("Đã thay đổi vị trí menu thành công", { type: "success" });
+      showToast("Đã cập nhật thứ tự menu", { type: "success" });
     } catch (error) {
       console.error("Lỗi khi cập nhật thứ tự:", error);
-      showToast("Không thể thay đổi vị trí menu. Vui lòng thử lại.", {
-        type: "error",
-      });
-
-      // Tải lại menu nếu có lỗi
-      const menuData = await NavigationService.getAllMenuItems();
-      setMenuItems(menuData);
+      showToast("Không thể cập nhật thứ tự menu", { type: "error" });
+      // Load lại dữ liệu nếu có lỗi
+      await loadMenuItems();
     } finally {
       setLoading(false);
     }
-  };
-
-  // hàm để mở rộng hoặc thu gọn menu con
-  const toggleMenuExpansion = (menuId: string) => {
-    setExpandedMenuItems((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(menuId)) {
-        newSet.delete(menuId);
-      } else {
-        newSet.add(menuId);
-      }
-      return newSet;
-    });
   };
 
   // Hàm lấy danh sách menu cha (root menu items)
@@ -326,18 +267,19 @@ export default function NavigationManagement() {
   };
 
   return (
-    <AdminLayout title="Quản lý Menu Điều hướng">
+    <AdminLayout title="Quản lý Menu Sidebar">
       <div className="content-header">
         <div className="container-fluid">
           <div className="row mb-2">
             <div className="col-sm-6">
-              <h1 className="m-0">Quản lý Menu Điều hướng</h1>
+              <h1 className="m-0">Quản lý Menu Sidebar</h1>
             </div>
             <div className="col-sm-6">
               <Breadcrumb
                 items={[
                   { label: "Dashboard", href: "/admin" },
-                  { label: "Quản lý Menu Điều hướng", active: true },
+                  { label: "Cài đặt" },
+                  { label: "Menu Sidebar", active: true },
                 ]}
               />
             </div>
@@ -348,7 +290,7 @@ export default function NavigationManagement() {
       <section className="content">
         <div className="container-fluid">
           <div className="row">
-            {/* Form thêm/sửa menu */}
+            {/* Form thêm/sửa menu - Giống như trong navigation */}
             <div className="col-md-4">
               <div className="card">
                 <div className="card-header">
@@ -361,58 +303,53 @@ export default function NavigationManagement() {
                     {error && <div className="alert alert-danger">{error}</div>}
 
                     <div className="form-group">
-                      <label htmlFor="name">Tên menu</label>
+                      <label htmlFor="title">Tiêu đề *</label>
                       <input
                         type="text"
                         className="form-control"
-                        id="name"
-                        value={formData.name}
+                        id="title"
+                        value={formData.title}
                         onChange={(e) =>
-                          setFormData({ ...formData, name: e.target.value })
+                          setFormData({ ...formData, title: e.target.value })
                         }
                         required
                       />
                     </div>
 
                     <div className="form-group">
-                      <label htmlFor="categoryId">Danh mục liên kết</label>
-                      <select
+                      <label htmlFor="path">Đường dẫn *</label>
+                      <input
+                        type="text"
                         className="form-control"
-                        id="categoryId"
-                        value={formData.categoryId}
+                        id="path"
+                        value={formData.path}
                         onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            categoryId: e.target.value,
-                          })
+                          setFormData({ ...formData, path: e.target.value })
                         }
-                      >
-                        <option value="">-- Chọn danh mục --</option>
-                        {categories.map((category) => (
-                          <option key={category.id} value={category.id}>
-                            {category.name}
-                          </option>
-                        ))}
-                      </select>
+                        required
+                        placeholder="Ví dụ: products hoặc #"
+                      />
                       <small className="form-text text-muted">
-                        Nếu chọn danh mục, link sẽ tự động tạo
+                        Nhập đường dẫn tương đối (không cần &apos;/admin&apos;).
+                        Sử dụng &apos;#&apos; cho menu không có link trực tiếp.
                       </small>
                     </div>
 
                     <div className="form-group">
-                      <label htmlFor="link">Đường dẫn tùy chỉnh</label>
+                      <label htmlFor="icon">Icon *</label>
                       <input
                         type="text"
                         className="form-control"
-                        id="link"
-                        value={formData.link}
+                        id="icon"
+                        value={formData.icon}
                         onChange={(e) =>
-                          setFormData({ ...formData, link: e.target.value })
+                          setFormData({ ...formData, icon: e.target.value })
                         }
-                        placeholder="/duong-dan-tuy-chinh"
+                        required
+                        placeholder="Ví dụ: fas fa-users"
                       />
                       <small className="form-text text-muted">
-                        Chỉ điền nếu không chọn danh mục liên kết
+                        Sử dụng class của Font Awesome
                       </small>
                     </div>
 
@@ -430,60 +367,31 @@ export default function NavigationManagement() {
                         {menuItems
                           .filter(
                             (item) =>
-                              !item.parentId && item.id !== editingItem?.id
+                              !item.parentId &&
+                              (!editingItem || item.id !== editingItem.id)
                           )
                           .map((item) => (
                             <option key={item.id} value={item.id}>
-                              {item.name}
+                              {item.title}
                             </option>
                           ))}
                       </select>
                     </div>
 
                     <div className="form-group">
-                      <div className="custom-control custom-switch">
-                        <input
-                          type="checkbox"
-                          className="custom-control-input"
-                          id="isActive"
-                          checked={formData.isActive}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              isActive: e.target.checked,
-                            })
-                          }
-                        />
-                        <label
-                          className="custom-control-label"
-                          htmlFor="isActive"
-                        >
-                          Hiển thị menu
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="form-group">
-                      <div className="custom-control custom-switch">
-                        <input
-                          type="checkbox"
-                          className="custom-control-input"
-                          id="megaMenu"
-                          checked={formData.megaMenu}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              megaMenu: e.target.checked,
-                            })
-                          }
-                        />
-                        <label
-                          className="custom-control-label"
-                          htmlFor="megaMenu"
-                        >
-                          Megamenu (chỉ cho menu cấp 1)
-                        </label>
-                      </div>
+                      <label htmlFor="displayOrder">Thứ tự hiển thị</label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        id="displayOrder"
+                        value={formData.displayOrder}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            displayOrder: parseInt(e.target.value) || 0,
+                          })
+                        }
+                      />
                     </div>
                   </div>
 
@@ -509,7 +417,7 @@ export default function NavigationManagement() {
             <div className="col-md-8">
               <div className="card">
                 <div className="card-header">
-                  <h3 className="card-title">Danh sách Menu Điều hướng</h3>
+                  <h3 className="card-title">Danh sách Menu Sidebar</h3>
                 </div>
                 <div className="card-body table-responsive p-0">
                   {loading ? (
@@ -532,10 +440,10 @@ export default function NavigationManagement() {
                         <thead>
                           <tr>
                             <th style={{ width: "50px" }}>#</th>
-                            <th>Tên</th>
-                            <th>Link/Danh mục</th>
-                            <th>Loại</th>
-                            <th>Trạng thái</th>
+                            <th>Tiêu đề</th>
+                            <th>Đường dẫn</th>
+                            <th>Icon</th>
+                            <th>Thứ tự</th>
                             <th>Thao tác</th>
                           </tr>
                         </thead>
@@ -557,6 +465,7 @@ export default function NavigationManagement() {
                                 </td>
                               </tr>
                             ) : (
+                              // Hiển thị các menu cha và menu con (tương tự như Navigation)
                               getParentMenuItems().map((parentItem) => (
                                 <React.Fragment key={parentItem.id}>
                                   {/* Menu cha */}
@@ -567,19 +476,19 @@ export default function NavigationManagement() {
                                       activeId === parentItem.id.toString()
                                     }
                                     onEdit={handleEdit}
-                                    onDelete={handleDeleteRequest} // Thay đổi từ handleDelete thành handleDeleteRequest
+                                    onDelete={handleDeleteRequest}
                                     onToggleExpand={() =>
                                       toggleMenuExpansion(
                                         parentItem.id.toString()
                                       )
                                     }
-                                    isExpanded={expandedMenuItems.has(
+                                    isExpanded={expandedMenuIds.has(
                                       parentItem.id.toString()
                                     )}
                                   />
 
                                   {/* Menu con (hiển thị khi menu cha được mở rộng) */}
-                                  {expandedMenuItems.has(
+                                  {expandedMenuIds.has(
                                     parentItem.id.toString()
                                   ) &&
                                     getChildMenuItems(parentItem.id).map(
@@ -592,7 +501,7 @@ export default function NavigationManagement() {
                                             activeId === childItem.id.toString()
                                           }
                                           onEdit={handleEdit}
-                                          onDelete={handleDeleteRequest} // Thay đổi từ handleDelete thành handleDeleteRequest
+                                          onDelete={handleDeleteRequest}
                                           isChild={true}
                                         />
                                       )
