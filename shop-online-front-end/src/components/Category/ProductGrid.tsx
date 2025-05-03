@@ -4,12 +4,15 @@ import { Product, SimpleProduct, VariantDetail } from "@/types/product";
 
 interface ProcessedProduct extends SimpleProduct {
   colorToImage: Record<string, string>;
+  colorToSecondaryImage: Record<string, string>;
 }
 
 interface ProductGridProps {
   products: Product[];
   selectedColors: { [productId: string]: string };
   productImages: { [productId: string]: string };
+  secondaryImages?: { [productId: string]: string }; // Thêm dòng này
+
   onColorSelect: (productId: number, color: string) => void;
   category?: string;
   currentPage: number;
@@ -23,6 +26,7 @@ interface ProductGridProps {
 export default function ProductGrid({
   products,
   selectedColors,
+  secondaryImages,
   productImages,
   onColorSelect,
   category,
@@ -47,6 +51,7 @@ export default function ProductGrid({
     const processed = products.map((product) => {
       const colors = product.colors || [];
       const colorToImage: Record<string, string> = {};
+      const colorToSecondaryImage: Record<string, string> = {};
       const variants: Record<string, VariantDetail> = {};
 
       // Xử lý variants cho từng màu
@@ -58,6 +63,13 @@ export default function ProductGrid({
           "";
         if (mainImage) {
           colorToImage[color] = mainImage;
+        }
+
+        // Thêm code để lấy hình phụ
+        const secondaryImage =
+          variant?.images?.find((img) => !img.isMain)?.url || "";
+        if (secondaryImage) {
+          colorToSecondaryImage[color] = secondaryImage;
         }
 
         // Lấy danh sách kích thước khả dụng và tồn kho từ variants
@@ -127,6 +139,7 @@ export default function ProductGrid({
         price: minPrice,
         variants,
         colorToImage,
+        colorToSecondaryImage,
       };
     });
 
@@ -217,17 +230,28 @@ export default function ProductGrid({
                 product.colorToImage[selectedColor]) ||
               productImages[productId] ||
               "";
+            // Tìm đoạn code này và thay thế
+            // Trong phần map qua processedProducts
             const secondaryImage =
-              product.colors.length > 1 &&
-              product.colorToImage &&
-              product.colors[1] &&
-              product.colorToImage[product.colors[1]]
-                ? product.colorToImage[product.colors[1]]
-                : "";
+              secondaryImages?.[productId] || // Ưu tiên sử dụng secondaryImages được truyền xuống
+              (product.colorToSecondaryImage &&
+              product.colorToSecondaryImage[selectedColor]
+                ? product.colorToSecondaryImage[selectedColor] // Sau đó dùng ảnh phụ của màu đang chọn
+                : product.colors.length > 1 &&
+                  product.colors.find((c) => c !== selectedColor) &&
+                  product.colorToImage[
+                    product.colors.find((c) => c !== selectedColor) || ""
+                  ]
+                ? product.colorToImage[
+                    product.colors.find((c) => c !== selectedColor) || ""
+                  ]
+                : "");
 
             // Lấy price và originalPrice từ variant của màu đã chọn
             const price =
-              product.variants[selectedColor]?.price || product.price;
+              product.variants[selectedColor]?.price ??
+              product.price ??
+              undefined;
             const originalPrice =
               product.variants[selectedColor]?.originalPrice || product.price;
 

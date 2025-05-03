@@ -3,16 +3,15 @@
 import { useState, useEffect, FC } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
 import { ProductService } from "@/services/ProductService";
 import { CategoryService } from "@/services/CategoryService";
 import { useToast } from "@/utils/useToast";
-import BasicInfoForm from "./BasicInfoForm";
-import AttributesTab from "./AttributesTab";
-import InventoryTab from "./InventoryTab";
-import ImagesTab from "./ImagesTab";
+import BasicInfoForm from "./ProductDetail/BasicInfoForm";
+import AttributesTab from "./ProductDetail/AttributesTab";
+import InventoryTab from "./ProductDetail/InventoryTab";
+import ImagesTab from "./ProductDetail/ImagesTab";
 import ConfirmModal from "@/components/admin/shared/ConfirmModal";
 import { colorToVietnamese } from "@/utils/colorUtils";
 
@@ -52,14 +51,14 @@ interface ModificationHistoryItem {
   detail: string;
 }
 
-interface FormattedProduct {
+export interface FormattedProduct {
   id: number;
   name: string;
   sku: string;
   description: string;
-  category: number | string;
+  category: string;
   categoryName: string;
-  subtype: number | string;
+  subtype: string;
   subtypeName: string;
   material: string;
   brand: string;
@@ -114,7 +113,6 @@ interface Category {
   isActive?: boolean;
 }
 
-// API response types
 interface ProductApiResponse {
   id: number;
   name: string;
@@ -130,7 +128,7 @@ interface ProductApiResponse {
   createdAt: string;
   updatedAt: string;
   details: ProductDetailApiResponse[];
-  categories: { id: number; name: string; parentId?: number }[];
+  categories: Array<{ id: number; name: string; parentId?: number }>;
 }
 
 interface ProductDetailApiResponse {
@@ -141,19 +139,19 @@ interface ProductDetailApiResponse {
   originalPrice: number;
   createdAt: string;
   updatedAt: string;
-  inventories: {
+  inventories: Array<{
     id: number;
     productDetailId: number;
     size: string;
     stock: number;
-  }[];
-  images: {
+  }>;
+  images: Array<{
     id: number;
     productDetailId: number;
     url: string;
     isMain: boolean;
     displayOrder: number;
-  }[];
+  }>;
 }
 
 const ProductDetailPage: FC = () => {
@@ -161,8 +159,6 @@ const ProductDetailPage: FC = () => {
   const router = useRouter();
   const { showToast, Toast } = useToast();
   const [activeTab, setActiveTab] = useState<string>("info");
-
-  // States cho việc chỉnh sửa
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -175,33 +171,38 @@ const ProductDetailPage: FC = () => {
   const [newImages, setNewImages] = useState<NewImage[]>([]);
   const [productVariants, setProductVariants] = useState<ProductDetail[]>([]);
   const [product, setProduct] = useState<FormattedProduct | null>(null);
-  const [tagInput, setTagInput] = useState("");
+  const [tagInput, setTagInput] = useState<string>("");
   const [categoryList, setCategoryList] = useState<Category[]>([]);
   const [categoryLoading, setCategoryLoading] = useState<boolean>(false);
   const [subtypes, setSubtypes] = useState<Category[]>([]);
   const [subtypeLoading, setSubtypeLoading] = useState<boolean>(false);
   const [suitabilities, setSuitabilities] = useState<
-    { id: number; name: string }[]
+    Array<{ id: number; name: string }>
   >([]);
-  const [suitabilityLoading, setSuitabilityLoading] = useState(false);
+  const [suitabilityLoading, setSuitabilityLoading] = useState<boolean>(false);
   const [selectedImageColor, setSelectedImageColor] = useState<string>("");
 
-  // Thêm vào danh sách state
-  const [imageDeleteConfirmation, setImageDeleteConfirmation] = useState({
+  const [imageDeleteConfirmation, setImageDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    imageId: number | string | null;
+    imageColor: string;
+  }>({
     isOpen: false,
-    imageId: null as number | string | null,
+    imageId: null,
     imageColor: "",
   });
 
-  // State quản lý xác nhận xóa biến thể
-  const [variantDeleteConfirmation, setVariantDeleteConfirmation] = useState({
+  const [variantDeleteConfirmation, setVariantDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    variantIndex: number;
+    variantColor: string;
+  }>({
     isOpen: false,
     variantIndex: -1,
     variantColor: "",
   });
 
-  // Danh sách màu sắc và kích thước mẫu
-  const availableColors = [
+  const availableColors: Array<{ key: string; label: string }> = [
     { key: "black", label: "Đen" },
     { key: "white", label: "Trắng" },
     { key: "red", label: "Đỏ" },
@@ -210,41 +211,38 @@ const ProductDetailPage: FC = () => {
     { key: "yellow", label: "Vàng" },
     { key: "grey", label: "Xám" },
   ];
-  const availableSizes = ["S", "M", "L", "XL", "XXL"];
 
-  /**
-   * Hàm tiện ích để định dạng dữ liệu sản phẩm từ API
-   */
+  const [availableSizes, setAvailableSizes] = useState<
+    Array<{ value: string; label: string }>
+  >([
+    { value: "S", label: "S" },
+    { value: "M", label: "M" },
+    { value: "L", label: "L" },
+    { value: "XL", label: "XL" },
+    { value: "XXL", label: "XXL" },
+  ]);
+
   const formatProductData = (
     productData: ProductApiResponse
   ): FormattedProduct => {
-    const parentCategory = productData.categories.find(
-      (c: { id: number; name: string; parentId?: number }) => !c.parentId
-    );
-    const subCategory = productData.categories.find(
-      (c: { id: number; name: string; parentId?: number }) => c.parentId
-    );
+    const parentCategory = productData.categories.find((c) => !c.parentId);
+    const subCategory = productData.categories.find((c) => c.parentId);
 
     const tags =
       typeof productData.tags === "string"
-        ? JSON.parse(productData.tags as string)
+        ? JSON.parse(productData.tags)
         : productData.tags;
-
-    // Thay đổi đoạn code trong formatProductData
     const suitability = Array.isArray(productData.suitabilities)
       ? productData.suitabilities.map((item) => item.name)
       : typeof productData.suitability === "string"
-      ? JSON.parse(productData.suitability as string)
+      ? JSON.parse(productData.suitability)
       : productData.suitability || [];
 
-    console.log("API suitabilities format:", productData.suitabilities);
-    console.log("Formatted suitability:", suitability);
-
-    const totalStock = productData.details.reduce((total, detail) => {
-      return (
-        total + detail.inventories.reduce((sum, inv) => sum + inv.stock, 0)
-      );
-    }, 0);
+    const totalStock = productData.details.reduce(
+      (total, detail) =>
+        total + detail.inventories.reduce((sum, inv) => sum + inv.stock, 0),
+      0
+    );
 
     const colors = productData.details.map((detail) => detail.color);
     const sizes = [
@@ -293,9 +291,9 @@ const ProductDetailPage: FC = () => {
       name: productData.name,
       sku: productData.sku,
       description: productData.description,
-      category: parentCategory?.id || 0,
+      category: parentCategory?.id?.toString() || "",
       categoryName: parentCategory?.name || "",
-      subtype: subCategory?.id || "",
+      subtype: subCategory?.id ? String(subCategory.id) : "",
       subtypeName: subCategory?.name || "",
       material: productData.material,
       brand: productData.brand || "",
@@ -345,38 +343,28 @@ const ProductDetailPage: FC = () => {
     };
   };
 
-  // Fetch dữ liệu sản phẩm
   useEffect(() => {
-    const fetchProduct = async (): Promise<void> => {
+    const fetchProduct = async () => {
       try {
         setLoading(true);
         const productData = await ProductService.getProductVariants(id);
-        console.log("Product data:", productData);
-
-        // Set biến thể sản phẩm
-        setProductVariants(
-          productData.details.map(
-            (detail: ProductDetailApiResponse): ProductDetail => ({
-              id: detail.id,
-              color: detail.color,
-              price: detail.price,
-              originalPrice: detail.originalPrice,
-              sizes: detail.inventories.map(
-                (inv): SizeVariant => ({
-                  size: inv.size,
-                  stock: inv.stock,
-                })
-              ),
-            })
-          )
-        );
-
-        // Định dạng và set dữ liệu sản phẩm
         const formattedProduct = formatProductData(productData);
         setProduct(formattedProduct);
+        setProductVariants(
+          productData.details.map((detail: ProductDetailApiResponse) => ({
+            id: detail.id,
+            color: detail.color,
+            price: detail.price,
+            originalPrice: detail.originalPrice,
+            sizes: detail.inventories.map((inv) => ({
+              size: inv.size,
+              stock: inv.stock,
+            })),
+          }))
+        );
         setSelectedImageColor(formattedProduct.colors[0] || "");
-      } catch (error) {
-        console.error("Error fetching product:", error);
+      } catch (err) {
+        console.error("Error fetching product:", err);
         setError("Không thể tải thông tin sản phẩm");
       } finally {
         setLoading(false);
@@ -386,17 +374,14 @@ const ProductDetailPage: FC = () => {
     fetchProduct();
   }, [id]);
 
-  // Lấy danh sách danh mục khi component mount
   useEffect(() => {
     const fetchCategories = async () => {
       try {
         setCategoryLoading(true);
         const data = await CategoryService.getAllCategories();
-        const parentCategories = data.filter((cat) => cat.parentId === null);
-        console.log("Parent categories:", parentCategories);
-        setCategoryList(parentCategories);
-      } catch (error) {
-        console.error("Error fetching categories:", error);
+        setCategoryList(data.filter((cat: Category) => cat.parentId === null));
+      } catch (err) {
+        console.error("Error fetching categories:", err);
         showToast("Không thể tải danh mục sản phẩm", { type: "error" });
       } finally {
         setCategoryLoading(false);
@@ -404,9 +389,8 @@ const ProductDetailPage: FC = () => {
     };
 
     fetchCategories();
-  }, []);
+  }, [showToast]);
 
-  // Lấy danh mục con khi danh mục cha thay đổi
   useEffect(() => {
     const fetchSubtypes = async () => {
       if (!product?.category) {
@@ -416,14 +400,12 @@ const ProductDetailPage: FC = () => {
 
       try {
         setSubtypeLoading(true);
-        console.log("Fetching subtypes for categoryId:", product.category);
         const childCategories = await CategoryService.getChildCategories(
           product.category
         );
-        console.log("Child categories:", childCategories);
         setSubtypes(childCategories);
-      } catch (error) {
-        console.error("Error fetching subtypes:", error);
+      } catch (err) {
+        console.error("Error fetching subtypes:", err);
         showToast("Không thể tải loại sản phẩm", { type: "error" });
         setSubtypes([]);
       } finally {
@@ -434,18 +416,16 @@ const ProductDetailPage: FC = () => {
     if (product?.category) {
       fetchSubtypes();
     }
-  }, [product?.category]);
+  }, [product?.category, showToast]);
 
-  // Tải suitabilities
   useEffect(() => {
     const fetchSuitabilities = async () => {
       try {
         setSuitabilityLoading(true);
         const data = await ProductService.getSuitabilities();
-        console.log("Suitabilities:", data);
         setSuitabilities(data);
-      } catch (error) {
-        console.error("Error fetching suitabilities:", error);
+      } catch (err) {
+        console.error("Error fetching suitabilities:", err);
         showToast("Không thể tải danh sách phù hợp cho sản phẩm", {
           type: "error",
         });
@@ -455,146 +435,88 @@ const ProductDetailPage: FC = () => {
     };
 
     fetchSuitabilities();
+  }, [showToast]);
+
+  useEffect(() => {
+    const fetchSizes = async () => {
+      try {
+        const sizes = await ProductService.getSizes();
+        if (sizes?.length > 0) {
+          setAvailableSizes(
+            sizes
+              .filter((size: { active: boolean }) => size.active)
+              .map((size: { value: string; displayName?: string }) => ({
+                value: size.value,
+                label: size.displayName || size.value,
+              }))
+          );
+        }
+      } catch (err) {
+        console.error("Error fetching sizes:", err);
+      }
+    };
+
+    fetchSizes();
   }, []);
 
-  // // Hàm xử lý thay đổi màu sắc
-  // const handleColorsChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-  //   const selectedOptions = Array.from(
-  //     e.target.selectedOptions,
-  //     (option) => option.value
-  //   );
-
-  //   const removedColors = product!.colors.filter(
-  //     (color) => !selectedOptions.includes(color)
-  //   );
-
-  //   const detailsToRemove = product!.details
-  //     .filter((detail) => removedColors.includes(detail.color))
-  //     .map((detail) => detail.id);
-
-  //   setRemovedDetailIds((prev) => [
-  //     ...prev,
-  //     ...detailsToRemove.filter((id) => !prev.includes(id)),
-  //   ]);
-
-  //   setProduct((prev) => {
-  //     if (!prev) return prev;
-  //     return {
-  //       ...prev,
-  //       colors: selectedOptions,
-  //     };
-  //   });
-
-  //   const updatedImages = [...product!.images];
-  //   removedColors.forEach((color) => {
-  //     const imagesToRemove = product!.images
-  //       .filter((img) => img.color === color)
-  //       .map((img) => Number(img.id));
-  //     setRemovedImageIds((prev) => [
-  //       ...prev,
-  //       ...imagesToRemove.filter((id) => !prev.includes(id)),
-  //     ]);
-  //   });
-
-  //   setProduct((prev) => {
-  //     if (!prev) return prev;
-  //     return {
-  //       ...prev,
-  //       images: updatedImages.filter(
-  //         (img) => !removedColors.includes(img.color)
-  //       ),
-  //     };
-  //   });
-  // };
-
-  // // Hàm xử lý thay đổi kích thước
-  // const handleSizesChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-  //   const selectedOptions = Array.from(
-  //     e.target.selectedOptions,
-  //     (option) => option.value
-  //   );
-  //   setProduct((prev) => {
-  //     if (!prev) return prev;
-  //     return {
-  //       ...prev,
-  //       sizes: selectedOptions,
-  //     };
-  //   });
-  // };
-
-  // Hàm xử lý thay đổi tags
-  const handleTagsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setTagInput(e.target.value);
-  };
-
-  const handleTagsKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" || e.key === "Tab" || e.key === ",") {
-      e.preventDefault();
-      const value = tagInput.trim();
-      if (value && !product!.tags.includes(value)) {
-        setProduct((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            tags: [...prev.tags, value],
-          };
-        });
-        setTagInput("");
-      }
-    }
-  };
-
-  const removeTag = (indexToRemove: number) => {
-    setProduct((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        tags: prev.tags.filter((_, index) => index !== indexToRemove),
-      };
-    });
-  };
-
-  // Hàm đặt hình ảnh làm ảnh chính cho từng màu sắc
   const handleSetMainImage = (imageId: number | string) => {
-    // Tìm hình ảnh được chọn làm ảnh chính
-    const imageToSetAsMain = product?.images.find((img) => img.id === imageId);
-    if (!imageToSetAsMain) return;
+    if (!product) return;
 
-    const imageColor = imageToSetAsMain.color;
-
-    // Kiểm tra xem hình này đã là hình chính cho màu này chưa
-    if (imageToSetAsMain.isMain) {
-      console.log("[Debug] Hình ảnh đã là hình chính cho màu này rồi");
+    // Tìm màu của ảnh được chọn
+    const imageToMakeMain = product.images.find((img) => img.id === imageId);
+    if (!imageToMakeMain) {
+      console.error("Không tìm thấy ảnh với ID:", imageId);
       return;
     }
 
+    const colorOfImage = imageToMakeMain.color;
+
+    // Cập nhật trực tiếp state của product
     setProduct((prev) => {
       if (!prev) return prev;
-      // Chỉ cập nhật isMain cho hình ảnh của cùng màu sắc
+
       const updatedImages = prev.images.map((img) => ({
         ...img,
-        isMain: img.color === imageColor ? img.id === imageId : img.isMain,
+        // Chỉ ảnh được chọn và cùng màu mới có isMain = true
+        isMain:
+          img.id === imageId
+            ? true
+            : img.color === colorOfImage
+            ? false
+            : img.isMain,
       }));
+
       return {
         ...prev,
         images: updatedImages,
       };
     });
+
+    // Nếu ID là số (ảnh đã tồn tại trên server), gọi API để cập nhật
+    if (typeof imageId === "number") {
+      console.log(`Đặt ảnh ${imageId} làm ảnh chính cho màu ${colorOfImage}`);
+      ProductService.setMainProductImage(product.id, imageId)
+        .then(() => {
+          showToast("Đã đặt làm ảnh chính", { type: "success" });
+        })
+        .catch((error) => {
+          console.error("Lỗi khi đặt ảnh chính:", error);
+          showToast("Không thể đặt làm ảnh chính", { type: "error" });
+        });
+    }
   };
 
-  // Hàm để mở modal xác nhận xóa hình ảnh
   const handleImageDeleteRequest = (imageId: number | string) => {
     const imageToDelete = product?.images.find((img) => img.id === imageId);
     if (!imageToDelete) return;
 
     setImageDeleteConfirmation({
       isOpen: true,
-      imageId: imageId,
+      imageId,
       imageColor: imageToDelete.color,
     });
   };
 
-  // Hàm để đóng modal
   const handleCancelImageDelete = () => {
     setImageDeleteConfirmation({
       isOpen: false,
@@ -603,27 +525,18 @@ const ProductDetailPage: FC = () => {
     });
   };
 
-  // Hàm thực hiện xóa sau khi đã xác nhận
   const handleConfirmImageDelete = () => {
-    if (!imageDeleteConfirmation.imageId) return;
+    const { imageId } = imageDeleteConfirmation;
+    if (!imageId) return;
 
     setProduct((prev) => {
       if (!prev) return prev;
-      const updatedImages = prev.images.filter(
-        (img) => img.id !== imageDeleteConfirmation.imageId
-      );
-
-      // Nếu hình ảnh bị xóa đã tồn tại trong DB (id là số), thêm vào danh sách removedImageIds
-      if (typeof imageDeleteConfirmation.imageId === "number") {
-        setRemovedImageIds((prev) => [
-          ...prev,
-          imageDeleteConfirmation.imageId as number,
-        ]);
+      const updatedImages = prev.images.filter((img) => img.id !== imageId);
+      if (typeof imageId === "number") {
+        setRemovedImageIds((prevIds) => [...prevIds, imageId]);
       }
 
-      const color = prev.images.find(
-        (img) => img.id === imageDeleteConfirmation.imageId
-      )?.color;
+      const color = prev.images.find((img) => img.id === imageId)?.color;
       if (color) {
         const imagesForColor = updatedImages.filter(
           (img) => img.color === color
@@ -636,29 +549,23 @@ const ProductDetailPage: FC = () => {
         }
       }
 
-      return {
-        ...prev,
-        images: updatedImages,
-      };
+      return { ...prev, images: updatedImages };
     });
 
-    // Đóng modal sau khi hoàn tất
     handleCancelImageDelete();
   };
 
-  // Hàm để mở modal xác nhận xóa biến thể
   const handleVariantDeleteRequest = (variantIndex: number) => {
     const variant = productVariants[variantIndex];
     if (!variant) return;
 
     setVariantDeleteConfirmation({
       isOpen: true,
-      variantIndex: variantIndex,
+      variantIndex,
       variantColor: variant.color,
     });
   };
 
-  // Hàm để đóng modal xác nhận xóa biến thể
   const handleCancelVariantDelete = () => {
     setVariantDeleteConfirmation({
       isOpen: false,
@@ -667,22 +574,35 @@ const ProductDetailPage: FC = () => {
     });
   };
 
-  // Hàm thực hiện xóa biến thể sau khi đã xác nhận
-  const handleConfirmVariantDelete = () => {
-    if (variantDeleteConfirmation.variantIndex < 0) return;
+  const handleConfirmVariantDelete = async () => {
+    const { variantIndex } = variantDeleteConfirmation;
+    if (variantIndex < 0 || !product) return;
 
-    const variantIndex = variantDeleteConfirmation.variantIndex;
     const newVariants = [...productVariants];
-    const removedColor = newVariants[variantIndex].color;
+    const removedVariant = newVariants[variantIndex];
+    const removedColor = removedVariant.color;
 
-    if (newVariants[variantIndex].id) {
-      setRemovedDetailIds((prev) => [...prev, newVariants[variantIndex].id!]);
+    if (removedVariant.id) {
+      try {
+        await ProductService.removeProductDetails([removedVariant.id]);
+        showToast(
+          `Đã xóa biến thể màu ${
+            colorToVietnamese[removedColor] || removedColor
+          }!`,
+          {
+            type: "success",
+          }
+        );
+      } catch (err) {
+        console.error("Error deleting variant:", err);
+        showToast("Không thể xóa biến thể", { type: "error" });
+        return;
+      }
     }
 
     newVariants.splice(variantIndex, 1);
     setProductVariants(newVariants);
 
-    // Cập nhật product.colors và xóa ảnh liên quan
     setProduct((prev) => {
       if (!prev) return prev;
       const updatedColors = prev.colors.filter(
@@ -691,18 +611,39 @@ const ProductDetailPage: FC = () => {
       const updatedImages = prev.images.filter(
         (img) => img.color !== removedColor
       );
+      const updatedStockVariants = prev.stock.variants.filter(
+        (variant) => variant.color !== removedColor
+      );
+      const totalStock = updatedStockVariants.reduce(
+        (sum, variant) => sum + variant.stock,
+        0
+      );
+
+      const newHistoryItem: ModificationHistoryItem = {
+        date: new Date().toLocaleString("vi-VN"),
+        user: "Admin",
+        action: "Xóa biến thể",
+        detail: `Xóa biến thể màu ${
+          colorToVietnamese[removedColor] || removedColor
+        }`,
+      };
+
       return {
         ...prev,
         colors: updatedColors,
         images: updatedImages,
+        stock: {
+          ...prev.stock,
+          total: totalStock,
+          variants: updatedStockVariants,
+        },
+        modificationHistory: [newHistoryItem, ...prev.modificationHistory],
       };
     });
 
-    // Đóng modal sau khi hoàn tất
     handleCancelVariantDelete();
   };
 
-  // Hàm kiểm tra dữ liệu trước khi lưu
   const validateProductData = (): boolean => {
     if (!product) return false;
 
@@ -785,8 +726,7 @@ const ProductDetailPage: FC = () => {
     const duplicates: string[] = [];
 
     variants.forEach((variant) => {
-      if (!variant.color) return; // Skip variants with undefined color
-
+      if (!variant.color) return;
       colorCounts[variant.color] = (colorCounts[variant.color] || 0) + 1;
       if (
         colorCounts[variant.color] > 1 &&
@@ -799,16 +739,12 @@ const ProductDetailPage: FC = () => {
     return duplicates;
   };
 
-  // Hàm xử lý cập nhật biến thể
   const handleVariantsUpdate = async () => {
-    console.log("[Debug] Starting variants-only update...");
-
     if (!product) {
       showToast("Không có dữ liệu sản phẩm", { type: "error" });
       return false;
     }
 
-    // Validate variants before sending
     const duplicateColors = checkDuplicateColorVariants(productVariants);
     if (duplicateColors.length > 0) {
       showToast(`Phát hiện màu trùng lặp: ${duplicateColors.join(", ")}`, {
@@ -817,14 +753,12 @@ const ProductDetailPage: FC = () => {
       return false;
     }
 
-    // Check for empty colors
     const emptyColors = productVariants.some((v) => !v.color);
     if (emptyColors) {
       showToast("Tất cả các biến thể phải có màu sắc", { type: "error" });
       return false;
     }
 
-    // Validate that every variant has at least one size
     const emptySizes = productVariants.some(
       (v) => !v.sizes || v.sizes.length === 0
     );
@@ -833,42 +767,28 @@ const ProductDetailPage: FC = () => {
       return false;
     }
 
-    // Validate prices
     const invalidPrices = productVariants.some(
       (v) => v.price <= 0 || (v.originalPrice && v.originalPrice < v.price)
     );
     if (invalidPrices) {
-      showToast("Giá sản phẩm không hợp lệ. Vui lòng kiểm tra lại.", {
-        type: "error",
-      });
+      showToast("Giá sản phẩm không hợp lệ", { type: "error" });
       return false;
     }
 
     setIsSubmitting(true);
 
     try {
-      console.log("[Debug] Variants data to update:", productVariants);
+      await ProductService.updateProductVariants(product.id, productVariants);
 
-      // Call the API endpoint to update variants
-      if (product) {
-        await ProductService.updateProductVariants(product.id, productVariants);
-      } else {
-        console.error("Product is null. Cannot update product variants.");
-      }
-
-      // Update modification history
-      const newHistoryItem = {
+      const newHistoryItem: ModificationHistoryItem = {
         date: new Date().toLocaleString("vi-VN"),
         user: "Admin",
         action: "Cập nhật biến thể",
         detail: "Cập nhật thông tin biến thể sản phẩm",
       };
 
-      // Update product state with the new history item
       setProduct((prev) => {
         if (!prev) return prev;
-
-        // Calculate total stock based on updated variants
         const totalStock = productVariants.reduce(
           (sum, variant) =>
             sum +
@@ -879,23 +799,16 @@ const ProductDetailPage: FC = () => {
           0
         );
 
-        // Update stock variants
-        const stockVariants = [];
-        for (const variant of productVariants) {
-          for (const size of variant.sizes) {
-            stockVariants.push({
-              color: variant.color,
-              size: size.size,
-              stock: size.stock,
-              detailId: variant.id,
-            });
-          }
-        }
+        const stockVariants = productVariants.flatMap((variant) =>
+          variant.sizes.map((size) => ({
+            color: variant.color,
+            size: size.size,
+            stock: size.stock,
+            detailId: variant.id,
+          }))
+        );
 
-        // Create a list of unique colors from variants
         const uniqueColors = [...new Set(productVariants.map((v) => v.color))];
-
-        // Create a list of unique sizes from variants
         const uniqueSizes = [
           ...new Set(
             productVariants.flatMap((v) => v.sizes.map((s) => s.size))
@@ -907,6 +820,7 @@ const ProductDetailPage: FC = () => {
           colors: uniqueColors,
           sizes: uniqueSizes,
           stock: {
+            ...prev.stock,
             total: totalStock,
             variants: stockVariants,
           },
@@ -915,52 +829,46 @@ const ProductDetailPage: FC = () => {
       });
 
       showToast("Cập nhật biến thể thành công!", { type: "success" });
-
       return true;
-    } catch (error) {
-      console.error("[Error] Failed to update variants:", error);
-      showToast(
-        `Lỗi cập nhật biến thể: ${
-          error instanceof Error ? error.message : "Vui lòng thử lại"
-        }`,
-        { type: "error" }
-      );
+    } catch (err) {
+      console.error("Failed to update variants:", err);
+      showToast("Lỗi cập nhật biến thể", { type: "error" });
       return false;
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Hàm xử lý cập nhật sản phẩm
   const handleSaveProduct = async () => {
-    console.log("[Debug] Starting product save process...");
-    console.log("[Debug] Current product state:", product);
-    if (!validateProductData()) return;
-    console.log("[Debug] Product validation successful");
+    if (!product || !validateProductData()) return;
 
     setIsSubmitting(true);
 
     try {
-      // 1. Cập nhật thông tin cơ bản
-      console.log("[Debug] Updating basic product info");
       const basicInfoData = {
-        name: product?.name || "",
-        sku: product?.sku || "",
-        description: product?.description || "",
-        brand: product?.brand || "",
-        material: product?.material || "",
-        featured: !!product?.featured,
-        status: product?.status || "",
-        tags: product?.tags || "",
-        suitability: product?.suitability || "",
+        name: product.name,
+        sku: product.sku,
+        description: product.description,
+        brand: product.brand,
+        material: product.material,
+        featured: product.featured,
+        status: product.status,
+        tags: product.tags,
+        suitability: product.suitability,
         categories: [
-          parseInt(String(product?.category || ""), 10),
-          ...(product?.subtype ? [parseInt(String(product.subtype), 10)] : []),
-        ],
+          { id: parseInt(String(product.category), 10), isParent: true },
+          ...(product.subtype
+            ? [
+                {
+                  id: parseInt(String(product.subtype), 10),
+                  isParent: false,
+                  parentId: parseInt(String(product.category), 10),
+                },
+              ]
+            : []),
+        ].map((category) => category.id),
       };
-      console.log("[Debug] Basic info payload:", basicInfoData);
 
-      // Validate variants before saving
       const duplicateColors = checkDuplicateColorVariants(productVariants);
       if (duplicateColors.length > 0) {
         showToast(`Phát hiện màu trùng lặp: ${duplicateColors.join(", ")}`, {
@@ -971,7 +879,6 @@ const ProductDetailPage: FC = () => {
         return;
       }
 
-      // Check for empty colors
       const emptyColors = productVariants.some((v) => !v.color);
       if (emptyColors) {
         showToast("Tất cả các biến thể phải có màu sắc", { type: "error" });
@@ -980,23 +887,14 @@ const ProductDetailPage: FC = () => {
         return;
       }
 
-      if (product) {
-        await ProductService.updateProductBasicInfo(product.id, {
-          ...basicInfoData,
-          tags: Array.isArray(basicInfoData.tags) ? basicInfoData.tags : [],
-          suitability: Array.isArray(basicInfoData.suitability)
-            ? basicInfoData.suitability
-            : typeof basicInfoData.suitability === "string"
-            ? [basicInfoData.suitability]
-            : [],
-        });
-      } else {
-        console.error("Product is null. Cannot update basic info.");
-      }
-      showToast("Cập nhật thông tin cơ bản thành công!", { type: "success" });
+      await ProductService.updateProductBasicInfo(product.id, {
+        ...basicInfoData,
+        tags: Array.isArray(basicInfoData.tags) ? basicInfoData.tags : [],
+        suitability: Array.isArray(basicInfoData.suitability)
+          ? basicInfoData.suitability
+          : [],
+      });
 
-      // 2. Cập nhật tồn kho
-      console.log("[Debug] Updating inventory");
       const inventoryData = product.colors.map((color) => {
         const colorVariants = product.stock.variants.filter(
           (v) => v.color === color
@@ -1015,87 +913,60 @@ const ProductDetailPage: FC = () => {
         };
       });
 
-      if (product?.id !== undefined) {
-        await ProductService.updateProductInventory(product.id, inventoryData);
-      } else {
-        console.error("Product ID is undefined. Cannot update inventory.");
-      }
-      showToast("Cập nhật tồn kho thành công!", { type: "success" });
-
-      // 3. Cập nhật biến thể
-      console.log("[Debug] Updating variants");
+      await ProductService.updateProductInventory(product.id, inventoryData);
       await ProductService.updateProductVariants(product.id, productVariants);
-      showToast("Cập nhật biến thể thành công!", { type: "success" });
 
-      // 4. Xử lý hình ảnh
-      console.log("[Debug] Updating images");
+      // 1. Xóa hình ảnh cũ trước
       if (removedImageIds.length > 0) {
         await ProductService.removeProductImages(product.id, removedImageIds);
-        showToast(`Đã xóa ${removedImageIds.length} hình ảnh!`, {
-          type: "success",
-        });
       }
 
+      // 2. Thêm hình ảnh mới
       if (newImages.length > 0) {
         await ProductService.addProductImages(product.id, newImages);
-        showToast(`Đã thêm ${newImages.length} hình ảnh mới!`, {
-          type: "success",
-        });
+
+        // Đợi một chút để đảm bảo server đã xử lý xong việc thêm ảnh
+        // và tránh race condition
+        await new Promise((resolve) => setTimeout(resolve, 5000));
       }
 
-      const mainImage = product.images.find((img) => img.isMain);
-      if (mainImage && typeof mainImage.id === "number") {
-        await ProductService.setMainProductImage(product.id, mainImage.id);
-        showToast("Đã cập nhật ảnh chính!", { type: "success" });
-      }
-
-      // 5. Xóa các biến thể bị xóa (nếu có)
       if (removedDetailIds.length > 0) {
-        console.log("[Debug] Removing product details:", removedDetailIds);
-        // Giả định rằng backend có một API để xóa các biến thể
-        // Ví dụ: await ProductService.removeProductDetails(product.id, removedDetailIds);
-        showToast(`Đã xóa ${removedDetailIds.length} biến thể!`, {
-          type: "success",
-        });
+        await ProductService.removeProductDetails(removedDetailIds);
       }
 
-      // Cập nhật lịch sử sửa đổi
-      const newHistoryItem = {
+      const newHistoryItem: ModificationHistoryItem = {
         date: new Date().toLocaleString("vi-VN"),
         user: "Admin",
         action: "Cập nhật sản phẩm",
         detail: "Cập nhật thông tin cơ bản, tồn kho, biến thể và hình ảnh",
       };
 
-      setProduct((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          modificationHistory: [newHistoryItem, ...prev.modificationHistory],
-        };
-      });
-
+      setProduct((prev) =>
+        prev
+          ? {
+              ...prev,
+              modificationHistory: [
+                newHistoryItem,
+                ...prev.modificationHistory,
+              ],
+            }
+          : prev
+      );
       setRemovedImageIds([]);
       setRemovedDetailIds([]);
       setNewImages([]);
       setIsEditing(false);
 
       showToast("Cập nhật sản phẩm thành công!", { type: "success" });
-    } catch (error) {
-      console.error("Lỗi khi cập nhật sản phẩm:", error);
-      showToast(
-        `Có lỗi xảy ra: ${
-          error instanceof Error ? error.message : "Vui lòng thử lại"
-        }`,
-        { type: "error" }
-      );
+    } catch (err) {
+      console.error("Error updating product:", err);
+      showToast("Có lỗi xảy ra", { type: "error" });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Thêm biến thể mới
-  const addVariant = (): void => {
+  const addVariant = () => {
     if (!product) return;
 
     const colorOptions = availableColors.filter(
@@ -1107,8 +978,7 @@ const ProductDetailPage: FC = () => {
     }
 
     const selectedColor = colorOptions[0].label;
-
-    const newVariant = {
+    const newVariant: ProductDetail = {
       color: selectedColor,
       price: product.price,
       originalPrice: product.originalPrice,
@@ -1116,43 +986,24 @@ const ProductDetailPage: FC = () => {
     };
 
     setProductVariants((prev) => [...prev, newVariant]);
-
-    // Đồng bộ product.colors
-    setProduct((prev) => {
-      if (!prev) return prev;
-      const updatedColors = [...new Set([...prev.colors, newVariant.color])];
-      return {
-        ...prev,
-        colors: updatedColors,
-      };
-    });
+    setProduct((prev) =>
+      prev
+        ? { ...prev, colors: [...new Set([...prev.colors, newVariant.color])] }
+        : prev
+    );
   };
 
-  // Thay đổi thuộc tính biến thể
   const handleVariantChange = (
     variantIndex: number,
     field: keyof ProductDetail,
     value: string | number
-  ): void => {
-    console.log(
-      `[Debug] Changing variant ${variantIndex}, field ${field} to:`,
-      value
-    );
-
-    // If changing color, check for duplicates first
+  ) => {
     if (field === "color" && typeof value === "string") {
-      const newVariants = [...productVariants];
-      const newColor = value;
-
-      // Check if this color already exists in another variant
       const colorExists = productVariants.some(
-        (variant, idx) => idx !== variantIndex && variant.color === newColor
+        (variant, idx) => idx !== variantIndex && variant.color === value
       );
-
       if (colorExists) {
-        showToast(`Màu "${newColor}" đã tồn tại. Vui lòng chọn màu khác.`, {
-          type: "error",
-        });
+        showToast(`Màu "${value}" đã tồn tại`, { type: "error" });
         return;
       }
     }
@@ -1163,46 +1014,34 @@ const ProductDetailPage: FC = () => {
       ...newVariants[variantIndex],
       [field]: value,
     };
-
     setProductVariants(newVariants);
 
-    // If color changed, update product.colors and images
     if (field === "color" && typeof value === "string") {
-      const newColor = value;
-
       setProduct((prev) => {
         if (!prev) return prev;
         const updatedColors = prev.colors.map((c) =>
-          c === oldColor ? newColor : c
+          c === oldColor ? value : c
         );
-
-        // Also update color in all related stock variants
         const updatedStockVariants = prev.stock.variants.map((v) => ({
           ...v,
-          color: v.color === oldColor ? newColor : v.color,
+          color: v.color === oldColor ? value : v.color,
         }));
-
-        // Update image colors too
         const updatedImages = prev.images.map((img) => ({
           ...img,
-          color: img.color === oldColor ? newColor : img.color,
+          color: img.color === oldColor ? value : img.color,
         }));
 
         return {
           ...prev,
           colors: updatedColors,
-          stock: {
-            ...prev.stock,
-            variants: updatedStockVariants,
-          },
+          stock: { ...prev.stock, variants: updatedStockVariants },
           images: updatedImages,
         };
       });
     }
   };
 
-  // Thêm kích thước mới cho biến thể
-  const addSize = (variantIndex: number): void => {
+  const addSize = (variantIndex: number) => {
     const newVariants = [...productVariants];
     newVariants[variantIndex].sizes = [
       ...newVariants[variantIndex].sizes,
@@ -1210,45 +1049,35 @@ const ProductDetailPage: FC = () => {
     ];
     setProductVariants(newVariants);
 
-    // Cập nhật product.sizes
     setProduct((prev) => {
       if (!prev) return prev;
       const variantSizes = [
         ...new Set(newVariants.flatMap((v) => v.sizes.map((s) => s.size))),
       ];
-      return {
-        ...prev,
-        sizes: variantSizes,
-      };
+      return { ...prev, sizes: variantSizes };
     });
   };
 
-  // Xóa kích thước
-  const removeSize = (variantIndex: number, sizeIndex: number): void => {
+  const removeSize = (variantIndex: number, sizeIndex: number) => {
     const newVariants = [...productVariants];
     newVariants[variantIndex].sizes.splice(sizeIndex, 1);
     setProductVariants(newVariants);
 
-    // Cập nhật product.sizes
     setProduct((prev) => {
       if (!prev) return prev;
       const variantSizes = [
         ...new Set(newVariants.flatMap((v) => v.sizes.map((s) => s.size))),
       ];
-      return {
-        ...prev,
-        sizes: variantSizes,
-      };
+      return { ...prev, sizes: variantSizes };
     });
   };
 
-  // Thay đổi thuộc tính kích thước
   const handleSizeChange = (
     variantIndex: number,
     sizeIndex: number,
     field: keyof SizeVariant,
     value: string | number
-  ): void => {
+  ) => {
     const newVariants = [...productVariants];
     newVariants[variantIndex].sizes[sizeIndex] = {
       ...newVariants[variantIndex].sizes[sizeIndex],
@@ -1256,7 +1085,6 @@ const ProductDetailPage: FC = () => {
     };
     setProductVariants(newVariants);
 
-    // Nếu kích thước thay đổi, cập nhật product.sizes
     if (field === "size") {
       setProduct((prev) => {
         if (!prev) return prev;
@@ -1265,15 +1093,11 @@ const ProductDetailPage: FC = () => {
             productVariants.flatMap((v) => v.sizes.map((s) => s.size))
           ),
         ];
-        return {
-          ...prev,
-          sizes: variantSizes,
-        };
+        return { ...prev, sizes: variantSizes };
       });
     }
   };
 
-  // Hiển thị trạng thái loading
   if (loading) {
     return (
       <AdminLayout title="Đang tải...">
@@ -1319,7 +1143,6 @@ const ProductDetailPage: FC = () => {
     );
   }
 
-  // Hiển thị thông báo lỗi
   if (error) {
     return (
       <AdminLayout title="Lỗi">
@@ -1368,7 +1191,6 @@ const ProductDetailPage: FC = () => {
     );
   }
 
-  // Nếu không có dữ liệu sản phẩm
   if (!product) {
     return (
       <AdminLayout title="Không tìm thấy sản phẩm">
@@ -1417,7 +1239,6 @@ const ProductDetailPage: FC = () => {
     );
   }
 
-  // Breadcrumb items
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: "Trang chủ", href: "/admin" },
     { label: "Sản phẩm", href: "/admin/products" },
@@ -1426,7 +1247,6 @@ const ProductDetailPage: FC = () => {
 
   return (
     <AdminLayout title={`Chi tiết sản phẩm ${product.name}`}>
-      {/* Content Header */}
       <div className="content-header">
         <div className="container-fluid">
           <div className="row mb-2">
@@ -1440,10 +1260,8 @@ const ProductDetailPage: FC = () => {
         </div>
       </div>
 
-      {/* Main content */}
       <section className="content">
         <div className="container-fluid">
-          {/* Action buttons */}
           <div className="mb-3">
             <Link href="/admin/products" className="btn btn-secondary mr-2">
               <i className="fas fa-arrow-left mr-1" /> Quay lại
@@ -1495,7 +1313,6 @@ const ProductDetailPage: FC = () => {
             )}
           </div>
 
-          {/* Product Overview Card */}
           <div className="card">
             <div className="card-header">
               <h3 className="card-title">Thông tin cơ bản</h3>
@@ -1594,8 +1411,10 @@ const ProductDetailPage: FC = () => {
                                 border: "1px solid #ddd",
                                 display: "inline-block",
                               }}
-                            ></div>
-                            <span className="badge badge-primary">{color}</span>
+                            />
+                            <span className="badge badge-primary">
+                              {colorToVietnamese[color] || color}
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -1633,7 +1452,6 @@ const ProductDetailPage: FC = () => {
             </div>
           </div>
 
-          {/* Tabs cho thông tin chi tiết */}
           <div className="card card-primary card-outline card-tabs">
             <div className="card-header p-0 pt-1 border-bottom-0">
               <ul className="nav nav-tabs" role="tablist">
@@ -1650,6 +1468,21 @@ const ProductDetailPage: FC = () => {
                   >
                     <i className="fas fa-info-circle mr-1" />
                     Chi tiết
+                  </a>
+                </li>
+                <li className="nav-item">
+                  <a
+                    className={`nav-link ${
+                      activeTab === "variants" ? "active" : ""
+                    }`}
+                    onClick={() => setActiveTab("variants")}
+                    href="#variants-tab"
+                    role="tab"
+                    aria-controls="variants-tab"
+                    aria-selected={activeTab === "variants"}
+                  >
+                    <i className="fas fa-cubes mr-1" />
+                    Biến thể
                   </a>
                 </li>
                 <li className="nav-item">
@@ -1697,408 +1530,149 @@ const ProductDetailPage: FC = () => {
                     Lịch sử
                   </a>
                 </li>
-                <li className="nav-item">
-                  <a
-                    className={`nav-link ${
-                      activeTab === "variants" ? "active" : ""
-                    }`}
-                    onClick={() => setActiveTab("variants")}
-                    href="#variants-tab"
-                    role="tab"
-                    aria-controls="variants-tab"
-                    aria-selected={activeTab === "variants"}
-                  >
-                    <i className="fas fa-cubes mr-1" />
-                    Biến thể
-                  </a>
-                </li>
               </ul>
             </div>
             <div className="card-body">
               <div className="tab-content">
-                {/* Nội dung tab Info */}
                 <div
                   className={`tab-pane ${activeTab === "info" ? "active" : ""}`}
                   id="info-tab"
                   role="tabpanel"
-                  aria-labelledby="info-tab"
                 >
                   {isEditing ? (
-                    <>
-                      <AttributesTab
-                        product={product}
-                        setProduct={setProduct}
-                        suitabilities={suitabilities}
-                        suitabilityLoading={suitabilityLoading}
-                        availableColors={availableColors}
-                        availableSizes={availableSizes}
-                        tagInput={tagInput}
-                        setTagInput={setTagInput}
-                      />
-                    </>
+                    <AttributesTab
+                      product={product}
+                      setProduct={setProduct}
+                      suitabilities={suitabilities}
+                      suitabilityLoading={suitabilityLoading}
+                      availableColors={availableColors}
+                      availableSizes={availableSizes}
+                      tagInput={tagInput}
+                      setTagInput={setTagInput}
+                    />
                   ) : (
-                    <>
-                      <div className="card card-body mb-3">
-                        <h5 className="mb-3 border-bottom pb-2">
-                          Thông tin sản phẩm
-                        </h5>
-
-                        <div className="form-group">
-                          <label className="font-weight-bold">
-                            Mô tả sản phẩm
-                          </label>
-                          <div className="p-2 bg-light rounded">
-                            {product.description ? (
-                              <p className="mb-0">{product.description}</p>
-                            ) : (
-                              <p className="text-muted mb-0 font-italic">
-                                Chưa có mô tả
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="row mt-4">
-                          <div className="col-md-6">
-                            <div className="form-group">
-                              <label className="font-weight-bold">
-                                <i className="fas fa-palette mr-1"></i> Màu sắc
-                              </label>
-                              <div className="d-flex flex-wrap">
-                                {product.colors.length > 0 ? (
-                                  product.colors.map((color, index) => (
+                    <div className="card card-body mb-3">
+                      <div className="row mt-4">
+                        <div className="col-md-6">
+                          <div className="form-group">
+                            <label className="font-weight-bold">
+                              <i className="fas fa-palette mr-1" /> Màu sắc
+                            </label>
+                            <div className="d-flex flex-wrap">
+                              {product.colors.length > 0 ? (
+                                product.colors.map((color, index) => (
+                                  <div
+                                    key={index}
+                                    className="d-inline-flex align-items-center mr-2 mb-2 bg-white p-1 rounded border"
+                                  >
                                     <div
-                                      key={index}
-                                      className="d-inline-flex align-items-center mr-2 mb-2 bg-white p-1 rounded border"
-                                    >
-                                      <div
-                                        className="mr-1"
-                                        style={{
-                                          backgroundColor: color.toLowerCase(),
-                                          width: "20px",
-                                          height: "20px",
-                                          borderRadius: "3px",
-                                          border: "1px solid #ddd",
-                                          display: "inline-block",
-                                        }}
-                                      ></div>
-                                      <span className="badge badge-light">
-                                        {color}
-                                      </span>
-                                    </div>
-                                  ))
-                                ) : (
-                                  <span className="text-muted">
-                                    Chưa có màu sắc
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="col-md-6">
-                            <div className="form-group">
-                              <label className="font-weight-bold">
-                                <i className="fas fa-ruler mr-1"></i> Kích thước
-                              </label>
-                              <div>
-                                {product.sizes.length > 0 ? (
-                                  product.sizes.map((size, index) => (
-                                    <span
-                                      key={index}
-                                      className="badge badge-info mr-2 mb-2 p-2"
-                                      style={{ fontSize: "90%" }}
-                                    >
-                                      {size}
+                                      className="mr-1"
+                                      style={{
+                                        backgroundColor: color.toLowerCase(),
+                                        width: "20px",
+                                        height: "20px",
+                                        borderRadius: "3px",
+                                        border: "1px solid #ddd",
+                                        display: "inline-block",
+                                      }}
+                                    />
+                                    <span className="badge badge-light">
+                                      {colorToVietnamese[color] || color}
                                     </span>
-                                  ))
-                                ) : (
-                                  <span className="text-muted">
-                                    Chưa có kích thước
-                                  </span>
-                                )}
-                              </div>
+                                  </div>
+                                ))
+                              ) : (
+                                <span className="text-muted">
+                                  Chưa có màu sắc
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
-
-                        <div className="form-group mt-2">
-                          <label className="font-weight-bold">
-                            <i className="fas fa-check-circle mr-1"></i> Phù hợp
-                            cho
-                          </label>
-                          <div>
-                            {product?.suitability &&
-                            product.suitability.length > 0 ? (
-                              product.suitability.map((item, index) => (
-                                <span
-                                  key={index}
-                                  className="badge badge-info mr-2 mb-2 p-2"
-                                  style={{ fontSize: "90%" }}
-                                >
-                                  <i className="fas fa-tag mr-1"></i> {item}
+                        <div className="col-md-6">
+                          <div className="form-group">
+                            <label className="font-weight-bold">
+                              <i className="fas fa-ruler mr-1" /> Kích thước
+                            </label>
+                            <div>
+                              {product.sizes.length > 0 ? (
+                                product.sizes.map((size, index) => (
+                                  <span
+                                    key={index}
+                                    className="badge badge-info mr-2 mb-2 p-2"
+                                    style={{ fontSize: "90%" }}
+                                  >
+                                    {size}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-muted">
+                                  Chưa có kích thước
                                 </span>
-                              ))
-                            ) : (
-                              <span className="text-muted">
-                                Chưa có thông tin phù hợp
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="form-group mt-2">
-                          <label className="font-weight-bold">
-                            <i className="fas fa-tags mr-1"></i> Tags
-                          </label>
-                          <div>
-                            {product.tags.length > 0 ? (
-                              product.tags.map((tag, index) => (
-                                <span
-                                  key={index}
-                                  className="badge badge-secondary mr-2 mb-2 p-2"
-                                  style={{ fontSize: "90%" }}
-                                >
-                                  {tag}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-muted">Chưa có tag</span>
-                            )}
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </>
-                  )}
-                </div>
-
-                {/* Inventory Tab */}
-                <div
-                  className={`tab-pane ${
-                    activeTab === "inventory" ? "active" : ""
-                  }`}
-                  id="inventory-tab"
-                  role="tabpanel"
-                  aria-labelledby="inventory-tab"
-                >
-                  {isEditing ? (
-                    <InventoryTab
-                      product={product}
-                      setProduct={setProduct}
-                      availableColors={availableColors}
-                      newVariant={{
-                        color: product.colors[0] || "",
-                        size: product.sizes[0] || "",
-                        stock: 0,
-                      }}
-                      setNewVariant={() => {}}
-                    />
-                  ) : (
-                    <div className="table-responsive">
-                      <table className="table table-bordered">
-                        <thead>
-                          <tr>
-                            <th>Màu sắc</th>
-                            <th>Kích thước</th>
-                            <th>Số lượng tồn</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {product.stock.variants.map((variant, index) => (
-                            <tr key={index}>
-                              <td>
-                                <div className="d-flex align-items-center">
-                                  <div
-                                    className="mr-2"
-                                    style={{
-                                      backgroundColor:
-                                        variant.color.toLowerCase(),
-                                      width: "20px",
-                                      height: "20px",
-                                      border: "1px solid #ddd",
-                                      display: "inline-block",
-                                    }}
-                                  ></div>
-                                  {variant.color}
-                                </div>
-                              </td>
-                              <td>{variant.size}</td>
-                              <td>
-                                <span
-                                  className={
-                                    variant.stock <= 5
-                                      ? "text-danger font-weight-bold"
-                                      : ""
-                                  }
-                                >
-                                  {variant.stock}
+                      <div className="row mt-4">
+                        <div className="col-md-6">
+                          <div className="form-group">
+                            <label className="font-weight-bold">
+                              <i className="fas fa-check-circle mr-1" /> Phù hợp
+                              cho
+                            </label>
+                            <div>
+                              {product.suitability.length > 0 ? (
+                                product.suitability.map((item, index) => (
+                                  <span
+                                    key={index}
+                                    className="badge badge-info mr-2 mb-2 p-2"
+                                    style={{ fontSize: "90%" }}
+                                  >
+                                    <i className="fas fa-tag mr-1" /> {item}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-muted">
+                                  Chưa có thông tin phù hợp
                                 </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr>
-                            <th colSpan={2}>Tổng số lượng tồn kho:</th>
-                            <th>{product.stock.total}</th>
-                          </tr>
-                        </tfoot>
-                      </table>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="col-md-6">
+                          <div className="form-group">
+                            <label className="font-weight-bold">
+                              <i className="fas fa-tags mr-1" /> Tags
+                            </label>
+                            <div>
+                              {product.tags.length > 0 ? (
+                                product.tags.map((tag, index) => (
+                                  <span
+                                    key={index}
+                                    className="badge badge-secondary mr-2 mb-2 p-2"
+                                    style={{ fontSize: "90%" }}
+                                  >
+                                    {tag}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-muted">Chưa có tag</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
 
-                {/* Images Tab */}
-                <div
-                  className={`tab-pane ${
-                    activeTab === "images" ? "active" : ""
-                  }`}
-                  id="images-tab"
-                  role="tabpanel"
-                  aria-labelledby="images-tab"
-                >
-                  {isEditing ? (
-                    <ImagesTab
-                      productColors={product.colors}
-                      selectedColor={selectedImageColor}
-                      setSelectedColor={setSelectedImageColor}
-                      colorImages={Object.fromEntries(
-                        product.colors.map((color) => [
-                          color,
-                          product.images.filter((img) => img.color === color),
-                        ])
-                      )}
-                      setColorImages={(updatedImages) => {
-                        const allImages: ProductImage[] = [];
-                        Object.values(updatedImages).forEach((images) => {
-                          allImages.push(...images);
-                        });
-                        setProduct((prev) => {
-                          if (!prev) return prev;
-                          return {
-                            ...prev,
-                            images: allImages,
-                          };
-                        });
-                      }}
-                      availableColors={availableColors}
-                      handleImageChange={(e) => {
-                        e.preventDefault();
-                        const files = e.target.files;
-                        if (!files || files.length === 0 || !product) return;
-
-                        if (!product.colors.includes(selectedImageColor)) {
-                          showToast("Vui lòng chọn màu hợp lệ", {
-                            type: "error",
-                          });
-                          return;
-                        }
-
-                        const currentImagesForColor = product.images.filter(
-                          (img) => img.color === selectedImageColor
-                        );
-                        const remainingSlots =
-                          10 - currentImagesForColor.length;
-
-                        if (remainingSlots <= 0) {
-                          showToast(
-                            "Mỗi màu chỉ được phép tải lên tối đa 10 hình ảnh để hiển thị tốt hơn trên trang sản phẩm.",
-                            {
-                              type: "warning",
-                            }
-                          );
-                          return;
-                        }
-
-                        const selectedFiles = Array.from(files).slice(
-                          0,
-                          remainingSlots
-                        );
-                        const hasMainImage = currentImagesForColor.some(
-                          (img) => img.isMain
-                        );
-
-                        const newUploadedImages = selectedFiles.map(
-                          (file, index) => ({
-                            file,
-                            color: selectedImageColor,
-                            isMain: !hasMainImage && index === 0, // Chỉ đặt ảnh đầu tiên làm ảnh chính nếu không có ảnh chính
-                          })
-                        );
-
-                        setNewImages((prev) => [...prev, ...newUploadedImages]);
-
-                        const imageURLs = selectedFiles.map((file, index) => ({
-                          id: `new-${Date.now()}-${Math.random()
-                            .toString(36)
-                            .substring(2, 9)}`,
-                          url: URL.createObjectURL(file),
-                          color: selectedImageColor,
-                          isMain: !hasMainImage && index === 0, // Chỉ đặt ảnh đầu tiên làm ảnh chính nếu không có ảnh chính
-                        }));
-
-                        setProduct((prev) => {
-                          if (!prev) return prev;
-                          return {
-                            ...prev,
-                            images: [...prev.images, ...imageURLs],
-                          };
-                        });
-
-                        e.target.value = "";
-                      }}
-                      handleSetMainImage={handleSetMainImage}
-                      handleRemoveImage={handleImageDeleteRequest}
-                    />
-                  ) : (
-                    <ImagesTab
-                      productColors={product.colors}
-                      selectedColor={selectedImageColor}
-                      setSelectedColor={setSelectedImageColor}
-                      colorImages={Object.fromEntries(
-                        product.colors.map((color) => [
-                          color,
-                          product.images.filter((img) => img.color === color),
-                        ])
-                      )}
-                      setColorImages={() => {}} // Hàm rỗng vì không cần cập nhật hình ảnh ở view mode
-                      availableColors={availableColors}
-                      handleImageChange={() => {}} // Hàm rỗng vì không cho phép tải ảnh ở view mode
-                      handleSetMainImage={() => {}} // Hàm rỗng vì không cho phép đặt ảnh chính ở view mode
-                      handleRemoveImage={() => {}} // Hàm rỗng vì không cho phép xóa ảnh ở view mode
-                      viewMode={true} // Thêm prop để báo hiệu view mode
-                    />
-                  )}
-                </div>
-
-                {/* History Tab */}
-                <div
-                  className={`tab-pane ${
-                    activeTab === "history" ? "active" : ""
-                  }`}
-                >
-                  <ul className="timeline-inverse">
-                    {product.modificationHistory.map((item, index) => (
-                      <li key={index}>
-                        <div className="timeline-item">
-                          <span className="time">
-                            <i className="fas fa-clock"></i> {item.date}
-                          </span>
-                          <h3 className="timeline-header">
-                            <a href="#">{item.user}</a> - {item.action}
-                          </h3>
-                          <div className="timeline-body">{item.detail}</div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Variants Tab */}
                 <div
                   className={`tab-pane ${
                     activeTab === "variants" ? "active" : ""
                   }`}
+                  id="variants-tab"
+                  role="tabpanel"
                 >
                   {isEditing ? (
                     <div className="table-responsive">
@@ -2176,11 +1750,14 @@ const ProductDetailPage: FC = () => {
                                           )
                                         }
                                       >
-                                        <option value="S">S</option>
-                                        <option value="M">M</option>
-                                        <option value="L">L</option>
-                                        <option value="XL">XL</option>
-                                        <option value="XXL">XXL</option>
+                                        {availableSizes.map((size) => (
+                                          <option
+                                            key={size.value}
+                                            value={size.value}
+                                          >
+                                            {size.label}
+                                          </option>
+                                        ))}
                                       </select>
                                       <input
                                         type="number"
@@ -2202,7 +1779,7 @@ const ProductDetailPage: FC = () => {
                                           removeSize(index, sizeIndex)
                                         }
                                       >
-                                        <i className="fas fa-times"></i>
+                                        <i className="fas fa-times" />
                                       </button>
                                     </div>
                                   ))}
@@ -2210,8 +1787,8 @@ const ProductDetailPage: FC = () => {
                                     className="btn btn-sm btn-info mt-2"
                                     onClick={() => addSize(index)}
                                   >
-                                    <i className="fas fa-plus mr-1"></i> Thêm
-                                    kích thước
+                                    <i className="fas fa-plus mr-1" /> Thêm kích
+                                    thước
                                   </button>
                                 </div>
                               </td>
@@ -2222,7 +1799,7 @@ const ProductDetailPage: FC = () => {
                                     handleVariantDeleteRequest(index)
                                   }
                                 >
-                                  <i className="fas fa-trash"></i> Xóa
+                                  <i className="fas fa-trash" /> Xóa
                                 </button>
                               </td>
                             </tr>
@@ -2233,8 +1810,8 @@ const ProductDetailPage: FC = () => {
                                 className="btn btn-success"
                                 onClick={addVariant}
                               >
-                                <i className="fas fa-plus mr-1"></i> Thêm biến
-                                thể mới
+                                <i className="fas fa-plus mr-1" /> Thêm biến thể
+                                mới
                               </button>
                             </td>
                             <td colSpan={2}>
@@ -2283,13 +1860,223 @@ const ProductDetailPage: FC = () => {
                     </div>
                   )}
                 </div>
+
+                <div
+                  className={`tab-pane ${
+                    activeTab === "inventory" ? "active" : ""
+                  }`}
+                  id="inventory-tab"
+                  role="tabpanel"
+                >
+                  {isEditing ? (
+                    <InventoryTab
+                      product={product}
+                      setProduct={setProduct}
+                      availableColors={availableColors}
+                      newVariant={{
+                        color: product.colors[0] || "",
+                        size: product.sizes[0] || "",
+                        stock: 0,
+                      }}
+                      setNewVariant={() => {}}
+                    />
+                  ) : (
+                    <div className="table-responsive">
+                      <table className="table table-bordered">
+                        <thead>
+                          <tr>
+                            <th>Màu sắc</th>
+                            <th>Kích thước</th>
+                            <th>Số lượng tồn</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {product.stock.variants.map((variant, index) => (
+                            <tr key={index}>
+                              <td>
+                                <div className="d-flex align-items-center">
+                                  <div
+                                    className="mr-2"
+                                    style={{
+                                      backgroundColor:
+                                        variant.color.toLowerCase(),
+                                      width: "20px",
+                                      height: "20px",
+                                      border: "1px solid #ddd",
+                                      display: "inline-block",
+                                    }}
+                                  />
+                                  {variant.color}
+                                </div>
+                              </td>
+                              <td>{variant.size}</td>
+                              <td>
+                                <span
+                                  className={
+                                    variant.stock <= 5
+                                      ? "text-danger font-weight-bold"
+                                      : ""
+                                  }
+                                >
+                                  {variant.stock}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr>
+                            <th colSpan={2}>Tổng số lượng tồn kho:</th>
+                            <th>{product.stock.total}</th>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                <div
+                  className={`tab-pane ${
+                    activeTab === "images" ? "active" : ""
+                  }`}
+                  id="images-tab"
+                  role="tabpanel"
+                >
+                  {isEditing ? (
+                    <ImagesTab
+                      productColors={product.colors}
+                      selectedColor={selectedImageColor}
+                      setSelectedColor={setSelectedImageColor}
+                      colorImages={Object.fromEntries(
+                        product.colors.map((color) => [
+                          color,
+                          product.images.filter((img) => img.color === color),
+                        ])
+                      )}
+                      setColorImages={(updatedImages) => {
+                        const allImages: ProductImage[] =
+                          Object.values(updatedImages).flat();
+                        setProduct((prev) =>
+                          prev ? { ...prev, images: allImages } : prev
+                        );
+                      }}
+                      availableColors={availableColors}
+                      handleImageChange={(e) => {
+                        e.preventDefault();
+                        const files = e.target.files;
+                        if (!files || files.length === 0 || !product) return;
+
+                        if (!product.colors.includes(selectedImageColor)) {
+                          showToast("Vui lòng chọn màu hợp lệ", {
+                            type: "error",
+                          });
+                          return;
+                        }
+
+                        const currentImagesForColor = product.images.filter(
+                          (img) => img.color === selectedImageColor
+                        );
+                        const remainingSlots =
+                          10 - currentImagesForColor.length;
+
+                        if (remainingSlots <= 0) {
+                          showToast(
+                            "Mỗi màu chỉ được phép tải lên tối đa 10 hình ảnh",
+                            { type: "warning" }
+                          );
+                          return;
+                        }
+
+                        const selectedFiles = Array.from(files).slice(
+                          0,
+                          remainingSlots
+                        );
+                        const hasMainImage = currentImagesForColor.some(
+                          (img) => img.isMain
+                        );
+
+                        const newUploadedImages = selectedFiles.map(
+                          (file, index) => ({
+                            file,
+                            color: selectedImageColor,
+                            isMain: !hasMainImage && index === 0,
+                          })
+                        );
+
+                        setNewImages((prev) => [...prev, ...newUploadedImages]);
+
+                        const imageURLs = selectedFiles.map((file, index) => ({
+                          id: `new-${Date.now()}-${Math.random()
+                            .toString(36)
+                            .substring(2, 9)}`,
+                          url: URL.createObjectURL(file),
+                          color: selectedImageColor,
+                          isMain: !hasMainImage && index === 0,
+                        }));
+
+                        setProduct((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                images: [...prev.images, ...imageURLs],
+                              }
+                            : prev
+                        );
+                        e.target.value = "";
+                      }}
+                      handleSetMainImage={handleSetMainImage}
+                      handleRemoveImage={handleImageDeleteRequest}
+                    />
+                  ) : (
+                    <ImagesTab
+                      productColors={product.colors}
+                      selectedColor={selectedImageColor}
+                      setSelectedColor={setSelectedImageColor}
+                      colorImages={Object.fromEntries(
+                        product.colors.map((color) => [
+                          color,
+                          product.images.filter((img) => img.color === color),
+                        ])
+                      )}
+                      setColorImages={() => {}}
+                      availableColors={availableColors}
+                      handleImageChange={() => {}}
+                      handleSetMainImage={() => {}}
+                      handleRemoveImage={() => {}}
+                      viewMode
+                    />
+                  )}
+                </div>
+
+                <div
+                  className={`tab-pane ${
+                    activeTab === "history" ? "active" : ""
+                  }`}
+                  id="history-tab"
+                  role="tabpanel"
+                >
+                  <ul className="timeline-inverse">
+                    {product.modificationHistory.map((item, index) => (
+                      <li key={index}>
+                        <div className="timeline-item">
+                          <span className="time">
+                            <i className="fas fa-clock" /> {item.date}
+                          </span>
+                          <h3 className="timeline-header">
+                            <a href="#">{item.user}</a> - {item.action}
+                          </h3>
+                          <div className="timeline-body">{item.detail}</div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Delete Confirmation Modal */}
       {productToDelete && (
         <div
           className={`modal fade ${showDeleteModal ? "show" : ""}`}
@@ -2306,7 +2093,7 @@ const ProductDetailPage: FC = () => {
             <div className="modal-content">
               <div className="modal-header bg-danger">
                 <h5 className="modal-title text-white" id="deleteModalLabel">
-                  <i className="fas fa-exclamation-triangle mr-2"></i>
+                  <i className="fas fa-exclamation-triangle mr-2" />
                   Xác nhận xóa sản phẩm
                 </h5>
                 <button
@@ -2324,7 +2111,7 @@ const ProductDetailPage: FC = () => {
                   <strong>&quot;{productToDelete.name}&quot;</strong>?
                 </p>
                 <p className="mb-0 text-danger">
-                  <i className="fas fa-info-circle mr-1"></i>
+                  <i className="fas fa-info-circle mr-1" />
                   Hành động này không thể hoàn tác. Tất cả dữ liệu liên quan đến
                   sản phẩm này sẽ bị xóa vĩnh viễn.
                 </p>
@@ -2335,7 +2122,7 @@ const ProductDetailPage: FC = () => {
                   className="btn btn-secondary"
                   onClick={() => setShowDeleteModal(false)}
                 >
-                  <i className="fas fa-times mr-1"></i>
+                  <i className="fas fa-times mr-1" />
                   Hủy
                 </button>
                 <button
@@ -2353,15 +2140,15 @@ const ProductDetailPage: FC = () => {
                       setTimeout(() => {
                         router.push("/admin/products");
                       }, 2000);
-                    } catch (error) {
-                      console.error("Error deleting product:", error);
-                      showToast("Không thể xóa sản phẩm này.", {
+                    } catch (err) {
+                      console.error("Error deleting product:", err);
+                      showToast("Không thể xóa sản phẩm này", {
                         type: "error",
                       });
                     }
                   }}
                 >
-                  <i className="fas fa-trash mr-1"></i>
+                  <i className="fas fa-trash mr-1" />
                   Xóa sản phẩm
                 </button>
               </div>
@@ -2370,7 +2157,6 @@ const ProductDetailPage: FC = () => {
         </div>
       )}
 
-      {/* Modal xác nhận xóa ảnh */}
       <ConfirmModal
         isOpen={imageDeleteConfirmation.isOpen}
         title="Xác nhận xóa"
@@ -2385,7 +2171,6 @@ const ProductDetailPage: FC = () => {
         onCancel={handleCancelImageDelete}
       />
 
-      {/* Modal xác nhận xóa biến thể */}
       <ConfirmModal
         isOpen={variantDeleteConfirmation.isOpen}
         title="Xác nhận xóa biến thể"
@@ -2400,7 +2185,6 @@ const ProductDetailPage: FC = () => {
         onCancel={handleCancelVariantDelete}
       />
 
-      {Toast}
       {Toast}
     </AdminLayout>
   );

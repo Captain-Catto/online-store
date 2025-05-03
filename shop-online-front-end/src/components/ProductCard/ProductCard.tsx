@@ -13,6 +13,7 @@ interface ProductCardProps {
   productImage: string;
   secondaryImage?: string;
   onColorSelect: (productId: number, color: string) => void;
+  price?: number;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({
@@ -38,7 +39,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
   const price = currentVariant?.price ?? product.price ?? 0;
   const originalPrice = currentVariant?.originalPrice ?? price;
-  console.log("Product price:", price, "Original price:", originalPrice);
 
   const { showToast, Toast } = useToast();
 

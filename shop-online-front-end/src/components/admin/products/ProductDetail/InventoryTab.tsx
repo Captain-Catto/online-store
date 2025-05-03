@@ -1,4 +1,5 @@
 import React from "react";
+import { FormattedProduct } from "../ProductDetailPage";
 
 // Kiểu dữ liệu cho thông tin biến thể
 interface ProductVariant {
@@ -8,38 +9,36 @@ interface ProductVariant {
 }
 
 // Kiểu dữ liệu cho sản phẩm (đồng bộ với AddProductPage)
-interface Product {
-  name: string;
-  sku: string;
-  description: string;
-  category: string;
-  categoryName: string;
-  brand: string;
-  subtype: string;
-  subtypeName: string;
-  material: string;
-  price: number;
-  originalPrice: number;
-  suitability: string[];
-  stock: {
-    total: number;
-    variants: ProductVariant[];
-  };
-  colors: string[];
-  sizes: string[];
-  status: string;
-  statusLabel: string;
-  statusClass: string;
-  featured: boolean;
-  tags: string[];
-}
+// interface Product {
+//   name: string;
+//   sku: string;
+//   description: string;
+//   category: string;
+//   categoryName: string;
+//   brand: string;
+//   subtype: string;
+//   subtypeName: string;
+//   material: string;
+//   price: number;
+//   originalPrice: number;
+//   suitability: string[];
+//   stock: {
+//     total: number;
+//     variants: ProductVariant[];
+//   };
+//   colors: string[];
+//   sizes: string[];
+//   status: string;
+//   statusLabel: string;
+//   statusClass: string;
+//   featured: boolean;
+//   tags: string[];
+// }
 
 interface InventoryTabProps {
-  product: Product; // Sử dụng kiểu Product thay vì ProductInventory
-  setProduct: React.Dispatch<React.SetStateAction<Product>>;
+  product: FormattedProduct;
+  setProduct: React.Dispatch<React.SetStateAction<FormattedProduct | null>>;
   availableColors: { key: string; label: string }[];
-  availableSizes: Array<{ value: string; label: string }>;
-
   newVariant: ProductVariant;
   setNewVariant: React.Dispatch<React.SetStateAction<ProductVariant>>;
 }
@@ -66,18 +65,22 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
       return;
     }
 
-    const updatedVariants = [...product.stock.variants, { ...newVariant }];
-    const totalStock = updatedVariants.reduce(
-      (sum, item) => sum + item.stock,
-      0
-    );
+    setProduct((prev) => {
+      if (!prev) return prev;
 
-    setProduct({
-      ...product,
-      stock: {
-        variants: updatedVariants,
-        total: totalStock,
-      },
+      const updatedVariants = [...prev.stock.variants, { ...newVariant }];
+      const totalStock = updatedVariants.reduce(
+        (sum, item) => sum + item.stock,
+        0
+      );
+
+      return {
+        ...prev,
+        stock: {
+          variants: updatedVariants,
+          total: totalStock,
+        },
+      };
     });
 
     setNewVariant({
@@ -114,90 +117,20 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
       0
     );
 
-    setProduct({
-      ...product,
-      stock: {
-        variants: updatedVariants,
-        total: totalStock,
-      },
+    setProduct((prev) => {
+      if (!prev) return prev; // Kiểm tra null
+      return {
+        ...prev,
+        stock: {
+          variants: updatedVariants,
+          total: totalStock,
+        },
+      };
     });
   };
 
   return (
     <div>
-      <div className="mb-4">
-        <h5>Thêm biến thể sản phẩm</h5>
-        <div className="row">
-          <div className="col-md-4">
-            <div className="form-group">
-              <label>Màu sắc</label>
-              <select
-                className="form-control"
-                value={newVariant.color}
-                onChange={(e) =>
-                  setNewVariant({
-                    ...newVariant,
-                    color: e.target.value,
-                  })
-                }
-              >
-                <option value="">Chọn màu</option>
-                {product.colors.map((color) => (
-                  <option key={color} value={color}>
-                    {availableColors.find((c) => c.key === color)?.label ||
-                      color}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="col-md-4">
-            <div className="form-group">
-              <label>Kích thước</label>
-              <select
-                className="form-control"
-                value={newVariant.size}
-                onChange={(e) =>
-                  setNewVariant({
-                    ...newVariant,
-                    size: e.target.value,
-                  })
-                }
-              >
-                <option value="">Chọn kích thước</option>
-                {product.sizes.map((size) => (
-                  <option key={size} value={size}>
-                    {size}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="col-md-3">
-            <div className="form-group">
-              <label>Số lượng</label>
-              <input
-                type="number"
-                className="form-control"
-                min="0"
-                value={newVariant.stock}
-                onChange={(e) =>
-                  setNewVariant({
-                    ...newVariant,
-                    stock: parseInt(e.target.value) || 0,
-                  })
-                }
-              />
-            </div>
-          </div>
-          <div className="col-md-1 d-flex align-items-end">
-            <button className="btn btn-primary mb-3" onClick={handleAddVariant}>
-              <i className="fas fa-plus"></i>
-            </button>
-          </div>
-        </div>
-      </div>
-
       <h5>Danh sách biến thể</h5>
       <div className="table-responsive">
         <table className="table table-bordered">
@@ -261,6 +194,9 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
           </tfoot>
         </table>
       </div>
+      <button className="btn btn-primary mt-3" onClick={handleAddVariant}>
+        Thêm biến thể
+      </button>
     </div>
   );
 };

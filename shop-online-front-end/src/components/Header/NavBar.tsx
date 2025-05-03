@@ -6,7 +6,6 @@ import { useNavigation } from "@/contexts/NavigationContext";
 
 export default function NavBar() {
   const { menuItems, loading } = useNavigation();
-  console.log("Menu Items:", menuItems); // Debugging log
   const [hoverMenuId, setHoverMenuId] = useState<number | null>(null);
 
   const renderMenuItem = (item: NavigationMenuItem) => {

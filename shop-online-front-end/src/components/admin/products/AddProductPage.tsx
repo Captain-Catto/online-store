@@ -111,7 +111,7 @@ export default function AddProductPage() {
     material: "",
     price: 0,
     originalPrice: 0,
-    suitability: ["casual"],
+    suitability: [""],
     stock: {
       total: 0,
       variants: [],

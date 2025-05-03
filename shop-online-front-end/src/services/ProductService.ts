@@ -600,4 +600,36 @@ export const ProductService = {
       throw error;
     }
   },
+
+  // Trong file ProductService.ts
+  removeProductDetails: async (detailIds: number[]): Promise<any> => {
+    const token = sessionStorage.getItem("authToken");
+    if (!token) throw new Error("Token không hợp lệ");
+
+    const results = [];
+
+    // Xử lý từng ID một
+    for (const detailId of detailIds) {
+      const response = await fetch(
+        `${API_BASE_URL}/product-details/${detailId}`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Lỗi khi xóa biến thể ${detailId}: ${errorText}`);
+      }
+
+      const result = await response.json();
+      results.push(result);
+    }
+
+    return results;
+  },
 };

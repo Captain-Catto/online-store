@@ -87,6 +87,9 @@ export default function CategoryDetailPage() {
   const [sizesByCategory, setSizesByCategory] = useState<Record<string, Array>>(
     {}
   );
+  const [secondaryImages, setSecondaryImages] = useState<
+    Record<string, string>
+  >({});
 
   // Filter open states
   const [filtersOpen, setFiltersOpen] = useState<FiltersOpenState>({
@@ -207,7 +210,10 @@ export default function CategoryDetailPage() {
         // Nhóm kích thước theo loại sản phẩm và loại kích thước
         const sizesByCategory: Record<
           string,
-          Record<string, Array<string>>
+          Record<
+            string,
+            Array<{ value: string; displayName: string; displayOrder: number }>
+          >
         > = {};
 
         sizesData.forEach((size) => {
@@ -366,6 +372,8 @@ export default function CategoryDetailPage() {
         }
 
         const images: Record<string, string> = {};
+        const secondaryImgs: Record<string, string> = {};
+
         const colors: Record<string, string> = {};
 
         filteredProducts.forEach((product: Product) => {
@@ -397,9 +405,21 @@ export default function CategoryDetailPage() {
             images[product.id] = mainImageForColor;
             colors[product.id] = firstAvailableColor;
           }
+
+          if (firstAvailableColor && product.variants?.[firstAvailableColor]) {
+            const { mainImage, secondaryImage } = extractImages(
+              product.variants[firstAvailableColor]
+            );
+
+            if (mainImage) images[product.id] = mainImage;
+            if (secondaryImage) secondaryImgs[product.id] = secondaryImage;
+            colors[product.id] = firstAvailableColor;
+          }
         });
 
         setProductImages(images);
+        setSecondaryImages(secondaryImgs);
+
         setSelectedColors(colors);
       } catch (error) {
         console.error("Không thể tải sản phẩm:", error);
@@ -508,15 +528,56 @@ export default function CategoryDetailPage() {
     [categorySlug, pathname, router, searchParams]
   );
 
+  // Thêm hàm trích xuất hình ảnh
+  const extractImages = useCallback((variant) => {
+    if (!variant?.images || variant.images.length === 0) {
+      return { mainImage: null, secondaryImage: null };
+    }
+
+    const mainImage =
+      variant.images.find((img) => img.isMain) || variant.images[0];
+    let secondaryImage = null;
+
+    if (variant.images.length > 1) {
+      secondaryImage = variant.images.find((img) => !img.isMain);
+    }
+
+    return {
+      mainImage: mainImage ? mainImage.url : null,
+      secondaryImage: secondaryImage ? secondaryImage.url : null,
+    };
+  }, []);
+
   // Handle color selection for product display
   const handleColorSelect = useCallback(
-    (productId: number, color: string): void => {
-      setSelectedColors((prev) => ({
-        ...prev,
-        [productId]: color,
-      }));
+    (productId: number, color: string) => {
+      setSelectedColors((prev) => ({ ...prev, [productId]: color }));
+
+      const product = products.find((p) => p.id === productId);
+      if (product?.variants?.[color]) {
+        const { mainImage, secondaryImage } = extractImages(
+          product.variants[color]
+        );
+
+        if (mainImage) {
+          setProductImages((prev) => ({ ...prev, [productId]: mainImage }));
+        }
+
+        if (secondaryImage) {
+          setSecondaryImages((prev) => ({
+            ...prev,
+            [productId]: secondaryImage,
+          }));
+        } else {
+          setSecondaryImages((prev) => {
+            const newImages = { ...prev };
+            delete newImages[productId];
+            return newImages;
+          });
+        }
+      }
     },
-    []
+    [products, extractImages]
   );
 
   // Handle pagination
@@ -565,6 +626,7 @@ export default function CategoryDetailPage() {
               products={products}
               selectedColors={selectedColors}
               productImages={productImages}
+              secondaryImages={secondaryImages}
               onColorSelect={handleColorSelect}
               loading={loading}
               error={error}

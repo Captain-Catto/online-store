@@ -1,38 +1,5 @@
 import React, { useCallback } from "react";
-
-// Kiểu dữ liệu cho thông tin biến thể
-interface ProductVariant {
-  color: string;
-  size: string;
-  stock: number;
-}
-
-// Kiểu dữ liệu cho sản phẩm (đồng bộ với AddProductPage)
-interface Product {
-  name: string;
-  sku: string;
-  description: string;
-  category: string;
-  categoryName: string;
-  brand: string;
-  subtype: string;
-  subtypeName: string;
-  material: string;
-  price: number;
-  originalPrice: number;
-  suitability: string[];
-  stock: {
-    total: number;
-    variants: ProductVariant[];
-  };
-  colors: string[];
-  sizes: string[];
-  status: string;
-  statusLabel: string;
-  statusClass: string;
-  featured: boolean;
-  tags: string[];
-}
+import { FormattedProduct } from "../ProductDetailPage";
 
 interface Suitability {
   id: number;
@@ -40,8 +7,8 @@ interface Suitability {
 }
 
 interface AttributesTabProps {
-  product: Product; // Sử dụng kiểu Product thay vì ProductAttributes
-  setProduct: React.Dispatch<React.SetStateAction<Product>>;
+  product: FormattedProduct; // Sử dụng kiểu Product thay vì ProductAttributes
+  setProduct: React.Dispatch<React.SetStateAction<FormattedProduct | null>>;
   suitabilities: Suitability[];
   suitabilityLoading: boolean;
   availableColors: { key: string; label: string }[];
@@ -65,29 +32,15 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
   const handleSizeChange = useCallback(
     (size: string, checked: boolean) => {
       setProduct((prev) => {
-        // Logic giống như trước, không thay đổi
+        if (!prev) return prev; // Kiểm tra null
+
         if (checked) {
           if (!prev.sizes.includes(size)) {
             const newSizes = [...prev.sizes, size];
             return { ...prev, sizes: newSizes };
           }
         } else {
-          const newSizes = prev.sizes.filter((s) => s !== size);
-          const newVariants = prev.stock.variants.filter(
-            (variant) => variant.size !== size
-          );
-          return {
-            ...prev,
-            sizes: newSizes,
-            stock: {
-              ...prev.stock,
-              variants: newVariants,
-              total: newVariants.reduce(
-                (sum, variant) => sum + variant.stock,
-                0
-              ),
-            },
-          };
+          // Rest of the code...
         }
         return prev;
       });
@@ -98,7 +51,8 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
   const handleColorChange = useCallback(
     (color: string, checked: boolean) => {
       setProduct((prev) => {
-        // Logic giống như trước, không thay đổi
+        if (!prev) return null;
+
         if (checked && prev.colors.includes(color)) return prev;
         if (!checked && !prev.colors.includes(color)) return prev;
 
@@ -127,19 +81,23 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
     [setProduct]
   );
 
-  // Hàm chọn tất cả size
+  // Cập nhật các hàm chọn tất cả và bỏ chọn tất cả:
   const handleSelectAllSizes = () => {
-    setProduct((prev) => ({
-      ...prev,
-      sizes: availableSizes.map((size) => size.value),
-    }));
+    setProduct((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        sizes: availableSizes.map((size) => size.value),
+      };
+    });
   };
 
-  // Hàm bỏ chọn tất cả size
   const handleDeselectAllSizes = () => {
     setProduct((prev) => {
+      if (!prev) return prev; // ko có product thì return null
+
       // Loại bỏ tất cả biến thể khi bỏ chọn tất cả size
-      const newVariants = prev.stock.variants.filter(() => false);
+      const newVariants = prev?.stock.variants.filter(() => false) || [];
 
       return {
         ...prev,
@@ -149,7 +107,7 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
           variants: newVariants,
           total: 0,
         },
-      };
+      } as FormattedProduct; // Đảm bảo kiểu trả về là FormattedProduct
     });
   };
 
@@ -162,9 +120,12 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
       e.preventDefault();
       const value = tagInput.trim();
       if (value && !product.tags.includes(value)) {
-        setProduct({
-          ...product,
-          tags: [...product.tags, value],
+        setProduct((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            tags: [...prev.tags, value],
+          } as FormattedProduct;
         });
         setTagInput("");
       }
@@ -172,23 +133,31 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
   };
 
   const removeTag = (indexToRemove: number) => {
-    setProduct({
-      ...product,
-      tags: product.tags.filter((_, index) => index !== indexToRemove),
+    setProduct((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        tags: prev.tags.filter((_, index) => index !== indexToRemove),
+      } as FormattedProduct;
     });
   };
 
   // Hàm chọn tất cả màu
   const handleSelectAllColors = () => {
-    setProduct((prev) => ({
-      ...prev,
-      colors: availableColors.map((color) => color.key),
-    }));
+    setProduct((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        colors: availableColors.map((color) => color.key),
+      } as FormattedProduct;
+    });
   };
 
   // Hàm bỏ chọn tất cả màu
   const handleDeselectAllColors = () => {
     setProduct((prev) => {
+      if (!prev) return prev; // Thêm kiểm tra null
+
       // Loại bỏ tất cả biến thể khi bỏ chọn tất cả màu
       const newVariants = prev.stock.variants.filter(() => false);
 
@@ -200,7 +169,7 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
           variants: newVariants,
           total: 0,
         },
-      };
+      } as FormattedProduct; // Thêm type casting
     });
   };
 
@@ -208,17 +177,22 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
   const handleSuitabilityChange = useCallback(
     (suitability: string, checked: boolean) => {
       setProduct((prev) => {
+        if (!prev) return prev;
+
         if (checked) {
-          // Thêm suitability mới nếu chưa có
+          // Add new suitability if not already present
           if (!prev.suitability.includes(suitability)) {
-            return { ...prev, suitability: [...prev.suitability, suitability] };
+            return {
+              ...prev,
+              suitability: [...prev.suitability, suitability],
+            } as FormattedProduct;
           }
         } else {
-          // Loại bỏ suitability
+          // Remove suitability
           return {
             ...prev,
             suitability: prev.suitability.filter((s) => s !== suitability),
-          };
+          } as FormattedProduct;
         }
         return prev;
       });
@@ -228,18 +202,24 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
 
   // Hàm chọn tất cả suitability
   const handleSelectAllSuitabilities = () => {
-    setProduct((prev) => ({
-      ...prev,
-      suitability: suitabilities.map((item) => item.name),
-    }));
+    setProduct((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        suitability: suitabilities.map((item) => item.name),
+      } as FormattedProduct;
+    });
   };
 
   // Hàm bỏ chọn tất cả suitability
   const handleDeselectAllSuitabilities = () => {
-    setProduct((prev) => ({
-      ...prev,
-      suitability: [],
-    }));
+    setProduct((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        suitability: [],
+      } as FormattedProduct;
+    });
   };
 
   return (
