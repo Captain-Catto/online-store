@@ -14,6 +14,8 @@ interface ProductCardProps {
   secondaryImage?: string;
   onColorSelect: (productId: number, color: string) => void;
   price?: number;
+  originalPrice?: number | null;
+  availableSizes?: string[];
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({
@@ -23,13 +25,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
   secondaryImage,
   onColorSelect,
 }) => {
-  console.log("Rendering ProductCard with props:", {
-    product,
-    selectedColor,
-    productImage,
-    secondaryImage,
-  });
-
   const [isHovered, setIsHovered] = useState(false);
 
   const currentVariant: VariantDetail | null =

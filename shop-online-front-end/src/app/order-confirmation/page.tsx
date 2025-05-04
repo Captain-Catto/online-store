@@ -281,7 +281,14 @@ export default function OrderConfirmationPage() {
                     />
                   </div>
                   <div className="flex-grow">
-                    <h4 className="font-medium">{item.product.name}</h4>
+                    <h4 className="font-medium">
+                      <Link
+                        href={`/products/${item.productId}`}
+                        className="text-black hover:text-blue-600"
+                      >
+                        {item.product.name}
+                      </Link>
+                    </h4>
                     <p className="text-gray-600 text-sm">
                       Màu: {item.color}, Kích thước: {item.size}
                     </p>

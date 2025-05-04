@@ -22,7 +22,7 @@ interface User {
 export function useAuth(redirectTo?: string) {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
@@ -110,7 +110,7 @@ export function useAuth(redirectTo?: string) {
         setIsLoggedIn(false);
         setUser(null);
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
@@ -133,5 +133,5 @@ export function useAuth(redirectTo?: string) {
     setUser(null);
   };
 
-  return { isLoggedIn, user, loading, logout, isAdmin };
+  return { isLoggedIn, user, isLoading, logout, isAdmin };
 }

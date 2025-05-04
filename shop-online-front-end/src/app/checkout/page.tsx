@@ -16,6 +16,7 @@ import { UserService } from "@/services/UserService";
 import { Address } from "@/types/address";
 import { OrderService } from "@/services/OrderService";
 import { clearCart } from "@/utils/cartUtils";
+import { useCart } from "@/contexts/CartContext";
 
 // Định nghĩa kiểu dữ liệu
 type LocationsType = {
@@ -27,6 +28,7 @@ type LocationsType = {
 // Map cart items to order items format
 interface CartItem {
   id: string;
+  productId: string;
   color: string;
   size: string;
   quantity: number;
@@ -93,6 +95,8 @@ export default function CheckoutPage() {
   const [voucherLoading, setVoucherLoading] = useState(false);
   const [voucherError, setVoucherError] = useState<string | null>(null);
   const [appliedVoucher, setAppliedVoucher] = useState<Voucher | null>(null);
+  // state cho cart items
+  const { cartItems, cartCount, loading: cartLoading, clearCart } = useCart();
 
   // State cho tính phí vận chuyển
   const [calculatingShippingFee, setCalculatingShippingFee] = useState(false);
@@ -169,40 +173,27 @@ export default function CheckoutPage() {
 
   // Trong trang Checkout
   useEffect(() => {
-    const orderDataString = sessionStorage.getItem("pendingOrder");
-
-    if (!orderDataString) {
-      // Nếu không có dữ liệu, điều hướng về trang giỏ hàng
+    // Kiểm tra nếu giỏ hàng trống, quay về trang cart
+    if (!cartLoading && cartItems.length === 0) {
       router.push("/cart");
       return;
     }
 
-    try {
-      const orderData = JSON.parse(orderDataString);
-      const currentTime = new Date().getTime();
+    // Tính toán dữ liệu đơn hàng từ cartItems
+    if (!cartLoading && cartItems.length > 0) {
+      const subtotal = cartItems.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
 
-      // Kiểm tra tính hợp lệ của dữ liệu (ví dụ: không quá 30 phút)
-      if (currentTime - orderData.timestamp > 30 * 60 * 1000) {
-        alert("Phiên đặt hàng đã hết hạn, vui lòng thử lại.");
-        router.push("/cart");
-        return;
-      }
-
-      // Sử dụng dữ liệu
       setOrderSummary({
-        subtotal: orderData.summary.subtotal,
-        discount: orderData.summary.discount || 0,
-        deliveryFee: orderData.summary.deliveryFee || 0,
-        total:
-          orderData.summary.subtotal +
-          (orderData.summary.deliveryFee || 0) -
-          (orderData.summary.discount || 0),
+        subtotal,
+        discount: 0,
+        deliveryFee: 0,
+        total: subtotal,
       });
-    } catch (error) {
-      console.error("Error parsing order data:", error);
-      router.push("/cart");
     }
-  }, [router]);
+  }, [cartItems, cartLoading, router]);
 
   // Function để tính phí vận chuyển (chỉ cần city)
   const calculateShippingFee = useCallback(async () => {
@@ -387,14 +378,13 @@ export default function CheckoutPage() {
 
       // Get cart items from session storage
       const orderDataString = sessionStorage.getItem("pendingOrder");
+
       if (!orderDataString) {
         alert("Không tìm thấy thông tin giỏ hàng. Vui lòng thử lại.");
         router.push("/cart");
         return;
       }
-
       const orderData = JSON.parse(orderDataString);
-      console.log("orderData trong checkout", orderData);
 
       const orderItems = orderData.items.map((item: CartItem) => ({
         productId: Number(item.productId),
@@ -423,18 +413,21 @@ export default function CheckoutPage() {
         phoneNumber: shippingInfo.phone,
       };
 
-      // Call API to create order
+      // Gọi API để đặt hàng
       const response = await OrderService.placeOrder(orderPayload);
 
       // Lưu ID đơn hàng vào sessionStorage
-      sessionStorage.setItem("recentOrderId", String(response.orderId || ""));
+      // Kiểm tra orderId
+      if (!response.orderId) {
+      } else {
+        sessionStorage.setItem("recentOrderId", String(response.orderId));
+      }
 
-      // Clear cart
+      // Sử dụng clearCart từ context
       clearCart();
-      sessionStorage.removeItem("pendingOrder");
 
       // Chuyển hướng đến trang confirmation
-      router.push(`/order-confirmation`);
+      window.location.href = "/order-confirmation";
     } catch (error) {
       console.error("Error placing order:", error);
 

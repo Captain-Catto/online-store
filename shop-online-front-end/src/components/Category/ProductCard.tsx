@@ -3,7 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { Product } from "@/types/product";
 import { useToast } from "@/utils/useToast";
-import { addToCart, getCartItemCount } from "@/utils/cartUtils";
+import { addToCart, getCartItemCount } from "@/utils/cartUtils"; // bỏ
+import { useCart } from "@/contexts/CartContext";
 
 interface ProductCardProps {
   product: Product;
@@ -30,6 +31,7 @@ export default function ProductCard({
   const [showSizeSelector, setShowSizeSelector] = useState(false);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const { showToast } = useToast();
+  const { addToCart } = useCart();
 
   const handleColorClick = (e: React.MouseEvent, color: string) => {
     e.preventDefault();

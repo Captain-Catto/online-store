@@ -4,7 +4,7 @@ type OrderItem = {
   size: string;
   quantity: number;
 };
-import { CartItem } from "./cartUtils";
+import { CartItem } from "@/types/cart";
 
 export const mapCartItemsToOrderItems = (
   cartItems: CartItem[]

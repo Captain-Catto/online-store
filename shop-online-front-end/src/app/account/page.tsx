@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from "react";
 import { UserService } from "@/services/UserService";
 import { OrderService } from "@/services/OrderService";
 import { useSearchParams } from "next/navigation";
-import { useAuth } from "@/utils/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
 import { Promotion } from "@/types/promotion";
 import { Order } from "@/types/order";
@@ -24,7 +24,7 @@ interface AccountData {
 
 export default function AccountPage() {
   const searchParams = useSearchParams();
-  const { isLoggedIn, loading, logout, isAdmin } = useAuth("/login");
+  const { isLoggedIn, isLoading, logout, isAdmin } = useAuth("/login");
 
   const [activeTab, setActiveTab] = useState(() => {
     return searchParams.get("tab") || "account";
@@ -186,7 +186,7 @@ export default function AccountPage() {
 
   // Load data based on active tab
   useEffect(() => {
-    if (isLoggedIn && !loading) {
+    if (isLoggedIn && !isLoading) {
       if (activeTab === "addresses") {
         fetchAddresses();
       } else if (activeTab === "orders") {
@@ -215,28 +215,13 @@ export default function AccountPage() {
     }
   }, [
     isLoggedIn,
-    loading,
+    isLoading,
     activeTab,
     fetchAddresses,
     fetchOrders,
     fetchAccountInfo,
     fetchWishlist,
   ]);
-
-  // Nếu đang loading, hiển thị spinner
-  if (loading) {
-    return (
-      <>
-        <Header />
-        <main className="container mx-auto px-4 py-12 min-h-screen">
-          <div className="flex justify-center items-center h-60">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
-          </div>
-        </main>
-        <Footer />
-      </>
-    );
-  }
 
   // Nếu không đăng nhập, không hiển thị nội dung
   if (!isLoggedIn) return null;
@@ -273,14 +258,14 @@ export default function AccountPage() {
             <UserLeft
               activeTab={activeTab}
               setActiveTab={setActiveTab}
-              onLogout={logout} // Use the logout function from useAuth
+              onLogout={logout}
             />
           </div>
 
           <div className="md:w-3/4">
             <UserRight
               activeTab={activeTab}
-              isLoading={dataLoading}
+              isLoading={dataLoading || isLoading}
               hasError={!!addressError || !!orderError}
               errorMessage={addressError || orderError || wishlistError || ""}
               accountData={accountData}

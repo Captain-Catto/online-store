@@ -3,10 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useNavigation } from "@/contexts/NavigationContext";
+import { NavigationMenuItem } from "@/services/NaviagationService";
 
 export default function NavBar() {
   const { menuItems, loading } = useNavigation();
-  const [hoverMenuId, setHoverMenuId] = useState<number | null>(null);
+  const [hoverMenuId] = useState<number | null>(null);
 
   const renderMenuItem = (item: NavigationMenuItem) => {
     const isMegaMenu =

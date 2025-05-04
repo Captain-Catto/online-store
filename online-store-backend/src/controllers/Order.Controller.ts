@@ -83,9 +83,9 @@ export const createOrder = async (
       if (inventory.getDataValue("stock") < item.quantity) {
         await t.rollback();
         res.status(400).json({
-          message: `Số lượng sản phẩm không đủ. Hiện chỉ còn ${inventory.getDataValue(
-            "stock"
-          )} sản phẩm.`,
+          message: `Số lượng sản phẩm không đủ. Hiện sản phẩm ${
+            productDetail.getDataValue("product").name
+          } chỉ còn ${inventory.getDataValue("stock")} sản phẩm.`,
         });
         return;
       }

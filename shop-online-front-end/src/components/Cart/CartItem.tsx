@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { getColorName } from "@/utils/colorUtils";
+import Link from "next/link";
 
 interface CartItemProps {
   item: {
@@ -37,7 +38,11 @@ export default function CartItem({
         />
       </div>
       <div className="flex-1">
-        <h3 className="font-bold">{item.name}</h3>
+        <h3 className="font-bold">
+          <Link href={`/products/${item.id}`} className="hover:text-blue-500">
+            {item.name}
+          </Link>
+        </h3>
         <p>Size: {item.size}</p>
         <p>Color: {getColorName(item.color)}</p>
         <p className="font-bold">

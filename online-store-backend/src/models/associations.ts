@@ -18,6 +18,9 @@ import Suitability from "./Suitability";
 import ProductSuitability from "./ProductSuitability";
 import NavigationMenu from "./NavigationMenu";
 import Wishlist from "./Wishlist";
+import Cart from "./Cart";
+import CartItem from "./CartItem";
+
 export default function initAssociations() {
   // Product - ProductDetail relationship
   Product.hasMany(ProductDetail, { foreignKey: "productId", as: "details" });
@@ -171,5 +174,27 @@ export default function initAssociations() {
   Product.hasMany(Wishlist, {
     foreignKey: "productId",
     as: "wishlists",
+  });
+
+  // Cart - User relationship
+  Users.hasOne(Cart, { foreignKey: "userId", as: "cart" });
+  Cart.belongsTo(Users, { foreignKey: "userId", as: "user" });
+
+  // Cart - CartItem relationship
+  Cart.hasMany(CartItem, { foreignKey: "cartId", as: "items" });
+  CartItem.belongsTo(Cart, { foreignKey: "cartId", as: "cart" });
+
+  // CartItem - Product relationship
+  Product.hasMany(CartItem, { foreignKey: "productId", as: "cartItems" });
+  CartItem.belongsTo(Product, { foreignKey: "productId", as: "product" });
+
+  // CartItem - ProductDetail relationship
+  ProductDetail.hasMany(CartItem, {
+    foreignKey: "productDetailId",
+    as: "cartItems",
+  });
+  CartItem.belongsTo(ProductDetail, {
+    foreignKey: "productDetailId",
+    as: "productDetail",
   });
 }

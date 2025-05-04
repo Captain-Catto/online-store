@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { SimpleProduct } from "@/types/product";
-import { addToCart } from "@/utils/cartUtils";
 import { CartItem } from "@/types/cart";
+import { useCart } from "@/contexts/CartContext";
 
 interface SizeSelectorProps {
   product: SimpleProduct;
@@ -16,6 +16,8 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
   productImage,
   onProductAdded,
 }) => {
+  const { addToCart } = useCart();
+
   // Lấy variant dựa trên selectedColor
   const variant =
     product.variants && selectedColor in product.variants
@@ -39,9 +41,13 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
       // Tạo ID duy nhất cho cartItem
       const cartItemId = `${product.id}-${selectedColor}-${size}`;
 
+      const productDetailId = variant?.detailId;
+      console.log("ProductDetailId from variant:", productDetailId);
+
       const cartItem: CartItem = {
         id: cartItemId,
         productId: product.id,
+        productDetailId: productDetailId ?? "",
         name: product.name,
         price,
         originalPrice,
@@ -50,7 +56,7 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
         size: size,
         image: productImage ?? "/images/default-product.jpg", // Fallback nếu productImage undefined
       };
-
+      console.log("CartItem:", cartItem);
       // Thêm vào giỏ hàng
       addToCart(cartItem);
 
@@ -61,13 +67,6 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
 
       // Thông báo cho component cha
       onProductAdded(product, selectedColor, size);
-
-      // Cập nhật số lượng trong header
-      const cartItems = JSON.parse(localStorage.getItem("shop_cart") || "[]");
-      const event = new CustomEvent("cart-updated", {
-        detail: { count: cartItems.length },
-      });
-      window.dispatchEvent(event);
     } catch (error) {
       console.error("Error adding to cart:", error);
     }

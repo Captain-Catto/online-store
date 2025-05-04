@@ -1,6 +1,6 @@
 // hooks/useProducts.ts
 import { useEffect, useState } from "react";
-import { fetchData } from "../util/fetchData";
+import { fetchData } from "../utils/fetchData"; // Adjust the import path as necessary
 
 // Define or import the Product type
 interface Product {

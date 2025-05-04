@@ -402,7 +402,7 @@ export default function UserDetailPage() {
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
             <div>
               <h1 className="text-2xl font-bold text-gray-800">
-                Thông tin khách hàng {id}
+                Thông tin khách hàng #{id}
               </h1>
             </div>
             <div className="mt-2 sm:mt-0">

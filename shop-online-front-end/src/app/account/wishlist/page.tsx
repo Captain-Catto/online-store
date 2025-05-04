@@ -9,10 +9,11 @@ import Footer from "@/components/Footer/Footer";
 import { WishlistService } from "@/services/WishlistService";
 import { useToast } from "@/utils/useToast";
 import { AuthService } from "@/services/AuthService";
-import { addToCart, getCartItemCount } from "@/utils/cartUtils";
+import { addToCart, getCartItemCount } from "@/utils/cartUtils"; //bỏ
 import { formatCurrency } from "@/utils/currencyUtils";
 import { CartItem } from "@/types/cart";
 import { WishlistItem } from "@/types/wishlist";
+import { useCart } from "@/contexts/CartContext";
 
 // Component Modal chi tiết sản phẩm
 const ProductDetailModal = ({
@@ -450,6 +451,7 @@ const ProductDetailModal = ({
 };
 
 export default function WishlistPage() {
+  const { addToCart } = useCart();
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

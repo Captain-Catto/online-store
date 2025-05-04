@@ -360,9 +360,6 @@ export const getProductsByCategorySlug = async (
 
     // Lấy tất cả ID danh mục (bao gồm danh mục con)
     let categoryIds = [category.id];
-    console.log("Request query params:", req.query);
-    console.log("Child Category Slug:", childCategorySlug);
-    console.log("Filter Category IDs:", categoryIds);
 
     // Xử lý childCategorySlug
     if (category.parentId === null) {

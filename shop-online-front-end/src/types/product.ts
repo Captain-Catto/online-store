@@ -6,6 +6,7 @@ export interface ProductImage {
 }
 
 export interface VariantDetail {
+  id?: number;
   detailId: number;
   price: number;
   originalPrice: number;

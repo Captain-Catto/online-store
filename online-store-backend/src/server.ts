@@ -40,6 +40,7 @@ import navigationMenuRoutes from "./routes/NaviagationMenu.route";
 import wishlistRoutes from "./routes/Wishlist.route";
 import suitabilityRoutes from "./routes/Suitability.route";
 import AdminMenuItemRoutes from "./routes/AdminMenu.route";
+import cartRoutes from "./routes/Cart.route";
 
 dotenv.config();
 
@@ -74,6 +75,7 @@ app.use("/api/navigation", navigationMenuRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/suitabilities", suitabilityRoutes);
 app.use("/api/admin-menu", AdminMenuItemRoutes);
+app.use("/api/cart", cartRoutes);
 
 // Middleware xử lý lỗi
 

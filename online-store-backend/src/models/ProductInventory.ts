@@ -2,7 +2,12 @@ import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/db";
 import ProductDetail from "./ProductDetail";
 
-class ProductInventory extends Model {}
+class ProductInventory extends Model {
+  declare id: number;
+  declare productDetailId: number;
+  declare size: string;
+  declare stock: number;
+}
 
 ProductInventory.init(
   {

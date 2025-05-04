@@ -15,7 +15,6 @@ export const getAdminMenu = async (req: Request, res: Response) => {
     });
     // Bây giờ menuItems sẽ là một mảng các object thuần túy
     res.json(menuItems || []);
-    console.log("Admin menu fetched successfully (raw):", menuItems); // Log dữ liệu thuần túy
   } catch (error) {
     console.error("Error fetching admin menu:", error);
     res.status(500).json({ message: "Failed to fetch admin menu" });

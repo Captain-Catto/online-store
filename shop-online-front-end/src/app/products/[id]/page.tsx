@@ -6,12 +6,12 @@ import Link from "next/link";
 import Header from "@/components/Header/Header";
 import Footer from "@/components/Footer/Footer";
 import { Product } from "@/types/product";
-import { addToCart, getCartItemCount } from "@/utils/cartUtils";
 import { useToast } from "@/utils/useToast";
 import { ProductService } from "@/services/ProductService";
 import { getColorCode } from "@/utils/colorUtils";
 import WishlistButton from "@/components/Product/WishlistButton";
 import ProductDescription from "@/components/Product/ProductDescription";
+import { useCart } from "@/contexts/CartContext";
 
 interface ProductParams {
   id: string;
@@ -20,7 +20,7 @@ interface ProductParams {
 export default function Home({ params }: { params: unknown }) {
   const unwrappedParams = use(params as Promise<ProductParams>);
   const productId = unwrappedParams.id;
-
+  const { addToCart } = useCart();
   const { showToast, Toast } = useToast();
 
   const [product, setProduct] = useState<Product | null>(null);
@@ -268,18 +268,37 @@ export default function Home({ params }: { params: unknown }) {
     // Lấy giá từ variant
     const variantDetail = product.variants[selectedColor];
     const price = variantDetail?.price;
+    const productDetailId = variantDetail?.detailId;
+
+    console.log("Variant detail:", variantDetail);
+    console.log("ProductDetailId:", productDetailId);
+
+    // Kiểm tra productDetailId
+    if (!productDetailId) {
+      console.error(
+        "Thiếu productDetailId cho sản phẩm:",
+        product.name,
+        selectedColor
+      );
+      showToast("Đã xảy ra lỗi khi thêm sản phẩm", { type: "error" });
+      return;
+    }
 
     // Thêm vào giỏ hàng bằng utility function
     const cartItem = {
-      id: product.id.toString(),
+      id: `${product.id}-${selectedColor}-${selectedSize}`, // Tạo ID duy nhất
+      productId: product.id,
+      productDetailId: productDetailId,
       name: product.name,
       color: selectedColor,
       size: selectedSize,
       quantity,
       price: price,
       image: currentImage,
+      variant: variantDetail,
     };
 
+    // Sử dụng addToCart từ Context
     addToCart(cartItem);
 
     // Thông báo thành công
@@ -296,12 +315,6 @@ export default function Home({ params }: { params: unknown }) {
       },
       duration: 4000,
     });
-
-    // Cập nhật header để hiển thị số lượng trong giỏ hàng
-    const event = new CustomEvent("cart-updated", {
-      detail: { count: getCartItemCount() },
-    });
-    window.dispatchEvent(event);
   };
 
   return (
@@ -563,15 +576,6 @@ export default function Home({ params }: { params: unknown }) {
               <button
                 className="flex-2 text-white bg-black text-sm px-9 py-4 rounded-full hover:bg-gray-800 transition-colors"
                 onClick={() => {
-                  // Thêm vào giỏ hàng
-                  console.log("Thêm vào giỏ hàng:", {
-                    id: product.id,
-                    name: product.name,
-                    color: selectedColor,
-                    size: selectedSize,
-                    quantity,
-                    price: product.variants[selectedColor]?.price,
-                  });
                   handleAddToCart();
                 }}
               >

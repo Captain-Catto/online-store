@@ -291,43 +291,170 @@ export const getAllOrders = async (
       fromDate,
       toDate,
     } = req.query;
+    console.log("Query params:", {
+      page,
+      limit,
+      status,
+      search,
+      fromDate,
+      toDate,
+    });
 
     const offset = (Number(page) - 1) * Number(limit);
 
-    // Xây dựng điều kiện tìm kiếm
-    const where: any = {};
-    if (status && status !== "all") where.status = status;
+    // Xây dựng điều kiện tìm kiếm cơ bản
+    const baseConditions: any = {};
 
-    // Thêm điều kiện tìm kiếm theo từ khóa
+    // Thêm điều kiện status nếu có
+    if (status && status !== "all") {
+      baseConditions.status = status;
+    }
+
+    // Xử lý điều kiện ngày tháng đúng cách
+    if (fromDate || toDate) {
+      baseConditions.createdAt = {};
+
+      if (fromDate) {
+        baseConditions.createdAt[Op.gte] = new Date(fromDate as string);
+      }
+
+      if (toDate) {
+        baseConditions.createdAt[Op.lte] = new Date(
+          new Date(toDate as string).setHours(23, 59, 59)
+        );
+      }
+    }
+
+    // Điều kiện tìm kiếm cơ bản
+    let where = { ...baseConditions };
+
+    // Điều kiện tìm kiếm nâng cao
     if (search) {
       const searchTerm = `%${search}%`;
-      where[Op.or] = [
-        sequelize.where(sequelize.cast(sequelize.col("Order.id"), "varchar"), {
-          [Op.like]: searchTerm,
-        }),
-        { shippingPhone: { [Op.like]: searchTerm } },
-      ];
-    }
+      const searchConditions: {
+        [Op.or]: Array<{ phoneNumber?: { [Op.like]: string }; id?: number }>;
+      } = {
+        [Op.or]: [{ phoneNumber: { [Op.like]: searchTerm } }],
+      };
 
-    // Tìm kiếm theo khoảng thời gian
-    if (fromDate) {
-      where.createdAt = {
-        ...where.createdAt,
-        [Op.gte]: new Date(fromDate as string),
+      // Nếu search là số, thêm điều kiện tìm theo ID
+      if (!isNaN(Number(search))) {
+        searchConditions[Op.or].push({ id: Number(search) });
+      }
+
+      // Kết hợp điều kiện cơ bản với điều kiện tìm kiếm
+      where = {
+        ...baseConditions,
+        ...searchConditions,
       };
     }
 
-    if (toDate) {
-      where.createdAt = {
-        ...where.createdAt,
-        [Op.lte]: new Date(new Date(toDate as string).setHours(23, 59, 59)),
-      };
-    }
+    // Định nghĩa include
+    const includeOptions = [
+      {
+        model: OrderDetail,
+        as: "orderDetails",
+        required: false,
+        include: [
+          {
+            model: Product,
+            as: "product",
+            attributes: ["id", "name"],
+            required: false,
+          },
+        ],
+      },
+      {
+        model: Users,
+        as: "user",
+        attributes: ["id", "email", "username"],
+        required: false,
+      },
+    ];
 
     // Đếm tổng số đơn hàng
-    const count = await Order.count({ where });
+    let count = await Order.count({
+      where,
+      distinct: true,
+      include: includeOptions,
+    });
 
-    // Lấy danh sách đơn hàng với phân trang
+    // Tìm kiếm nâng cao theo email và tên sản phẩm
+    if (search && search.toString().length > 0) {
+      const searchTerm = `%${search}%`;
+
+      // Tìm theo email người dùng
+      const ordersWithUserEmail = await Order.findAll({
+        attributes: ["id"],
+        where: baseConditions, // Giữ điều kiện cơ bản (status, date)
+        include: [
+          {
+            model: Users,
+            as: "user",
+            where: {
+              email: { [Op.like]: searchTerm },
+            },
+            required: true,
+          },
+        ],
+      });
+
+      // Tìm theo tên sản phẩm
+      const ordersWithProductName = await Order.findAll({
+        attributes: ["id"],
+        where: baseConditions, // Giữ điều kiện cơ bản (status, date)
+        include: [
+          {
+            model: OrderDetail,
+            as: "orderDetails",
+            include: [
+              {
+                model: Product,
+                as: "product",
+                where: {
+                  name: { [Op.like]: searchTerm },
+                },
+                required: true,
+              },
+            ],
+            required: true,
+          },
+        ],
+      });
+
+      // Gộp kết quả từ 2 truy vấn
+      const userEmailIds = ordersWithUserEmail.map((order) => order.id);
+      const productNameIds = ordersWithProductName.map((order) => order.id);
+      const relationIds = [...new Set([...userEmailIds, ...productNameIds])];
+
+      if (relationIds.length > 0) {
+        // Thêm điều kiện ID vào điều kiện OR hiện có
+        if (where[Op.or]) {
+          where[Op.or].push({ id: { [Op.in]: relationIds } });
+        } else {
+          // Giữ điều kiện cơ bản và thêm điều kiện ID
+          where = {
+            ...baseConditions,
+            id: { [Op.in]: relationIds },
+          };
+        }
+
+        // Đếm lại với điều kiện mới
+        count = await Order.count({
+          where,
+          distinct: true,
+        });
+      } else if (search && !where[Op.or] && Object.keys(where).length === 0) {
+        // Nếu không tìm thấy kết quả nào và không có điều kiện khác => trả về rỗng
+        where = { id: -1 };
+        count = 0;
+      }
+    }
+
+    // Log điều kiện cuối cùng để debug
+    console.log("Final where condition:", JSON.stringify(where, null, 2));
+
+    // Lấy danh sách đơn hàng
     const orders = await Order.findAll({
       where,
       include: [

@@ -15,6 +15,7 @@ import Pagination from "@/components/Category/Pagination";
 import { CategoryService } from "@/services/CategoryService";
 import { ProductService } from "@/services/ProductService";
 import { Product } from "@/types/product";
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 // Định nghĩa interface cho thông tin danh mục
 interface CategoryInfo {
@@ -84,9 +85,15 @@ export default function CategoryDetailPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [sizesByCategory, setSizesByCategory] = useState<Record<string, Array>>(
-    {}
-  );
+  const [sizesByCategory, setSizesByCategory] = useState<
+    Record<
+      string,
+      Record<
+        string,
+        Array<{ value: string; displayName: string; displayOrder: number }>
+      >
+    >
+  >({});
   const [secondaryImages, setSecondaryImages] = useState<
     Record<string, string>
   >({});
@@ -206,15 +213,10 @@ export default function CategoryDetailPage() {
     const fetchSizes = async () => {
       try {
         const sizesData = await ProductService.getSizes();
+        console.log("Sizes data:", sizesData);
 
         // Nhóm kích thước theo loại sản phẩm và loại kích thước
-        const sizesByCategory: Record<
-          string,
-          Record<
-            string,
-            Array<{ value: string; displayName: string; displayOrder: number }>
-          >
-        > = {};
+        const sizesByCategory = {};
 
         sizesData.forEach((size) => {
           if (!size.active) return;
@@ -246,7 +248,8 @@ export default function CategoryDetailPage() {
         setSizesByCategory(sizesByCategory);
 
         // Tạo danh sách các kích thước có sẵn dựa trên danh mục hiện tại
-        const currentCategory = "clothing"; // Thay bằng logic lấy danh mục hiện tại
+        // Mặc định là clothing, nhưng bạn có thể thay đổi theo category hiện tại
+        const currentCategory = "clothing";
         const availableSizeValues = [];
 
         if (sizesByCategory[currentCategory]) {
@@ -257,6 +260,11 @@ export default function CategoryDetailPage() {
           });
         }
 
+        // Log để kiểm tra
+        console.log("Processed sizesByCategory:", sizesByCategory);
+        console.log("Available sizes from fetchSizes:", availableSizeValues);
+
+        // 3. Lưu trữ danh sách sizes gốc
         setAvailableSizes(availableSizeValues);
       } catch (error) {
         console.error("Không thể tải kích thước:", error);
@@ -588,6 +596,7 @@ export default function CategoryDetailPage() {
   return (
     <>
       <Header />
+
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6">
           <h1 className="text-3xl font-bold">{categoryName}</h1>
@@ -620,33 +629,38 @@ export default function CategoryDetailPage() {
             priceRange={priceRange}
             showCategoryFilters={!isCurrentCategoryChild}
           />
+          {loading ? (
+            <div className="container mx-auto px-4 py-12 text-center">
+              <LoadingSpinner size="lg" text="Đang tải sản phẩm ..." />
+            </div>
+          ) : (
+            <div className="lg:w-3/4">
+              <ProductGrid
+                products={products}
+                selectedColors={selectedColors}
+                productImages={productImages}
+                secondaryImages={secondaryImages}
+                onColorSelect={handleColorSelect}
+                loading={loading}
+                error={error}
+                category={categoryName}
+                activeFilters={filters}
+                currentPage={currentPage}
+                itemsPerPage={itemsPerPage}
+                totalItems={totalItems}
+              />
 
-          <div className="lg:w-3/4">
-            <ProductGrid
-              products={products}
-              selectedColors={selectedColors}
-              productImages={productImages}
-              secondaryImages={secondaryImages}
-              onColorSelect={handleColorSelect}
-              loading={loading}
-              error={error}
-              category={categoryName}
-              activeFilters={filters}
-              currentPage={currentPage}
-              itemsPerPage={itemsPerPage}
-              totalItems={totalItems}
-            />
-
-            {!loading && !error && totalItems > 0 && (
-              <div className="mt-8">
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={Math.ceil(totalItems / itemsPerPage)}
-                  onPageChange={handlePageChange}
-                />
-              </div>
-            )}
-          </div>
+              {!loading && !error && totalItems > 0 && (
+                <div className="mt-8">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={Math.ceil(totalItems / itemsPerPage)}
+                    onPageChange={handlePageChange}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </main>
       <Footer />

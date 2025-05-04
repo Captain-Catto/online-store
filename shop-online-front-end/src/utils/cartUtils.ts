@@ -1,17 +1,5 @@
 import Cookies from "js-cookie";
-
-// Định nghĩa interface cho item trong giỏ hàng
-export interface CartItem {
-  productId?: number;
-  id: string;
-  name: string;
-  color: string;
-  size: string;
-  quantity: number;
-  originalPrice?: number;
-  price?: number;
-  image?: string;
-}
+import { CartItem } from "@/types/cart";
 
 // tên cookie lưu giỏ hàng
 const CART_COOKIE_NAME = "shop_cart";
@@ -48,29 +36,44 @@ export const saveCartToCookie = (cart: CartItem[]): void => {
 
 // hàm thêm sản phẩm vào giỏ hàng
 export const addToCart = (item: CartItem): CartItem[] => {
-  // lấy giỏ hàng từ cookie
-  const currentCart = getCartFromCookie();
+  // Kiểm tra productDetailId
+  if (!item.productDetailId) {
+    console.warn(
+      "Thêm sản phẩm vào local cart mà không có productDetailId:",
+      item
+    );
+  }
 
-  // kiểm tra nếu sản phẩm (cùng ID, cùng màu, cùng size) đã tồn tại
-  const existingItemIndex = currentCart.findIndex(
+  const cartItems = getCartFromCookie();
+  const existingItemIndex = cartItems.findIndex(
     (cartItem) =>
-      cartItem.id === item.id &&
-      cartItem.color === item.color &&
-      cartItem.size === item.size
+      cartItem.id === item.id ||
+      (cartItem.productId === item.productId &&
+        cartItem.color === item.color &&
+        cartItem.size === item.size)
   );
 
   if (existingItemIndex !== -1) {
-    // nếu đã tồn tại, cập nhật số lượng
-    currentCart[existingItemIndex].quantity += item.quantity;
+    // Cập nhật mục đã tồn tại
+    const updatedItems = [...cartItems];
+    updatedItems[existingItemIndex].quantity += item.quantity;
+
+    // Đảm bảo productDetailId được cập nhật nếu chưa có
+    if (
+      !updatedItems[existingItemIndex].productDetailId &&
+      item.productDetailId
+    ) {
+      updatedItems[existingItemIndex].productDetailId = item.productDetailId;
+    }
+
+    saveCartToCookie(updatedItems);
+    return updatedItems;
   } else {
-    // nếu chưa tồn tại, thêm mới
-    currentCart.push(item);
+    // Thêm mục mới
+    const updatedItems = [...cartItems, item];
+    saveCartToCookie(updatedItems);
+    return updatedItems;
   }
-
-  // lưu giỏ hàng đã cập nhật vào cookie
-  saveCartToCookie(currentCart);
-
-  return currentCart;
 };
 
 // hàm xóa sản phẩm khỏi giỏ hàng

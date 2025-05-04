@@ -27,12 +27,10 @@ export interface Category {
 }
 
 export const CategoryService = {
-  // Lấy tất cả danh mục (ADMIN - cần xác thực)
+  // Lấy tất cả danh mục (Public - không cần xác thực)
   getAllCategories: async (): Promise<Category[]> => {
     try {
-      const response = await AuthClient.fetchWithAuth(
-        `${API_BASE_URL}/categories`
-      );
+      const response = await fetch(`${API_BASE_URL}/categories`);
 
       if (!response.ok) {
         throw new Error("Không thể lấy danh mục");
@@ -73,12 +71,10 @@ export const CategoryService = {
     }
   },
 
-  // Lấy danh mục theo ID (ADMIN - cần xác thực)
+  // Lấy danh mục theo ID (Public - cần xác thực)
   getCategoryById: async (id: string | number): Promise<Category> => {
     try {
-      const response = await AuthClient.fetchWithAuth(
-        `${API_BASE_URL}/categories/${id}`
-      );
+      const response = await fetch(`${API_BASE_URL}/categories/${id}`);
 
       if (!response.ok) {
         throw new Error("Không thể lấy thông tin danh mục");
