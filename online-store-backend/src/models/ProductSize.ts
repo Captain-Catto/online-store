@@ -1,11 +1,12 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/db";
+import Category from "./Category";
 
 export class ProductSize extends Model {
   public id!: number;
   public value!: string;
   public displayName!: string;
-  public category!: string;
+  public categoryId!: number;
   public displayOrder!: number;
   public active!: boolean;
 }
@@ -26,15 +27,13 @@ ProductSize.init(
       type: DataTypes.STRING(30),
       allowNull: false,
     },
-    category: {
-      type: DataTypes.STRING(20),
+    categoryId: {
+      type: DataTypes.INTEGER,
       allowNull: false,
-      defaultValue: "general",
-    },
-    sizeType: {
-      type: DataTypes.STRING(20),
-      allowNull: false,
-      defaultValue: "letter", // letter, number, inch, age, european, etc.
+      references: {
+        model: Category,
+        key: "id",
+      },
     },
     displayOrder: {
       type: DataTypes.INTEGER,
@@ -53,3 +52,5 @@ ProductSize.init(
     timestamps: true,
   }
 );
+
+export default ProductSize;

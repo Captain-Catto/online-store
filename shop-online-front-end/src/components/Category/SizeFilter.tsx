@@ -6,6 +6,9 @@ interface SizeFilterProps {
   onToggle: () => void;
   onFilterChange: (size: string) => void;
   availableSizes?: string[]; // Thêm prop này để nhận kích thước động
+  sizesByType?: {
+    letter?: { value: string; displayName: string }[]; // Kích thước chữ
+  };
 }
 
 export default function SizeFilter({
@@ -16,6 +19,8 @@ export default function SizeFilter({
   availableSizes = [], // Mặc định là mảng rỗng nếu không được cung cấp
   sizesByType = {}, // Truyền kích thước được nhóm theo loại
 }: SizeFilterProps) {
+  console.log("SizeFilter received sizesByType:", sizesByType);
+  console.log("SizeFilter received availableSizes:", availableSizes);
   // Sử dụng availableSizes từ props thay vì hardcode
   const sizes =
     availableSizes.length > 0
@@ -100,14 +105,16 @@ export default function SizeFilter({
 
               {/* Các loại size khác tương tự */}
             </>
-          ) : (
+          ) : availableSizes.length > 0 ? (
             <ul className="grid grid-cols-4 gap-2">
-              {availableSizes.map((size) => (
+              {sizes.map((size) => (
                 <li key={size} className="flex items-center">
                   {/* Fallback display */}
                 </li>
               ))}
             </ul>
+          ) : (
+            <p>Không có kích thước nào để hiển thị.</p>
           )}
         </div>
       )}

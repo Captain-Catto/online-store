@@ -215,7 +215,6 @@ export default function CategoryDetailPage() {
         const sizesData = await ProductService.getSizes();
         console.log("Sizes data:", sizesData);
 
-        // Nhóm kích thước theo loại sản phẩm và loại kích thước
         const sizesByCategory = {};
 
         sizesData.forEach((size) => {
@@ -236,7 +235,6 @@ export default function CategoryDetailPage() {
           });
         });
 
-        // Sắp xếp các kích thước theo displayOrder
         Object.keys(sizesByCategory).forEach((category) => {
           Object.keys(sizesByCategory[category]).forEach((type) => {
             sizesByCategory[category][type].sort(
@@ -247,10 +245,8 @@ export default function CategoryDetailPage() {
 
         setSizesByCategory(sizesByCategory);
 
-        // Tạo danh sách các kích thước có sẵn dựa trên danh mục hiện tại
-        // Mặc định là clothing, nhưng bạn có thể thay đổi theo category hiện tại
         const currentCategory = "clothing";
-        const availableSizeValues = [];
+        const availableSizeValues: string[] = [];
 
         if (sizesByCategory[currentCategory]) {
           Object.keys(sizesByCategory[currentCategory]).forEach((type) => {
@@ -260,11 +256,7 @@ export default function CategoryDetailPage() {
           });
         }
 
-        // Log để kiểm tra
-        console.log("Processed sizesByCategory:", sizesByCategory);
-        console.log("Available sizes from fetchSizes:", availableSizeValues);
-
-        // 3. Lưu trữ danh sách sizes gốc
+        console.log("Setting availableSizes to:", availableSizeValues);
         setAvailableSizes(availableSizeValues);
       } catch (error) {
         console.error("Không thể tải kích thước:", error);
@@ -273,6 +265,10 @@ export default function CategoryDetailPage() {
 
     void fetchSizes();
   }, []);
+
+  useEffect(() => {
+    console.log("Updated availableSizes:", availableSizes);
+  }, [availableSizes]);
 
   // Chuyển hướng đến trang danh mục khác
   const handleCategoryFilter = useCallback(

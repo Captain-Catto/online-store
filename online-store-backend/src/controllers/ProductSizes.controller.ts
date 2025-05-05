@@ -17,6 +17,38 @@ export const getAllSizes = async (
   }
 };
 
+// Lấy kích thước theo danh mục
+export const getSizesByCategory = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { category } = req.query; // Lấy category từ query params
+
+    if (!category) {
+      res.status(400).json({ message: "Danh mục không được để trống" });
+      return;
+    }
+
+    const sizes = await ProductSize.findAll({
+      // Lọc theo category và chỉ lấy kích thước đang hoạt động
+      where: { category: category.toString(), active: true },
+      order: [["displayOrder", "ASC"]],
+    });
+
+    if (sizes.length === 0) {
+      res
+        .status(404)
+        .json({ message: "Không tìm thấy kích thước cho danh mục này" });
+      return;
+    }
+
+    res.status(200).json(sizes);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // Thêm kích thước mới
 export const createSize = async (
   req: Request,
@@ -24,7 +56,7 @@ export const createSize = async (
 ): Promise<void> => {
   const t = await sequelize.transaction();
   try {
-    const { value, displayName, category, displayOrder, sizeType } = req.body;
+    const { value, displayName, categoryId, displayOrder } = req.body;
 
     // Kiểm tra kích thước đã tồn tại chưa
     const existingSize = await ProductSize.findOne({
@@ -42,8 +74,7 @@ export const createSize = async (
       {
         value,
         displayName: displayName || value,
-        category: category || "general",
-        sizeType: sizeType || "letter",
+        categoryId: Number(categoryId),
         displayOrder: displayOrder || 0,
         active: true,
       },

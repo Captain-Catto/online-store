@@ -22,6 +22,7 @@ export default function ColorFilter({
     yellow: "#FFFF00",
     purple: "#800080",
     gray: "#808080",
+    pink: "#FFC0CB",
   };
 
   // Hàm xử lý khi click vào màu - thêm logic để hủy chọn

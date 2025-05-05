@@ -2,37 +2,32 @@ import React, { useState, useEffect } from "react";
 import { ProductService } from "@/services/ProductService";
 import { useToast } from "@/utils/useToast";
 import ConfirmModal from "@/components/admin/shared/ConfirmModal";
+import { CategoryService } from "@/services/CategoryService";
 
 interface Size {
   id: number;
   value: string;
   displayName: string;
-  category: string;
+  categoryId: string;
   displayOrder: number;
   active: boolean;
 }
 
-// Cập nhật interface Size
-interface Size {
+interface Category {
   id: number;
-  value: string;
-  displayName: string;
-  category: string;
-  sizeType: string; // Thêm trường này
-  displayOrder: number;
-  active: boolean;
+  name: string;
 }
 
 const SizeManager: React.FC = () => {
   const [sizes, setSizes] = useState<Size[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   const [newSize, setNewSize] = useState({
     value: "",
     displayName: "",
-    category: "clothing",
-    sizeType: "letter",
+    categoryId: "",
     displayOrder: 0,
   });
 
@@ -51,21 +46,7 @@ const SizeManager: React.FC = () => {
 
   const { showToast, Toast } = useToast();
 
-  const categories = [
-    { value: "clothing", label: "Quần áo" },
-    { value: "shoes", label: "Giày dép" },
-    { value: "accessories", label: "Phụ kiện" },
-  ];
-
-  const sizeTypes = [
-    { value: "letter", label: "Size chữ (S, M, L...)" },
-    { value: "number", label: "Size số (28, 29, 30...)" },
-    { value: "inch", label: "Size inch (38, 39, 40...)" },
-    { value: "european", label: "Size châu Âu" },
-    { value: "age", label: "Size theo tuổi (3-4T...)" },
-  ];
-
-  // Lấy danh sách sizes
+  // Lấy danh sách kích thước
   const loadSizes = async () => {
     setLoading(true);
     try {
@@ -80,16 +61,30 @@ const SizeManager: React.FC = () => {
     }
   };
 
+  // Lấy danh sách danh mục
+  const loadCategories = async () => {
+    try {
+      const data = await CategoryService.getAllCategories();
+      setCategories(data);
+    } catch (err) {
+      console.error("Không thể tải danh sách danh mục", err);
+      showToast("Không thể tải danh sách danh mục", { type: "error" });
+    }
+  };
+
   useEffect(() => {
     loadSizes();
+    loadCategories();
   }, []);
 
-  // Xử lý thêm mới
+  // Xử lý thêm mới kích thước
   const handleAddSize = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!newSize.value) {
-      showToast("Giá trị kích thước không được để trống", { type: "error" });
+    if (!newSize.value || !newSize.categoryId) {
+      showToast("Giá trị kích thước và danh mục không được để trống", {
+        type: "error",
+      });
       return;
     }
 
@@ -97,7 +92,7 @@ const SizeManager: React.FC = () => {
       await ProductService.createSize({
         value: newSize.value,
         displayName: newSize.displayName || newSize.value,
-        category: newSize.category,
+        categoryId: newSize.categoryId,
         displayOrder: newSize.displayOrder,
       });
 
@@ -105,8 +100,7 @@ const SizeManager: React.FC = () => {
       setNewSize({
         value: "",
         displayName: "",
-        category: "clothing",
-        sizeType: "letter",
+        categoryId: "",
         displayOrder: 0,
       });
       loadSizes();
@@ -115,7 +109,7 @@ const SizeManager: React.FC = () => {
     }
   };
 
-  // Xử lý cập nhật
+  // Xử lý cập nhật kích thước
   const handleUpdateSize = async (e: React.FormEvent, size: Size) => {
     e.preventDefault();
 
@@ -123,7 +117,7 @@ const SizeManager: React.FC = () => {
       await ProductService.updateSize(size.id, {
         value: size.value,
         displayName: size.displayName,
-        category: size.category,
+        categoryId: size.categoryId,
         displayOrder: size.displayOrder,
         active: size.active,
       });
@@ -165,7 +159,6 @@ const SizeManager: React.FC = () => {
     } catch {
       showToast("Không thể xóa kích thước", { type: "error" });
     } finally {
-      // Đóng modal sau khi hoàn tất
       handleCancelDelete();
     }
   };
@@ -215,14 +208,15 @@ const SizeManager: React.FC = () => {
                 <label>Danh mục</label>
                 <select
                   className="form-control"
-                  value={newSize.category}
+                  value={newSize.categoryId}
                   onChange={(e) =>
-                    setNewSize({ ...newSize, category: e.target.value })
+                    setNewSize({ ...newSize, categoryId: e.target.value })
                   }
                 >
+                  <option value="">-- Chọn danh mục --</option>
                   {categories.map((cat) => (
-                    <option key={cat.value} value={cat.value}>
-                      {cat.label}
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
                     </option>
                   ))}
                 </select>
@@ -253,24 +247,6 @@ const SizeManager: React.FC = () => {
               </div>
             </div>
           </div>
-          <div className="col-md-3">
-            <div className="form-group">
-              <label>Loại kích thước</label>
-              <select
-                className="form-control"
-                value={newSize.sizeType}
-                onChange={(e) =>
-                  setNewSize({ ...newSize, sizeType: e.target.value })
-                }
-              >
-                {sizeTypes.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
         </form>
 
         {/* Danh sách kích thước */}
@@ -278,14 +254,13 @@ const SizeManager: React.FC = () => {
           <table className="table table-bordered table-striped">
             <thead>
               <tr>
-                <th style={{ width: "5%" }}>#</th>
-                <th style={{ width: "13%" }}>Giá trị</th>
-                <th style={{ width: "17%" }}>Tên hiển thị</th>
-                <th style={{ width: "15%" }}>Danh mục</th>
-                <th style={{ width: "15%" }}>Loại kích thước</th>
-                <th style={{ width: "10%" }}>Thứ tự</th>
-                <th style={{ width: "10%" }}>Trạng thái</th>
-                <th style={{ width: "15%" }}>Thao tác</th>
+                <th>#</th>
+                <th>Giá trị</th>
+                <th>Tên hiển thị</th>
+                <th>Danh mục</th>
+                <th>Thứ tự</th>
+                <th>Trạng thái</th>
+                <th>Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -328,44 +303,22 @@ const SizeManager: React.FC = () => {
                     {editId === size.id ? (
                       <select
                         className="form-control"
-                        value={size.category}
+                        value={size.categoryId}
                         onChange={(e) => {
                           const updatedSizes = [...sizes];
-                          updatedSizes[index].category = e.target.value;
+                          updatedSizes[index].categoryId = e.target.value;
                           setSizes(updatedSizes);
                         }}
                       >
                         {categories.map((cat) => (
-                          <option key={cat.value} value={cat.value}>
-                            {cat.label}
+                          <option key={cat.id} value={cat.id}>
+                            {cat.name}
                           </option>
                         ))}
                       </select>
                     ) : (
-                      categories.find((cat) => cat.value === size.category)
-                        ?.label || size.category
-                    )}
-                  </td>
-                  <td>
-                    {editId === size.id ? (
-                      <select
-                        className="form-control"
-                        value={size.sizeType}
-                        onChange={(e) => {
-                          const updatedSizes = [...sizes];
-                          updatedSizes[index].sizeType = e.target.value;
-                          setSizes(updatedSizes);
-                        }}
-                      >
-                        {sizeTypes.map((type) => (
-                          <option key={type.value} value={type.value}>
-                            {type.label}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      sizeTypes.find((type) => type.value === size.sizeType)
-                        ?.label || size.sizeType
+                      categories.find((cat) => cat.id === size.categoryId)
+                        ?.name || size.categoryId
                     )}
                   </td>
                   <td>
@@ -447,7 +400,7 @@ const SizeManager: React.FC = () => {
               ))}
               {sizes.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="text-center">
+                  <td colSpan={7} className="text-center">
                     Chưa có dữ liệu kích thước
                   </td>
                 </tr>

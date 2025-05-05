@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import sequelize from "../config/db";
+import { Op, QueryTypes } from "sequelize";
 import Order from "../models/Order";
 import OrderDetail from "../models/OrderDetail";
 import ProductInventory from "../models/ProductInventory";
@@ -216,6 +217,86 @@ export const createOrder = async (
       }
     }
 
+    // Kiểm tra tồn kho và xác định trạng thái của từng sản phẩm
+    const updatedProductIds = new Set();
+
+    // Lưu biến thể hết hàng để kiểm tra sau
+    const outOfStockDetails = new Set();
+
+    // Kiểm tra tồn kho của các biến thể sản phẩm
+    for (const item of orderItems) {
+      // Kiểm tra tồn kho của biến thể hiện tại
+      const totalVariantStock = await ProductInventory.sum("stock", {
+        where: { productDetailId: item.productDetailId },
+        transaction: t,
+      });
+
+      // Lưu lại thông tin về biến thể hết hàng
+      if (totalVariantStock === 0) {
+        outOfStockDetails.add(item.productDetailId);
+      }
+
+      // Lấy thông tin về productId của biến thể này
+      const productDetail = await ProductDetail.findByPk(item.productDetailId, {
+        attributes: ["productId"],
+        transaction: t,
+      });
+
+      if (productDetail) {
+        updatedProductIds.add(productDetail.productId);
+      }
+    }
+
+    // Kiểm tra và cập nhật trạng thái của từng sản phẩm chính
+    for (const productId of updatedProductIds) {
+      // Lấy tất cả biến thể của sản phẩm
+      const details = await ProductDetail.findAll({
+        where: { productId },
+        attributes: ["id"],
+        transaction: t,
+      });
+
+      // Kiểm tra tồn kho của từng biến thể
+      const totalDetailCount = details.length;
+      let outOfStockCount = 0;
+
+      for (const detail of details) {
+        const stockSum = await ProductInventory.sum("stock", {
+          where: { productDetailId: detail.id },
+          transaction: t,
+        });
+
+        if (stockSum === 0) {
+          outOfStockCount++;
+        }
+      }
+      console.log("totalDetailCount", totalDetailCount);
+      // Nếu tất cả biến thể đều hết hàng, cập nhật trạng thái sản phẩm thành "outofstock"
+      if (totalDetailCount > 0 && totalDetailCount === outOfStockCount) {
+        await Product.update(
+          { status: "outofstock" },
+          { where: { id: productId }, transaction: t }
+        );
+        console.log(
+          `Sản phẩm ID ${productId} đã được cập nhật thành hết hàng.`
+        );
+      } else {
+        // Nếu còn ít nhất một biến thể còn hàng, đảm bảo sản phẩm ở trạng thái "active"
+        const product = await Product.findByPk(productId as number, {
+          transaction: t,
+        });
+        if (product && product.status === "outofstock") {
+          await Product.update(
+            { status: "active" },
+            { where: { id: productId }, transaction: t }
+          );
+          console.log(
+            `Sản phẩm ID ${productId} đã được cập nhật thành còn hàng.`
+          );
+        }
+      }
+    }
+
     await t.commit();
 
     res.status(201).json({
@@ -395,7 +476,10 @@ export const updateOrderStatus = async (
 };
 
 /**
- * Cancel order
+ * Hủy đơn hàng và hoàn trả tồn kho
+ */
+/**
+ * Cancel order and update product stock and status
  */
 export const cancelOrder = async (
   req: Request,
@@ -405,25 +489,23 @@ export const cancelOrder = async (
 
   try {
     const { id } = req.params;
-    const { cancelNote } = req.body; // Thêm lý do hủy đơn
+    const { cancelNote } = req.body;
 
     if (!req.user) {
       await t.rollback();
       res.status(401).json({ message: "Unauthorized" });
       return;
     }
+
     const userId = req.user.id;
 
+    // Tìm đơn hàng với chi tiết của nó
     const order = await Order.findByPk(id, {
       transaction: t,
-      include: [
-        {
-          model: OrderDetail,
-          as: "orderDetails",
-        },
-      ],
+      include: [{ model: OrderDetail, as: "orderDetails" }],
     });
 
+    // Kiểm tra đơn hàng tồn tại
     if (!order) {
       await t.rollback();
       res.status(404).json({ message: "Đơn hàng không tồn tại" });
@@ -456,45 +538,160 @@ export const cancelOrder = async (
       { transaction: t }
     );
 
-    // Hoàn trả số lượng vào kho hàng
+    // Danh sách sản phẩm cần kiểm tra sau khi cập nhật tồn kho
+    const updatedProductIds = new Set<number>();
     const orderDetails = (order as any).orderDetails || [];
 
+    console.log(
+      `[INFO] Đơn hàng ${id} có ${orderDetails.length} chi tiết để hoàn trả`
+    );
+
+    // BƯỚC 1: Hoàn trả tồn kho
     for (const detail of orderDetails) {
-      const productDetail = await ProductDetail.findOne({
-        where: {
-          productId: detail.productId,
-          color: detail.color,
-        },
+      const productId = detail.productId;
+      console.log(
+        `[INFO] Xử lý hoàn trả cho sản phẩm ID ${productId}, màu ${detail.color}, size ${detail.size}, quantity ${detail.quantity}`
+      );
+
+      // Lưu lại ID để kiểm tra sau
+      updatedProductIds.add(productId);
+
+      // Tìm ProductDetail dựa trên productDetailId (ưu tiên) hoặc productId và color
+      let productDetail;
+      if (detail.productDetailId) {
+        productDetail = await ProductDetail.findByPk(detail.productDetailId, {
+          transaction: t,
+        });
+      } else {
+        productDetail = await ProductDetail.findOne({
+          where: { productId, color: detail.color },
+          transaction: t,
+        });
+      }
+
+      if (!productDetail) {
+        console.warn(
+          `[WARN] Không tìm thấy chi tiết sản phẩm ID ${productId}, màu ${detail.color}, productDetailId ${detail.productDetailId}`
+        );
+        continue;
+      }
+
+      const inventory = await ProductInventory.findOne({
+        where: { productDetailId: productDetail.id, size: detail.size },
         transaction: t,
       });
 
-      if (productDetail) {
-        const inventory = await ProductInventory.findOne({
-          where: {
+      if (inventory) {
+        const currentStock = inventory.getDataValue("stock");
+        const newStock = currentStock + detail.quantity;
+
+        console.log(
+          `[INFO] Cập nhật tồn kho sản phẩm ID ${productId}: ${currentStock} + ${detail.quantity} = ${newStock}`
+        );
+
+        await inventory.update({ stock: newStock }, { transaction: t });
+      } else {
+        console.log(
+          `[INFO] Tạo mới tồn kho cho sản phẩm ID ${productId}, màu ${detail.color}, kích cỡ ${detail.size}`
+        );
+        await ProductInventory.create(
+          {
             productDetailId: productDetail.id,
             size: detail.size,
+            stock: detail.quantity,
           },
-          transaction: t,
-        });
+          { transaction: t }
+        );
+      }
 
-        // FIX: Thêm kiểm tra null trước khi update
-        if (inventory) {
-          await inventory.update(
-            {
-              stock: inventory.getDataValue("stock") + detail.quantity,
+      console.log(
+        `[INFO] Đã cập nhật tồn kho thành công cho sản phẩm ID ${productId}`
+      );
+    }
+
+    // BƯỚC 2: Truy vấn và cập nhật trạng thái sản phẩm
+    console.log(
+      `[INFO] Có ${updatedProductIds.size} sản phẩm cần kiểm tra trạng thái`
+    );
+    for (const productId of updatedProductIds) {
+      try {
+        // Truy vấn trạng thái sản phẩm
+        const product = await Product.findByPk(productId, { transaction: t });
+        if (!product) {
+          console.warn(`[WARN] Sản phẩm ID ${productId} không tồn tại`);
+          continue;
+        }
+
+        console.log(
+          `[INFO] Kiểm tra sản phẩm ID ${productId}, trạng thái hiện tại: ${product.status}`
+        );
+
+        // Tính tổng tồn kho bằng Sequelize
+        const totalStock =
+          (await ProductInventory.sum("stock", {
+            where: {
+              productDetailId: {
+                [Op.in]: sequelize.literal(
+                  `(SELECT id FROM product_details WHERE productId = ${productId})`
+                ),
+              },
             },
-            { transaction: t }
+            transaction: t,
+          })) || 0;
+
+        console.log(
+          `[INFO] Tổng tồn kho sản phẩm ID ${productId}: ${totalStock}`
+        );
+
+        // Cập nhật trạng thái sản phẩm
+        if (totalStock > 0 && product.status !== "active") {
+          console.log(
+            `[INFO] Cập nhật trạng thái sản phẩm ID ${productId} từ ${product.status} sang active`
+          );
+          await sequelize.query(
+            `UPDATE products SET status = 'active', updatedAt = NOW() 
+             WHERE id = :productId AND status = 'outofstock'`,
+            {
+              replacements: { productId },
+              type: QueryTypes.UPDATE,
+              transaction: t,
+            }
+          );
+        } else if (totalStock === 0 && product.status !== "outofstock") {
+          console.log(
+            `[INFO] Cập nhật trạng thái sản phẩm ID ${productId} từ ${product.status} sang outofstock`
+          );
+          await product.update({ status: "outofstock" }, { transaction: t });
+        } else {
+          console.log(
+            `[INFO] Không cần cập nhật trạng thái sản phẩm ID ${productId} (trạng thái hiện tại: ${product.status}, totalStock: ${totalStock})`
           );
         }
+      } catch (error) {
+        console.error(
+          `[ERROR] Lỗi khi cập nhật trạng thái sản phẩm ID ${productId}:`,
+          error
+        );
       }
     }
 
+    // Commit transaction
     await t.commit();
+    console.log("[INFO] Transaction đã commit thành công");
 
+    // Trả về response
     res.status(200).json({ message: "Hủy đơn hàng thành công" });
   } catch (error: any) {
     await t.rollback();
-    res.status(500).json({ message: error.message });
+    console.error("[ERROR] Lỗi khi hủy đơn hàng:", {
+      message: error.message,
+      stack: error.stack,
+      orderId: req.params.id,
+    });
+    res.status(500).json({
+      message: "Đã xảy ra lỗi khi hủy đơn hàng",
+      error: error.message,
+    });
   }
 };
 

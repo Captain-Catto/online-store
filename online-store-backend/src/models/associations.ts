@@ -20,6 +20,7 @@ import NavigationMenu from "./NavigationMenu";
 import Wishlist from "./Wishlist";
 import Cart from "./Cart";
 import CartItem from "./CartItem";
+import ProductSize from "./ProductSize";
 
 export default function initAssociations() {
   // Product - ProductDetail relationship
@@ -197,4 +198,8 @@ export default function initAssociations() {
     foreignKey: "productDetailId",
     as: "productDetail",
   });
+
+  // mối quan hệ giữa ProductSize và Category
+  ProductSize.belongsTo(Category, { foreignKey: "categoryId", as: "category" });
+  Category.hasMany(ProductSize, { foreignKey: "categoryId", as: "sizes" });
 }

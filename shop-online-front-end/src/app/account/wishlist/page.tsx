@@ -573,7 +573,7 @@ export default function WishlistPage() {
               </p>
               <div className="mt-6">
                 <Link
-                  href="/products"
+                  href="/"
                   className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-pink-600 hover:bg-pink-700"
                 >
                   Tiếp tục mua sắm

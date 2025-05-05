@@ -510,7 +510,9 @@ export const ProductService = {
   },
 
   // Lấy tất cả kích thước
-  getSizes: async (): Promise<any[]> => {
+  getSizes: async (): Promise<
+    { id: number; value: string; displayName: string }[]
+  > => {
     try {
       const response = await fetch(`${API_BASE_URL}/products/sizes`);
       if (!response.ok) {
@@ -523,14 +525,31 @@ export const ProductService = {
     }
   },
 
+  // lấy kích thước theo danh mục
+  getSizesByCategory: async (
+    category: string
+  ): Promise<{ id: number; value: string; displayName: string }[]> => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/sizes/by-category?category=${category}`
+      );
+      if (!response.ok) {
+        throw new Error("Không thể lấy danh sách kích thước theo danh mục");
+      }
+      return await response.json();
+    } catch (error) {
+      console.error("Lỗi khi lấy kích thước theo danh mục:", error);
+      return [];
+    }
+  },
+
   // Thêm kích thước mới (Admin)
   createSize: async (sizeData: {
     value: string;
     displayName?: string;
-    category?: string;
-    sizeType?: string;
+    categoryId?: string;
     displayOrder?: number;
-  }): Promise<any> => {
+  }): Promise<{ id: number; value: string; displayName: string }> => {
     try {
       const response = await AuthClient.fetchWithAuth(
         `${API_BASE_URL}/products/sizes`,

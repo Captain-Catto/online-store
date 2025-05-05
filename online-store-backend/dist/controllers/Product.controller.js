@@ -1,0 +1,1752 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.updateProductVariants = exports.setMainProductImage = exports.removeProductImages = exports.addProductImages = exports.updateProductInventory = exports.updateProductBasicInfo = exports.getProductVariantsById = exports.getSubtypes = exports.getSuitabilities = exports.getProductsByCategory = exports.deleteProduct = exports.getProductById = exports.getProductsWithVariants = exports.createProductWithDetails = void 0;
+const db_1 = __importDefault(require("../config/db"));
+const Product_1 = __importDefault(require("../models/Product"));
+const ProductDetail_1 = __importDefault(require("../models/ProductDetail"));
+const ProductInventory_1 = __importDefault(require("../models/ProductInventory"));
+const ProductImage_1 = __importDefault(require("../models/ProductImage"));
+const ProductCategory_1 = __importDefault(require("../models/ProductCategory"));
+const Category_1 = __importDefault(require("../models/Category"));
+const imageUpload_1 = require("../services/imageUpload");
+const sequelize_1 = require("sequelize");
+const Suitability_1 = __importDefault(require("../models/Suitability"));
+const ProductSuitability_1 = __importDefault(require("../models/ProductSuitability"));
+/**
+ * Create a product with details and inventory
+ */
+const createProductWithDetails = async (req, res) => {
+    const t = await db_1.default.transaction();
+    // Get uploaded files
+    const files = req.files;
+    try {
+        const { name, sku, description, brand, material, featured, status, tags, suitability, categories, } = req.body;
+        // Parse JSON data sent as strings from form-data
+        const details = JSON.parse(req.body.details || "[]");
+        const categoriesData = JSON.parse(req.body.categories || "[]");
+        const imageIsMain = JSON.parse(req.body.imageIsMain || "{}");
+        if (!name || !sku) {
+            await t.rollback();
+            res.status(400).json({ message: "Thiếu thông tin tên và mã sản phẩm" });
+            return;
+        }
+        // Check if product with same SKU already exists
+        if (sku) {
+            const existingProduct = await Product_1.default.findOne({
+                where: { sku },
+                transaction: t,
+            });
+            if (existingProduct) {
+                await t.rollback();
+                res.status(400).json({ message: "Sản phẩm với SKU này đã tồn tại" });
+                return;
+            }
+        }
+        // Create new product
+        const newProduct = await Product_1.default.create({
+            name,
+            sku,
+            description,
+            brand,
+            material,
+            featured: featured === "true" || featured === true,
+            status: status || "draft",
+            tags: typeof tags === "string" ? JSON.parse(tags) : tags,
+        }, { transaction: t });
+        // Map to track which images belong to which color
+        const colorImageMap = new Map();
+        if (suitability) {
+            const suitabilityNames = typeof suitability === "string"
+                ? JSON.parse(suitability)
+                : Array.isArray(suitability)
+                    ? suitability
+                    : [];
+            for (const suitName of suitabilityNames) {
+                // Tìm hoặc tạo suitability
+                const [suitabilityRecord] = await Suitability_1.default.findOrCreate({
+                    where: { name: suitName },
+                    defaults: { name: suitName },
+                    transaction: t,
+                });
+                // Thêm liên kết
+                await ProductSuitability_1.default.create({
+                    productId: newProduct.id,
+                    suitabilityId: suitabilityRecord.id,
+                }, { transaction: t });
+            }
+        }
+        // Process uploaded files if any - group by color
+        if (files && files.length > 0) {
+            // Extract color information from the form
+            const imageColors = JSON.parse(req.body.imageColors || "{}");
+            // Group images by color
+            files.forEach((file, index) => {
+                const color = imageColors[index] || "default";
+                if (!colorImageMap.has(color)) {
+                    colorImageMap.set(color, []);
+                }
+                colorImageMap.get(color).push({
+                    url: file.location,
+                    isMain: imageIsMain[index] === true || imageIsMain[index] === "true",
+                    displayOrder: colorImageMap.get(color).length,
+                });
+            });
+        }
+        // Create product details with their respective inventories and prices
+        for (const detail of details) {
+            // Create product detail (color and price)
+            const productDetail = await ProductDetail_1.default.create({
+                productId: newProduct.id,
+                color: detail.color,
+                price: detail.price || 0,
+                originalPrice: detail.originalPrice || detail.price || 0,
+            }, { transaction: t });
+            // Add sizes and inventory for this detail
+            if (detail.sizes && detail.sizes.length > 0) {
+                for (const sizeInfo of detail.sizes) {
+                    await ProductInventory_1.default.create({
+                        productDetailId: productDetail.id,
+                        size: sizeInfo.size,
+                        stock: sizeInfo.stock || 0,
+                    }, { transaction: t });
+                }
+            }
+            // Add images for this detail if they exist in the map
+            const colorImages = colorImageMap.get(detail.color) || [];
+            for (const imageInfo of colorImages) {
+                await ProductImage_1.default.create({
+                    productDetailId: productDetail.id,
+                    url: imageInfo.url,
+                    isMain: imageInfo.isMain,
+                    displayOrder: imageInfo.displayOrder,
+                }, { transaction: t });
+            }
+        }
+        // Sau khi xử lý categories từ request
+        if (categoriesData && categoriesData.length > 0) {
+            // Map để theo dõi các danh mục đã xử lý để tránh trùng lặp
+            const processedCategories = new Set();
+            const categoryEntries = [];
+            for (const categoryId of categoriesData) {
+                const categoryIdNum = parseInt(categoryId.toString());
+                if (!processedCategories.has(categoryIdNum)) {
+                    // Thêm danh mục vào danh sách để tạo liên kết
+                    categoryEntries.push({
+                        productId: newProduct.id,
+                        categoryId: categoryIdNum,
+                    });
+                    processedCategories.add(categoryIdNum);
+                    // KHÔNG lưu danh mục cha nếu đã chọn danh mục con
+                    // Chỉ lưu ID danh mục được chọn trực tiếp
+                }
+            }
+            // Tạo các liên kết giữa sản phẩm và danh mục
+            await ProductCategory_1.default.bulkCreate(categoryEntries, { transaction: t });
+        }
+        await t.commit();
+        // Return success response
+        res.status(201).json({
+            message: "Tạo sản phẩm thành công",
+            productId: newProduct.id,
+        });
+    }
+    catch (error) {
+        await t.rollback();
+        // Xóa các file đã upload lên S3 nếu có lỗi
+        if (files && files.length > 0) {
+            try {
+                console.log("Cleaning up uploaded files from S3");
+                await Promise.all(files.map((file) => {
+                    const key = file.location.split("/").pop(); // Lấy key từ URL
+                    return (0, imageUpload_1.deleteFile)(file.location);
+                }));
+            }
+            catch (cleanupError) {
+                console.error("Error cleaning up S3 files:", cleanupError);
+                // Vẫn tiếp tục xử lý lỗi chính
+            }
+        }
+        res.status(500).json({
+            message: "Lỗi khi tạo sản phẩm",
+            error: error.message,
+        });
+    }
+};
+exports.createProductWithDetails = createProductWithDetails;
+// Cập nhật cả phương thức getProductsWithVariants
+const getProductsWithVariants = async (req, res) => {
+    try {
+        // Lấy query parameters
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const search = req.query.search;
+        const category = req.query.category;
+        const status = req.query.status;
+        const brand = req.query.brand;
+        const subtype = req.query.subtype;
+        const featured = req.query.featured === "true"
+            ? true
+            : req.query.featured === "false"
+                ? false
+                : null;
+        // Thêm lọc theo color và size
+        const color = req.query.color;
+        const sizeParam = req.query.size;
+        const sizes = sizeParam ? sizeParam.split(",") : [];
+        const suitabilityParam = req.query.suitability;
+        const suitabilities = suitabilityParam ? suitabilityParam.split(",") : [];
+        // thêm tham số để sort
+        const sort = req.query.sort;
+        let order = [["createdAt", "DESC"]]; // Default sort
+        if (sort) {
+            const [field, direction] = sort.split("_");
+            const validFields = ["name", "createdAt", "price", "featured"];
+            const validDirections = ["asc", "desc"];
+            if (validFields.includes(field) &&
+                validDirections.includes(direction?.toLowerCase())) {
+                if (field === "price") {
+                    // Sắp xếp theo giá cần xử lý đặc biệt vì price nằm trong bảng ProductDetail
+                    order = [
+                        [
+                            { model: ProductDetail_1.default, as: "details" },
+                            "price",
+                            direction.toUpperCase(),
+                        ],
+                    ];
+                }
+                else {
+                    order = [[field, direction.toUpperCase()]];
+                }
+            }
+        }
+        // Tính offset
+        const offset = (page - 1) * limit;
+        // Tạo where condition
+        const where = {};
+        // Xây dựng include
+        const include = [];
+        if (search) {
+            where.name = { [sequelize_1.Op.like]: `%${search}%` };
+        }
+        if (status) {
+            where.status = { [sequelize_1.Op.eq]: status };
+        }
+        if (brand) {
+            where.brand = brand;
+        }
+        if (suitabilities.length > 0) {
+            include.push({
+                model: Suitability_1.default,
+                as: "suitabilities",
+                where: { name: { [sequelize_1.Op.in]: suitabilities } },
+                through: { attributes: [] }, // Không lấy thông tin bảng trung gian
+                required: true, // Bắt buộc phải có
+            });
+        }
+        if (featured === true) {
+            where.featured = true;
+        }
+        // Category include
+        const categoryInclude = {
+            model: Category_1.default,
+            as: "categories",
+            attributes: ["id", "name"],
+            through: { attributes: [] },
+        };
+        if (category) {
+            categoryInclude.where = { id: category };
+        }
+        include.push(categoryInclude);
+        // Thêm Suitability include vào đây, ngay cả khi không dùng để filter
+        include.push({
+            model: Suitability_1.default,
+            as: "suitabilities",
+            attributes: ["id", "name"],
+            through: { attributes: [] },
+            required: false, // Không bắt buộc có
+        });
+        // ProductDetail include với lọc
+        const detailsInclude = {
+            model: ProductDetail_1.default,
+            as: "details",
+            include: [
+                {
+                    model: ProductInventory_1.default,
+                    as: "inventories",
+                    where: sizes.length > 0 ? { size: { [sequelize_1.Op.in]: sizes } } : undefined,
+                },
+                { model: ProductImage_1.default, as: "images" },
+            ],
+        };
+        if (color) {
+            detailsInclude.where = { color };
+        }
+        include.push(detailsInclude);
+        // Đếm tổng số sản phẩm phù hợp với bộ lọc
+        const count = await Product_1.default.count({
+            where,
+            include,
+            distinct: true,
+        });
+        // Lấy sản phẩm đã lọc
+        const products = await Product_1.default.findAll({
+            where,
+            include,
+            limit,
+            offset,
+            order,
+            distinct: true,
+        });
+        // Format data for optimized response
+        const formattedProducts = products.map((product) => {
+            const details = product.details || [];
+            // Get all unique colors
+            const uniqueColors = [
+                ...new Set(details.map((detail) => detail.color)),
+            ];
+            // Get all unique sizes
+            const uniqueSizes = [
+                ...new Set(details.flatMap((detail) => detail.inventories.map((inv) => inv.size))),
+            ];
+            // Calculate total stock
+            const totalStock = details.reduce((sum, detail) => sum +
+                detail.inventories.reduce((detailSum, inv) => detailSum + inv.stock, 0), 0);
+            // Create mapping for each color: images, price and available sizes
+            const variantMap = {};
+            uniqueColors.forEach((color) => {
+                const detailWithColor = details.find((d) => d.color === color);
+                if (!detailWithColor)
+                    return;
+                // Get images for this color
+                const images = detailWithColor.images || [];
+                // Get inventory for this color
+                const inventories = detailWithColor.inventories || [];
+                // Map inventory to a simple size->stock object and calculate variants
+                const sizeInventory = {};
+                const variants = [];
+                for (const inv of inventories) {
+                    if (inv.stock > 0) {
+                        sizeInventory[inv.size] = inv.stock;
+                        variants.push({
+                            color: color,
+                            size: inv.size,
+                            stock: inv.stock,
+                        });
+                    }
+                }
+                // Add to variant map
+                variantMap[color] = {
+                    detailId: detailWithColor.id,
+                    price: detailWithColor.price,
+                    originalPrice: detailWithColor.originalPrice,
+                    images: images.map((img) => ({
+                        id: img.id,
+                        url: img.url,
+                        isMain: img.isMain,
+                    })),
+                    availableSizes: Object.keys(sizeInventory),
+                    inventory: sizeInventory,
+                    variants,
+                };
+            });
+            // Generate status label and CSS class
+            let statusLabel = "";
+            let statusClass = "";
+            switch (product.status) {
+                case "active":
+                    statusLabel = "Đang bán";
+                    statusClass = "success";
+                    break;
+                case "outofstock":
+                    statusLabel = "Hết hàng";
+                    statusClass = "danger";
+                    break;
+                case "draft":
+                    statusLabel = "Nháp";
+                    statusClass = "warning";
+                    break;
+            }
+            // Return formatted product
+            return {
+                id: product.id,
+                name: product.name,
+                sku: product.sku || "",
+                description: product.description || "",
+                categories: product.categories || [],
+                brand: product.brand || "",
+                material: product.material || "",
+                featured: product.featured || false,
+                status: product.status,
+                statusLabel,
+                statusClass,
+                tags: Array.isArray(product.tags)
+                    ? product.tags
+                    : typeof product.tags === "string"
+                        ? JSON.parse(product.tags)
+                        : [],
+                suitability: product.suitabilities
+                    ? product.suitabilities.map((s) => s.name)
+                    : [],
+                colors: uniqueColors,
+                sizes: uniqueSizes,
+                createdAt: product.createdAt,
+                updatedAt: product.updatedAt,
+                stock: {
+                    total: totalStock,
+                    variants: details.flatMap((detail) => detail.inventories.map((inv) => ({
+                        color: detail.color,
+                        size: inv.size,
+                        stock: inv.stock,
+                    }))),
+                },
+                variants: variantMap,
+            };
+        });
+        // Trả về response với thông tin phân trang
+        res.status(200).json({
+            products: formattedProducts,
+            filters: {
+                search: search || null,
+                category: category || null,
+                status: status || null,
+                brand: brand || null,
+                color: color || null,
+                size: sizeParam || null,
+                featured: req.query.featured === "true" ? true : null,
+                sort: sort || null,
+                suitability: products
+                    .flatMap((product) => {
+                    try {
+                        return Array.isArray(product.suitability)
+                            ? product.suitability
+                            : typeof product.suitability === "string"
+                                ? JSON.parse(product.suitability)
+                                : [];
+                    }
+                    catch (e) {
+                        return [];
+                    }
+                })
+                    .filter((value, index, self) => self.indexOf(value) === index), // loại bỏ trùng lặp
+            },
+            pagination: {
+                total: count,
+                totalPages: Math.ceil(count / limit),
+                currentPage: page,
+                limit,
+            },
+        });
+    }
+    catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+exports.getProductsWithVariants = getProductsWithVariants;
+/**
+ * Get product by ID with details, inventory, images and categories
+ */
+const getProductById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        // Find product by ID
+        const product = await Product_1.default.findByPk(id, {
+            include: [
+                {
+                    model: ProductDetail_1.default,
+                    as: "details",
+                    include: [
+                        {
+                            model: ProductInventory_1.default,
+                            as: "inventories",
+                        },
+                        {
+                            model: ProductImage_1.default,
+                            as: "images",
+                        },
+                    ],
+                },
+                {
+                    model: Category_1.default,
+                    as: "categories",
+                    attributes: ["id", "name"],
+                    through: { attributes: [] },
+                },
+                {
+                    model: Suitability_1.default,
+                    as: "suitabilities",
+                    attributes: ["id", "name"],
+                    through: { attributes: [] }, // Ẩn bảng liên kết
+                },
+            ],
+        });
+        if (!product) {
+            res.status(404).json({ message: "Không tìm thấy sản phẩm" });
+            return;
+        }
+        // Format product like in getProductsWithVariants
+        const details = product.details || [];
+        // Get all unique colors
+        const uniqueColors = [
+            ...new Set(details.map((detail) => detail.color)),
+        ];
+        // Get all unique sizes
+        const uniqueSizes = [
+            ...new Set(details.flatMap((detail) => detail.inventories.map((inv) => inv.size))),
+        ];
+        // Calculate total stock
+        const totalStock = details.reduce((sum, detail) => sum +
+            detail.inventories.reduce((detailSum, inv) => detailSum + inv.stock, 0), 0);
+        // Create mapping for each color: images, price and available sizes
+        const variantMap = {};
+        uniqueColors.forEach((color) => {
+            const detailWithColor = details.find((d) => d.color === color);
+            if (!detailWithColor)
+                return;
+            // Get images for this color
+            const images = detailWithColor.images || [];
+            // Get inventory for this color
+            const inventories = detailWithColor.inventories || [];
+            // Map inventory to a simple size->stock object and calculate variants
+            const sizeInventory = {};
+            const variants = [];
+            for (const inv of inventories) {
+                sizeInventory[inv.size] = inv.stock;
+                if (inv.stock > 0) {
+                    variants.push({
+                        color: color,
+                        size: inv.size,
+                        stock: inv.stock,
+                    });
+                }
+            }
+            // Add to variant map
+            variantMap[color] = {
+                detailId: detailWithColor.id,
+                price: detailWithColor.price,
+                originalPrice: detailWithColor.originalPrice,
+                images: images.map((img) => ({
+                    id: img.id,
+                    url: img.url,
+                    isMain: img.isMain,
+                })),
+                availableSizes: Object.keys(sizeInventory),
+                inventory: sizeInventory,
+                variants,
+            };
+        });
+        // Generate status label and CSS class
+        let statusLabel = "";
+        let statusClass = "";
+        switch (product.status) {
+            case "active":
+                statusLabel = "Đang bán";
+                statusClass = "success";
+                break;
+            case "outofstock":
+                statusLabel = "Hết hàng";
+                statusClass = "danger";
+                break;
+            case "draft":
+                statusLabel = "Nháp";
+                statusClass = "warning";
+                break;
+        }
+        // Format product response
+        const formattedProduct = {
+            id: product.id,
+            name: product.name,
+            sku: product.sku || "",
+            description: product.description || "",
+            categories: product.categories || [],
+            brand: product.brand || "",
+            material: product.material || "",
+            featured: product.featured || false,
+            status: product.status,
+            statusLabel,
+            statusClass,
+            tags: Array.isArray(product.tags)
+                ? product.tags
+                : typeof product.tags === "string"
+                    ? JSON.parse(product.tags)
+                    : [],
+            suitability: Array.isArray(product.suitability)
+                ? product.suitability
+                : typeof product.suitability === "string"
+                    ? JSON.parse(product.suitability)
+                    : [],
+            colors: uniqueColors,
+            sizes: uniqueSizes,
+            createdAt: product.createdAt,
+            updatedAt: product.updatedAt,
+            stock: {
+                total: totalStock,
+                variants: details.flatMap((detail) => detail.inventories.map((inv) => ({
+                    color: detail.color,
+                    size: inv.size,
+                    stock: inv.stock,
+                }))),
+            },
+            variants: variantMap,
+        };
+        res.status(200).json(formattedProduct);
+    }
+    catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+exports.getProductById = getProductById;
+/**
+ * Delete a product and all associated details and inventory
+ */
+const deleteProduct = async (req, res) => {
+    const t = await db_1.default.transaction();
+    try {
+        const { id } = req.params;
+        // Check if product exists
+        const product = await Product_1.default.findByPk(id, { transaction: t });
+        if (!product) {
+            await t.rollback();
+            res.status(404).json({ message: "Sản phẩm không tồn tại" });
+            return;
+        }
+        // Get all product details to delete their inventories and images
+        const details = await ProductDetail_1.default.findAll({
+            where: { productId: id },
+            transaction: t,
+            include: [
+                {
+                    model: ProductImage_1.default,
+                    as: "images",
+                },
+            ],
+        });
+        // Delete related data for each product detail
+        for (const detail of details) {
+            // Delete images (both DB records and files)
+            const images = detail.images || [];
+            for (const image of images) {
+                const imageUrl = image.url;
+                await image.destroy({ transaction: t });
+                (0, imageUpload_1.deleteFile)(imageUrl);
+            }
+            // Delete inventories
+            await ProductInventory_1.default.destroy({
+                where: { productDetailId: detail.id },
+                transaction: t,
+            });
+            // Delete the product detail
+            await detail.destroy({ transaction: t });
+        }
+        // Delete product categories
+        await ProductCategory_1.default.destroy({
+            where: { productId: id },
+            transaction: t,
+        });
+        // Delete the product
+        await product.destroy({ transaction: t });
+        await t.commit();
+        res.status(200).json({ message: "Xóa sản phẩm thành công" });
+    }
+    catch (error) {
+        await t.rollback();
+        res.status(500).json({
+            message: "Lỗi khi xóa sản phẩm",
+            error: error.message,
+        });
+    }
+};
+exports.deleteProduct = deleteProduct;
+/**
+ * Get products by category ID with pagination
+ */
+/**
+ * Get products by category ID with pagination
+ */
+const getProductsByCategory = async (req, res) => {
+    try {
+        console.log("Fetching products by category ID", req.params);
+        const { categoryId } = req.params;
+        // Pagination parameters
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const offset = (page - 1) * limit;
+        // Giữ lại các filter parameters
+        const color = req.query.color;
+        const sizeParam = req.query.size;
+        const sizes = sizeParam ? sizeParam.split(",") : [];
+        const suitabilityParam = req.query.suitability;
+        const suitabilities = suitabilityParam ? suitabilityParam.split(",") : [];
+        const childCategoryId = req.query.childCategory;
+        // Tìm category để kiểm tra tồn tại
+        const category = await Category_1.default.findByPk(categoryId);
+        if (!category) {
+            res.status(404).json({ message: "Danh mục không tồn tại" });
+            return;
+        }
+        // Lấy danh sách categoryIds để lọc sản phẩm
+        let categoryIds = [categoryId];
+        // Nếu đây là danh mục cha và không có childCategoryId được chỉ định
+        if (category.parentId === null && !childCategoryId) {
+            // Lấy tất cả các danh mục con của danh mục hiện tại
+            const childCategories = await Category_1.default.findAll({
+                where: {
+                    parentId: categoryId,
+                    isActive: true,
+                },
+                attributes: ["id"],
+            });
+            // Thêm IDs của danh mục con vào danh sách lọc
+            categoryIds = [
+                ...categoryIds,
+                ...childCategories.map((c) => c.id.toString()),
+            ];
+        }
+        // Nếu có chỉ định childCategoryId cụ thể
+        else if (childCategoryId) {
+            // Kiểm tra xem childCategory có thuộc category cha không
+            const childCategory = await Category_1.default.findOne({
+                where: {
+                    id: childCategoryId,
+                    parentId: categoryId,
+                },
+            });
+            if (childCategory) {
+                // Nếu có, chỉ lấy sản phẩm thuộc danh mục con này
+                categoryIds = [childCategoryId];
+            }
+        }
+        // Start with basic include for category filtering
+        const include = [
+            {
+                model: Category_1.default,
+                as: "categories",
+                where: { id: { [sequelize_1.Op.in]: categoryIds } },
+                attributes: ["id", "name"],
+                through: { attributes: [] },
+            },
+        ];
+        // Where condition for product filtering
+        const where = {};
+        // Add suitability filter if present
+        if (suitabilities.length > 0) {
+            include.push({
+                model: Suitability_1.default,
+                as: "suitabilities",
+                where: { name: { [sequelize_1.Op.in]: suitabilities } },
+                through: { attributes: [] }, // Không lấy thông tin bảng trung gian
+                required: true, // Bắt buộc phải có
+            });
+        }
+        // ProductDetail include with filtering
+        const detailsInclude = {
+            model: ProductDetail_1.default,
+            as: "details",
+            include: [
+                {
+                    model: ProductInventory_1.default,
+                    as: "inventories",
+                    where: sizes.length > 0 ? { size: { [sequelize_1.Op.in]: sizes } } : undefined,
+                },
+                { model: ProductImage_1.default, as: "images" },
+            ],
+        };
+        // Apply color filter if provided
+        if (color) {
+            detailsInclude.where = { color };
+        }
+        // Add details include to main include array
+        include.push(detailsInclude);
+        // Count total matching products
+        const count = await Product_1.default.count({
+            where,
+            include,
+            distinct: true,
+        });
+        // Get filtered products
+        const products = await Product_1.default.findAll({
+            where,
+            include,
+            limit,
+            offset,
+            order: [["createdAt", "DESC"]],
+            distinct: true,
+        });
+        // Format sản phẩm (giữ nguyên phần này)
+        const formattedProducts = products.map((product) => {
+            const details = product.details || [];
+            // Get all unique colors
+            const uniqueColors = [
+                ...new Set(details.map((detail) => detail.color)),
+            ];
+            // Get all unique sizes
+            const uniqueSizes = [
+                ...new Set(details.flatMap((detail) => detail.inventories.map((inv) => inv.size))),
+            ];
+            // Calculate total stock
+            const totalStock = details.reduce((sum, detail) => sum +
+                detail.inventories.reduce((detailSum, inv) => detailSum + inv.stock, 0), 0);
+            // Create variant map
+            const variantMap = {};
+            uniqueColors.forEach((color) => {
+                const detailWithColor = details.find((d) => d.color === color);
+                if (!detailWithColor)
+                    return;
+                // Get images for this color
+                const images = detailWithColor.images || [];
+                // Get inventory for this color
+                const inventories = detailWithColor.inventories || [];
+                // Map inventory to a simple size->stock object
+                const sizeInventory = {};
+                const variants = [];
+                for (const inv of inventories) {
+                    if (inv.stock > 0) {
+                        sizeInventory[inv.size] = inv.stock;
+                        variants.push({
+                            color: color,
+                            size: inv.size,
+                            stock: inv.stock,
+                        });
+                    }
+                }
+                // Add to variant map
+                variantMap[color] = {
+                    detailId: detailWithColor.id,
+                    price: detailWithColor.price,
+                    originalPrice: detailWithColor.originalPrice,
+                    images: images.map((img) => ({
+                        id: img.id,
+                        url: img.url,
+                        isMain: img.isMain,
+                    })),
+                    availableSizes: Object.keys(sizeInventory),
+                    inventory: sizeInventory,
+                    variants,
+                };
+            });
+            // Generate status label
+            let statusLabel = "";
+            let statusClass = "";
+            switch (product.status) {
+                case "active":
+                    statusLabel = "Đang bán";
+                    statusClass = "success";
+                    break;
+                case "outofstock":
+                    statusLabel = "Hết hàng";
+                    statusClass = "danger";
+                    break;
+                case "draft":
+                    statusLabel = "Nháp";
+                    statusClass = "warning";
+                    break;
+            }
+            // Return formatted product
+            return {
+                id: product.id,
+                name: product.name,
+                sku: product.sku || "",
+                description: product.description || "",
+                categories: product.categories || [],
+                brand: product.brand || "",
+                material: product.material || "",
+                featured: product.featured || false,
+                status: product.status,
+                statusLabel,
+                statusClass,
+                tags: Array.isArray(product.tags)
+                    ? product.tags
+                    : typeof product.tags === "string"
+                        ? JSON.parse(product.tags)
+                        : [],
+                suitability: product.suitabilities
+                    ? product.suitabilities.map((s) => s.name)
+                    : [],
+                colors: uniqueColors,
+                sizes: uniqueSizes,
+                createdAt: product.createdAt,
+                updatedAt: product.updatedAt,
+                stock: {
+                    total: totalStock,
+                    variants: details.flatMap((detail) => detail.inventories.map((inv) => ({
+                        color: detail.color,
+                        size: inv.size,
+                        stock: inv.stock,
+                    }))),
+                },
+                variants: variantMap,
+            };
+        });
+        // Lấy thông tin danh mục con nếu là danh mục cha
+        let childCategories = [];
+        if (category.parentId === null) {
+            childCategories = await Category_1.default.findAll({
+                where: {
+                    parentId: categoryId,
+                    isActive: true,
+                },
+                attributes: ["id", "name", "slug"],
+                order: [["name", "ASC"]],
+            });
+        }
+        // Return with pagination info
+        res.status(200).json({
+            categoryName: category.name,
+            categoryId: category.id,
+            parentCategoryId: category.parentId,
+            products: formattedProducts,
+            childCategories: childCategories,
+            filters: {
+                category: categoryId,
+                childCategory: childCategoryId || null,
+                color: color || null,
+                size: sizeParam || null,
+                suitability: suitabilityParam || null,
+            },
+            pagination: {
+                total: count,
+                totalPages: Math.ceil(count / limit),
+                currentPage: page,
+                limit,
+            },
+        });
+    }
+    catch (error) {
+        console.error("Error getting products by category:", error);
+        res.status(500).json({ message: error.message });
+    }
+};
+exports.getProductsByCategory = getProductsByCategory;
+const getSuitabilities = async (req, res) => {
+    try {
+        const suitabilities = await Suitability_1.default.findAll({
+            order: [
+                ["sortOrder", "ASC"],
+                ["name", "ASC"],
+            ],
+        });
+        res.status(200).json(suitabilities);
+    }
+    catch (error) {
+        console.error("Error getting suitabilities:", error);
+        res.status(500).json({ message: error.message });
+    }
+};
+exports.getSuitabilities = getSuitabilities;
+const getSubtypes = async (req, res) => {
+    try {
+        // Lấy category ID từ query parameters
+        const categoryId = req.query.categoryId;
+        console.log("Fetching subtypes for category:", categoryId || "all");
+        let products;
+        if (categoryId) {
+            // Nếu có categoryId, lọc sản phẩm theo category
+            products = await Product_1.default.findAll({
+                attributes: ["subtype"],
+                include: [
+                    {
+                        model: Category_1.default,
+                        as: "categories",
+                        where: { id: categoryId },
+                        through: { attributes: [] },
+                        required: true, // Đảm bảo chỉ lấy sản phẩm thuộc category này
+                    },
+                ],
+                where: {
+                    subtype: {
+                        [sequelize_1.Op.not]: null,
+                    },
+                },
+            });
+        }
+        else {
+            // Nếu không có categoryId, lấy tất cả
+            products = await Product_1.default.findAll({
+                attributes: ["subtype"],
+                where: {
+                    subtype: {
+                        [sequelize_1.Op.not]: null,
+                    },
+                },
+            });
+        }
+        console.log("Products found:", products.length);
+        console.log("Product subtypes:", products.map((p) => p.getDataValue("subtype")));
+        // Tạo danh sách `subtypes` duy nhất
+        const subtypes = [
+            ...new Set(products.map((product) => product.getDataValue("subtype"))),
+        ].filter(Boolean);
+        console.log("Unique subtypes:", subtypes);
+        // Trả về danh sách `subtypes`
+        res.status(200).json({
+            subtypes,
+            categoryId: categoryId || null,
+            count: subtypes.length,
+        });
+    }
+    catch (error) {
+        console.error("Error fetching subtypes:", error);
+        res.status(500).json({ message: "Lỗi khi lấy danh sách subtypes" });
+    }
+};
+exports.getSubtypes = getSubtypes;
+// hàm để lấy variant của sản phẩm theo id ở product
+const getProductVariantsById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        // Tìm sản phẩm theo ID
+        const product = await Product_1.default.findByPk(id, {
+            include: [
+                {
+                    model: ProductDetail_1.default,
+                    as: "details",
+                    include: [
+                        {
+                            model: ProductInventory_1.default,
+                            as: "inventories",
+                        },
+                        { model: ProductImage_1.default, as: "images" },
+                    ],
+                },
+                {
+                    model: Category_1.default,
+                    as: "categories",
+                    attributes: ["id", "name"],
+                    through: { attributes: [] }, // Ẩn bảng trung gian
+                },
+                {
+                    model: Suitability_1.default,
+                    as: "suitabilities",
+                    attributes: ["id", "name"],
+                    through: { attributes: [] }, // Ẩn bảng liên kết
+                },
+            ],
+        });
+        if (!product) {
+            res.status(404).json({ message: "Không tìm thấy sản phẩm" });
+            return;
+        }
+        // Trả về thông tin chi tiết của sản phẩm
+        res.status(200).json(product);
+    }
+    catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+exports.getProductVariantsById = getProductVariantsById;
+/**
+ * Update basic product information
+ */
+const updateProductBasicInfo = async (req, res) => {
+    const t = await db_1.default.transaction();
+    try {
+        const { id } = req.params;
+        const { name, sku, description, brand, material, featured, status, tags, suitability, categories, } = req.body;
+        // Check if product exists
+        const product = await Product_1.default.findByPk(id, { transaction: t });
+        if (!product) {
+            await t.rollback();
+            res.status(404).json({ message: "Sản phẩm không tồn tại" });
+            return;
+        }
+        // Update basic product information
+        await product.update({
+            name,
+            sku,
+            description,
+            brand,
+            material,
+            featured: featured === "true" || featured === true,
+            status: status || "draft",
+            tags: typeof tags === "string" ? JSON.parse(tags) : tags,
+            suitability: typeof suitability === "string"
+                ? JSON.parse(suitability)
+                : suitability,
+        }, { transaction: t });
+        // Update categories if provided
+        if (categories && categories.length > 0) {
+            // Kiểm tra xem có đang cố gắng cập nhật đầy đủ categories hay không
+            // Nếu chỉ có 1 category được gửi lên (category chính), giữ lại subcategories hiện tại
+            if (categories.length === 1) {
+                // Tìm các category hiện tại của sản phẩm
+                const existingCategories = await ProductCategory_1.default.findAll({
+                    where: { productId: id },
+                    transaction: t,
+                });
+                // Kiểm tra xem category được gửi lên có phải là category cha không
+                const existingCategoryIds = existingCategories.map((cat) => cat.getDataValue("categoryId"));
+                const mainCategoryId = categories[0];
+                // Nếu category được gửi lên là category cha và sản phẩm đã có nhiều hơn 1 category (có subcategory)
+                // thì chỉ cập nhật category cha và giữ nguyên subcategory
+                if (existingCategories.length > 1) {
+                    // Tìm category cha hiện tại
+                    const parentCategory = await Category_1.default.findOne({
+                        where: {
+                            id: { [sequelize_1.Op.in]: existingCategoryIds },
+                            parentId: null,
+                        },
+                        transaction: t,
+                    });
+                    if (parentCategory && parentCategory.id !== mainCategoryId) {
+                        // Chỉ cập nhật category cha, giữ nguyên các subcategories
+                        await ProductCategory_1.default.update({ categoryId: mainCategoryId }, {
+                            where: {
+                                productId: id,
+                                categoryId: parentCategory.id,
+                            },
+                            transaction: t,
+                        });
+                        return; // Không thực hiện code dưới đây
+                    }
+                }
+            }
+            // Trường hợp thông thường - xóa và thêm lại tất cả
+            await ProductCategory_1.default.destroy({
+                where: { productId: id },
+                transaction: t,
+            });
+            // Add new categories
+            const categoryEntries = categories.map((categoryId) => ({
+                productId: Number(id),
+                categoryId,
+            }));
+            await ProductCategory_1.default.bulkCreate(categoryEntries, { transaction: t });
+        }
+        await t.commit();
+        res.status(200).json({
+            message: "Cập nhật thông tin cơ bản sản phẩm thành công",
+            productId: id,
+        });
+    }
+    catch (error) {
+        await t.rollback();
+        console.error("UPDATE BASIC PRODUCT INFO ERROR:", {
+            message: error.message,
+            stack: error.stack,
+            requestId: req.params.id,
+        });
+        res.status(500).json({
+            message: "Lỗi khi cập nhật thông tin cơ bản sản phẩm",
+            error: error.message,
+        });
+    }
+};
+exports.updateProductBasicInfo = updateProductBasicInfo;
+/**
+ * Update product inventory
+ */
+const updateProductInventory = async (req, res) => {
+    const t = await db_1.default.transaction();
+    try {
+        const { id } = req.params;
+        const { details } = req.body;
+        // Check if product exists
+        const product = await Product_1.default.findByPk(id, { transaction: t });
+        if (!product) {
+            await t.rollback();
+            res.status(404).json({ message: "Sản phẩm không tồn tại" });
+            return;
+        }
+        // Process each detail
+        for (const detail of details) {
+            if (detail.id) {
+                // Existing detail
+                const productDetail = await ProductDetail_1.default.findByPk(detail.id, {
+                    transaction: t,
+                    include: [{ model: ProductInventory_1.default, as: "inventories" }],
+                });
+                if (productDetail) {
+                    // Update price information
+                    if (detail.price !== undefined ||
+                        detail.originalPrice !== undefined) {
+                        await productDetail.update({
+                            price: detail.price || productDetail.getDataValue("price"),
+                            originalPrice: detail.originalPrice ||
+                                detail.price ||
+                                productDetail.getDataValue("originalPrice"),
+                        }, { transaction: t });
+                    }
+                    // Update inventories
+                    if (detail.sizes && Array.isArray(detail.sizes)) {
+                        // Get existing inventories
+                        const existingInventories = productDetail.inventories || [];
+                        // Create map for quick lookup
+                        const inventoryMap = new Map();
+                        existingInventories.forEach((inv) => {
+                            inventoryMap.set(inv.size, inv);
+                        });
+                        // Update or create inventory items
+                        for (const sizeInfo of detail.sizes) {
+                            const existing = inventoryMap.get(sizeInfo.size);
+                            if (existing) {
+                                // Update existing inventory
+                                await existing.update({
+                                    stock: sizeInfo.stock,
+                                }, { transaction: t });
+                            }
+                            else {
+                                // Create new inventory
+                                await ProductInventory_1.default.create({
+                                    productDetailId: detail.id,
+                                    size: sizeInfo.size,
+                                    stock: sizeInfo.stock || 0,
+                                }, { transaction: t });
+                            }
+                        }
+                        // Delete sizes that are not in the update
+                        const updatedSizes = detail.sizes.map((s) => s.size);
+                        for (const inv of existingInventories) {
+                            if (!updatedSizes.includes(inv.size)) {
+                                await inv.destroy({ transaction: t });
+                            }
+                        }
+                    }
+                }
+            }
+            else if (detail.color) {
+                // New detail - first check if color already exists
+                const existingDetail = await ProductDetail_1.default.findOne({
+                    where: {
+                        productId: id,
+                        color: detail.color,
+                    },
+                    transaction: t,
+                });
+                if (existingDetail) {
+                    // Color already exists, update it
+                    await existingDetail.update({
+                        price: detail.price || 0,
+                        originalPrice: detail.originalPrice || detail.price || 0,
+                    }, { transaction: t });
+                    if (detail.sizes && Array.isArray(detail.sizes)) {
+                        for (const sizeInfo of detail.sizes) {
+                            // Check if inventory for this size exists
+                            const existingInventory = await ProductInventory_1.default.findOne({
+                                where: {
+                                    productDetailId: existingDetail.id,
+                                    size: sizeInfo.size,
+                                },
+                                transaction: t,
+                            });
+                            if (existingInventory) {
+                                await existingInventory.update({
+                                    stock: sizeInfo.stock || 0,
+                                }, { transaction: t });
+                            }
+                            else {
+                                await ProductInventory_1.default.create({
+                                    productDetailId: existingDetail.id,
+                                    size: sizeInfo.size,
+                                    stock: sizeInfo.stock || 0,
+                                }, { transaction: t });
+                            }
+                        }
+                    }
+                }
+                else {
+                    // Create new detail
+                    const newDetail = await ProductDetail_1.default.create({
+                        productId: id,
+                        color: detail.color,
+                        price: detail.price || 0,
+                        originalPrice: detail.originalPrice || detail.price || 0,
+                    }, { transaction: t });
+                    if (detail.sizes && Array.isArray(detail.sizes)) {
+                        for (const sizeInfo of detail.sizes) {
+                            await ProductInventory_1.default.create({
+                                productDetailId: newDetail.id,
+                                size: sizeInfo.size,
+                                stock: sizeInfo.stock || 0,
+                            }, { transaction: t });
+                        }
+                    }
+                }
+            }
+        }
+        await t.commit();
+        res.status(200).json({
+            message: "Cập nhật tồn kho sản phẩm thành công",
+            productId: id,
+        });
+    }
+    catch (error) {
+        await t.rollback();
+        console.error("UPDATE PRODUCT INVENTORY ERROR:", {
+            message: error.message,
+            stack: error.stack,
+            requestId: req.params.id,
+        });
+        res.status(500).json({
+            message: "Lỗi khi cập nhật tồn kho sản phẩm",
+            error: error.message,
+        });
+    }
+};
+exports.updateProductInventory = updateProductInventory;
+/**
+ * Add images to product
+ */
+const addProductImages = async (req, res) => {
+    const t = await db_1.default.transaction();
+    // Get uploaded files
+    const files = req.files;
+    try {
+        const { id } = req.params;
+        // Check if product exists
+        const product = await Product_1.default.findByPk(id, {
+            include: [{ model: ProductDetail_1.default, as: "details" }],
+            transaction: t,
+        });
+        if (!product) {
+            await t.rollback();
+            res.status(404).json({ message: "Sản phẩm không tồn tại" });
+            return;
+        }
+        // Extract metadata
+        let imageColors = {};
+        let imageIsMain = {};
+        try {
+            imageColors = JSON.parse(req.body.imageColors || "{}");
+            imageIsMain = JSON.parse(req.body.imageIsMain || "{}");
+        }
+        catch (e) {
+            await t.rollback();
+            res.status(400).json({ message: "Dữ liệu hình ảnh không hợp lệ" });
+            return;
+        }
+        // Map to track which images belong to which color
+        const colorImageMap = new Map();
+        // Process uploaded files
+        if (!files || files.length === 0) {
+            await t.rollback();
+            res.status(400).json({ message: "Không có hình ảnh được tải lên" });
+            return;
+        }
+        // Group images by color
+        files.forEach((file, index) => {
+            const indexKey = index.toString();
+            const color = imageColors[indexKey] || "default";
+            if (!colorImageMap.has(color)) {
+                colorImageMap.set(color, []);
+            }
+            colorImageMap.get(color).push({
+                url: file.location,
+                isMain: imageIsMain[indexKey] === true || imageIsMain[indexKey] === "true",
+                displayOrder: colorImageMap.get(color).length,
+            });
+        });
+        // Process each color's images
+        for (const [color, images] of colorImageMap.entries()) {
+            // Find product detail for this color
+            let productDetail = product.details.find((detail) => detail.color === color);
+            // If detail doesn't exist for this color, create one
+            if (!productDetail) {
+                productDetail = await ProductDetail_1.default.create({
+                    productId: product.id,
+                    color: color,
+                    price: 0, // Default price
+                    originalPrice: 0,
+                }, { transaction: t });
+            }
+            // Add images to this detail
+            for (const imageInfo of images) {
+                // If this is set as main, remove main flag from other images
+                if (imageInfo.isMain) {
+                    await ProductImage_1.default.update({ isMain: false }, {
+                        where: {
+                            productDetailId: productDetail.id,
+                            isMain: true,
+                        },
+                        transaction: t,
+                    });
+                }
+                // Create the new image
+                await ProductImage_1.default.create({
+                    productDetailId: productDetail.id,
+                    url: imageInfo.url,
+                    isMain: imageInfo.isMain,
+                    displayOrder: imageInfo.displayOrder,
+                }, { transaction: t });
+            }
+        }
+        await t.commit();
+        res.status(200).json({
+            message: "Thêm hình ảnh sản phẩm thành công",
+            productId: id,
+        });
+    }
+    catch (error) {
+        await t.rollback();
+        // Clean up uploaded files on error
+        if (files && files.length > 0) {
+            try {
+                await Promise.all(files.map((file) => (0, imageUpload_1.deleteFile)(file.location)));
+            }
+            catch (cleanupError) {
+                console.error("Error cleaning up S3 files:", cleanupError);
+            }
+        }
+        console.error("ADD PRODUCT IMAGES ERROR:", {
+            message: error.message,
+            stack: error.stack,
+            requestId: req.params.id,
+        });
+        res.status(500).json({
+            message: "Lỗi khi thêm hình ảnh sản phẩm",
+            error: error.message,
+        });
+    }
+};
+exports.addProductImages = addProductImages;
+/**
+ * Remove images from product
+ */
+const removeProductImages = async (req, res) => {
+    const t = await db_1.default.transaction();
+    try {
+        const { id } = req.params;
+        const { imageIds } = req.body;
+        if (!Array.isArray(imageIds) || imageIds.length === 0) {
+            await t.rollback();
+            res.status(400).json({ message: "Danh sách hình ảnh không hợp lệ" });
+            return;
+        }
+        // Check if product exists
+        const product = await Product_1.default.findByPk(id, { transaction: t });
+        if (!product) {
+            await t.rollback();
+            res.status(404).json({ message: "Sản phẩm không tồn tại" });
+            return;
+        }
+        // Find all images that belong to this product's details
+        const images = await ProductImage_1.default.findAll({
+            where: { id: { [sequelize_1.Op.in]: imageIds } },
+            include: [
+                {
+                    model: ProductDetail_1.default,
+                    as: "productDetail",
+                    where: { productId: id },
+                    required: true,
+                },
+            ],
+            transaction: t,
+        });
+        if (images.length === 0) {
+            await t.rollback();
+            res
+                .status(404)
+                .json({ message: "Không tìm thấy hình ảnh nào thuộc sản phẩm này" });
+            return;
+        }
+        // Delete images and their S3 files
+        for (const image of images) {
+            const imageUrl = image.getDataValue("url");
+            const isMain = image.getDataValue("isMain");
+            const productDetailId = image.getDataValue("productDetailId");
+            // Delete image from database
+            await image.destroy({ transaction: t });
+            // Delete file from S3
+            await (0, imageUpload_1.deleteFile)(imageUrl);
+            // If this was a main image, set another image as main
+            if (isMain) {
+                const anotherImage = await ProductImage_1.default.findOne({
+                    where: { productDetailId },
+                    transaction: t,
+                });
+                if (anotherImage) {
+                    await anotherImage.update({ isMain: true }, { transaction: t });
+                }
+            }
+        }
+        await t.commit();
+        res.status(200).json({
+            message: "Xóa hình ảnh sản phẩm thành công",
+            productId: id,
+            removedCount: images.length,
+        });
+    }
+    catch (error) {
+        await t.rollback();
+        console.error("REMOVE PRODUCT IMAGES ERROR:", {
+            message: error.message,
+            stack: error.stack,
+            requestId: req.params.id,
+        });
+        res.status(500).json({
+            message: "Lỗi khi xóa hình ảnh sản phẩm",
+            error: error.message,
+        });
+    }
+};
+exports.removeProductImages = removeProductImages;
+/**
+ * Set image as main for product
+ */
+const setMainProductImage = async (req, res) => {
+    const t = await db_1.default.transaction();
+    try {
+        const { id, imageId } = req.params;
+        // Check if product exists
+        const product = await Product_1.default.findByPk(id, { transaction: t });
+        if (!product) {
+            await t.rollback();
+            res.status(404).json({ message: "Sản phẩm không tồn tại" });
+            return;
+        }
+        // Find image and verify it belongs to this product
+        const image = await ProductImage_1.default.findOne({
+            where: { id: imageId },
+            include: [
+                {
+                    model: ProductDetail_1.default,
+                    as: "productDetail",
+                    where: { productId: id },
+                    required: true,
+                },
+            ],
+            transaction: t,
+        });
+        if (!image) {
+            await t.rollback();
+            res
+                .status(404)
+                .json({ message: "Không tìm thấy hình ảnh thuộc sản phẩm này" });
+            return;
+        }
+        const productDetailId = image.getDataValue("productDetailId");
+        // Reset all images for this color to not be main
+        await ProductImage_1.default.update({ isMain: false }, {
+            where: { productDetailId },
+            transaction: t,
+        });
+        // Set this image as main
+        await image.update({ isMain: true }, { transaction: t });
+        await t.commit();
+        res.status(200).json({
+            message: "Đặt ảnh chính thành công",
+            productId: id,
+            imageId,
+        });
+    }
+    catch (error) {
+        await t.rollback();
+        console.error("SET MAIN PRODUCT IMAGE ERROR:", {
+            message: error.message,
+            stack: error.stack,
+            requestId: req.params.id,
+        });
+        res.status(500).json({
+            message: "Lỗi khi đặt ảnh chính",
+            error: error.message,
+        });
+    }
+};
+exports.setMainProductImage = setMainProductImage;
+/**
+ * Update product variants
+ */
+const updateProductVariants = async (req, res) => {
+    const t = await db_1.default.transaction();
+    try {
+        const { id } = req.params;
+        const { variants } = req.body;
+        // Check if product exists
+        const product = await Product_1.default.findByPk(id, { transaction: t });
+        if (!product) {
+            await t.rollback();
+            res.status(404).json({ message: "Sản phẩm không tồn tại" });
+            return;
+        }
+        // Validate variants data
+        if (!Array.isArray(variants)) {
+            await t.rollback();
+            res.status(400).json({ message: "Dữ liệu biến thể không hợp lệ" });
+            return;
+        }
+        // Check for duplicate colors in the request
+        const colors = variants.map((v) => v.color);
+        const duplicateColors = colors.filter((color, index) => colors.indexOf(color) !== index);
+        if (duplicateColors.length > 0) {
+            await t.rollback();
+            res.status(400).json({
+                message: `Phát hiện màu trùng lặp: ${duplicateColors.join(", ")}`,
+                duplicateColors,
+            });
+            return;
+        }
+        // Get all existing product details for this product
+        const existingDetails = await ProductDetail_1.default.findAll({
+            where: { productId: Number(id) },
+            transaction: t,
+        });
+        // Create map of existing colors for quick lookup
+        const existingColorMap = new Map();
+        existingDetails.forEach((detail) => {
+            existingColorMap.set(detail.getDataValue("color"), detail);
+        });
+        console.log(`Found ${existingDetails.length} existing details for product ${id}`);
+        // Process each variant
+        for (const variant of variants) {
+            // Handle case where variant has an ID (update existing)
+            if (variant.id) {
+                // Update existing variant
+                const productDetail = await ProductDetail_1.default.findByPk(variant.id, {
+                    transaction: t,
+                    include: [{ model: ProductInventory_1.default, as: "inventories" }],
+                });
+                if (productDetail) {
+                    // Ensure we're not creating a color conflict
+                    const existingWithSameColor = existingDetails.find((d) => d.getDataValue("id") !== variant.id &&
+                        d.getDataValue("color") === variant.color);
+                    if (existingWithSameColor) {
+                        await t.rollback();
+                        res.status(400).json({
+                            message: `Màu "${variant.color}" đã tồn tại trong biến thể khác`,
+                            conflictingDetailId: existingWithSameColor.getDataValue("id"),
+                        });
+                        return;
+                    }
+                    // Update variant information
+                    await productDetail.update({
+                        color: variant.color,
+                        price: variant.price || productDetail.getDataValue("price"),
+                        originalPrice: variant.originalPrice ||
+                            variant.price ||
+                            productDetail.getDataValue("originalPrice"),
+                    }, { transaction: t });
+                    // Update sizes/inventory if provided
+                    if (variant.sizes && Array.isArray(variant.sizes)) {
+                        // Get existing inventories
+                        const existingInventories = productDetail.inventories || [];
+                        // Create map for quick lookup
+                        const inventoryMap = new Map();
+                        existingInventories.forEach((inv) => {
+                            inventoryMap.set(inv.size, inv);
+                        });
+                        // Update or create inventory items
+                        for (const sizeInfo of variant.sizes) {
+                            const existing = inventoryMap.get(sizeInfo.size);
+                            if (existing) {
+                                // Update existing inventory
+                                await existing.update({
+                                    stock: sizeInfo.stock,
+                                }, { transaction: t });
+                            }
+                            else {
+                                // Create new inventory
+                                await ProductInventory_1.default.create({
+                                    productDetailId: variant.id,
+                                    size: sizeInfo.size,
+                                    stock: sizeInfo.stock || 0,
+                                }, { transaction: t });
+                            }
+                        }
+                        // Delete sizes that are not in the update
+                        const updatedSizes = variant.sizes.map((s) => s.size);
+                        for (const inv of existingInventories) {
+                            if (!updatedSizes.includes(inv.size)) {
+                                await inv.destroy({ transaction: t });
+                            }
+                        }
+                    }
+                }
+            }
+            else {
+                // Handle case where variant has no ID (create new or update existing with same color)
+                // Check if a variant with this color already exists
+                const existingDetail = existingColorMap.get(variant.color);
+                if (existingDetail) {
+                    // Update existing detail with this color instead of creating a new one
+                    console.log(`Updating existing detail for color ${variant.color}`);
+                    await existingDetail.update({
+                        price: variant.price || existingDetail.getDataValue("price"),
+                        originalPrice: variant.originalPrice ||
+                            variant.price ||
+                            existingDetail.getDataValue("originalPrice"),
+                    }, { transaction: t });
+                    // Update or add sizes
+                    if (variant.sizes && Array.isArray(variant.sizes)) {
+                        // Get existing inventories
+                        const existingInventories = await ProductInventory_1.default.findAll({
+                            where: { productDetailId: existingDetail.getDataValue("id") },
+                            transaction: t,
+                        });
+                        // Create map for quick lookup
+                        const inventoryMap = new Map();
+                        existingInventories.forEach((inv) => {
+                            inventoryMap.set(inv.getDataValue("size"), inv);
+                        });
+                        // Update or create inventory items
+                        for (const sizeInfo of variant.sizes) {
+                            const existing = inventoryMap.get(sizeInfo.size);
+                            if (existing) {
+                                // Update existing inventory
+                                await existing.update({ stock: sizeInfo.stock }, { transaction: t });
+                            }
+                            else {
+                                // Create new inventory
+                                await ProductInventory_1.default.create({
+                                    productDetailId: existingDetail.getDataValue("id"),
+                                    size: sizeInfo.size,
+                                    stock: sizeInfo.stock || 0,
+                                }, { transaction: t });
+                            }
+                        }
+                        // Delete sizes not in the update
+                        const updatedSizes = variant.sizes.map((s) => s.size);
+                        for (const inv of existingInventories) {
+                            if (!updatedSizes.includes(inv.getDataValue("size"))) {
+                                await inv.destroy({ transaction: t });
+                            }
+                        }
+                    }
+                }
+                else if (variant.color) {
+                    // Only create if color is defined
+                    // Create new variant
+                    console.log(`Creating new detail for color ${variant.color}`);
+                    const newVariant = await ProductDetail_1.default.create({
+                        productId: Number(id),
+                        color: variant.color,
+                        price: variant.price || 0,
+                        originalPrice: variant.originalPrice || variant.price || 0,
+                    }, { transaction: t });
+                    // Add sizes if provided
+                    if (variant.sizes && Array.isArray(variant.sizes)) {
+                        for (const size of variant.sizes) {
+                            await ProductInventory_1.default.create({
+                                productDetailId: newVariant.id,
+                                size: size.size,
+                                stock: size.stock || 0,
+                            }, { transaction: t });
+                        }
+                    }
+                }
+                else {
+                    // Skip creating variants with undefined color
+                    console.log("[Warning] Skipping variant with undefined color");
+                }
+            }
+        }
+        await t.commit();
+        res.status(200).json({
+            message: "Cập nhật biến thể sản phẩm thành công",
+            productId: id,
+        });
+    }
+    catch (error) {
+        await t.rollback();
+        console.error("UPDATE VARIANTS ERROR:", {
+            message: error.message,
+            stack: error.stack,
+            productId: req.params.id,
+        });
+        res.status(500).json({
+            message: "Lỗi khi cập nhật biến thể sản phẩm",
+            error: error.message,
+        });
+    }
+};
+exports.updateProductVariants = updateProductVariants;

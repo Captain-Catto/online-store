@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Op } from "sequelize";
+import { Op, QueryTypes } from "sequelize";
 import sequelize from "../config/db";
 import Order from "../models/Order";
 import OrderDetail from "../models/OrderDetail";
@@ -92,8 +92,6 @@ export const cancelOrder = async (
       return;
     }
 
-    // Không cần kiểm tra quyền ở đây vì route đã được bảo vệ bởi roleMiddleware([1])
-
     // Kiểm tra nếu đơn hàng đã ở trạng thái "cancelled"
     if (order.getDataValue("status") === "cancelled") {
       await t.rollback();
@@ -117,35 +115,95 @@ export const cancelOrder = async (
       { transaction: t }
     );
 
-    // Hoàn trả số lượng vào kho hàng
+    // Danh sách sản phẩm cần kiểm tra sau khi cập nhật tồn kho
+    const updatedProductIds = new Set<number>();
     const orderDetails = (order as any).orderDetails || [];
 
+    // BƯỚC 1: Hoàn trả tồn kho
     for (const detail of orderDetails) {
-      const productDetail = await ProductDetail.findOne({
-        where: {
-          productId: detail.productId,
-          color: detail.color,
-        },
+      const productId = detail.productId;
+      updatedProductIds.add(productId);
+
+      // Tìm ProductDetail dựa trên productDetailId (ưu tiên) hoặc productId và color
+      let productDetail;
+      if (detail.productDetailId) {
+        productDetail = await ProductDetail.findByPk(detail.productDetailId, {
+          transaction: t,
+        });
+      } else {
+        productDetail = await ProductDetail.findOne({
+          where: { productId, color: detail.color },
+          transaction: t,
+        });
+      }
+
+      if (!productDetail) {
+        continue;
+      }
+
+      const inventory = await ProductInventory.findOne({
+        where: { productDetailId: productDetail.id, size: detail.size },
         transaction: t,
       });
 
-      if (productDetail) {
-        const inventory = await ProductInventory.findOne({
-          where: {
+      if (inventory) {
+        const currentStock = inventory.getDataValue("stock");
+        const newStock = currentStock + detail.quantity;
+        await inventory.update({ stock: newStock }, { transaction: t });
+      } else {
+        await ProductInventory.create(
+          {
             productDetailId: productDetail.id,
             size: detail.size,
+            stock: detail.quantity,
           },
-          transaction: t,
-        });
+          { transaction: t }
+        );
+      }
+    }
 
-        if (inventory) {
-          await inventory.update(
-            {
-              stock: inventory.getDataValue("stock") + detail.quantity,
-            },
-            { transaction: t }
-          );
+    // BƯỚC 2: Truy vấn và cập nhật trạng thái sản phẩm
+    for (const productId of updatedProductIds) {
+      try {
+        // Truy vấn trạng thái sản phẩm
+        const product = await Product.findByPk(productId, { transaction: t });
+        if (!product) {
+          continue;
         }
+
+        // Tính tổng tồn kho bằng Sequelize
+        const totalStock =
+          (await ProductInventory.sum("stock", {
+            where: {
+              productDetailId: {
+                [Op.in]: sequelize.literal(
+                  `(SELECT id FROM product_details WHERE productId = ${productId})`
+                ),
+              },
+            },
+            transaction: t,
+          })) || 0;
+
+        // Cập nhật trạng thái sản phẩm
+        if (totalStock > 0 && product.status !== "active") {
+          await sequelize.query(
+            `UPDATE products SET status = 'active', updatedAt = NOW() 
+             WHERE id = :productId AND status = 'outofstock'`,
+            {
+              replacements: { productId },
+              type: QueryTypes.UPDATE,
+              transaction: t,
+            }
+          );
+        } else if (totalStock === 0 && product.status !== "outofstock") {
+          await product.update({ status: "outofstock" }, { transaction: t });
+        }
+      } catch (error) {
+        // Giữ lại log lỗi cho mục đích debug
+        console.error(
+          `[ERROR] Lỗi khi cập nhật trạng thái sản phẩm ID ${productId}:`,
+          error
+        );
       }
     }
 
@@ -158,6 +216,11 @@ export const cancelOrder = async (
     });
   } catch (error: any) {
     await t.rollback();
+    console.error("[ERROR] Lỗi khi hủy đơn hàng:", {
+      message: error.message,
+      stack: error.stack,
+      orderId: req.params.id,
+    });
     res.status(500).json({ message: error.message });
   }
 };

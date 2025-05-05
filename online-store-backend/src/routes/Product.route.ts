@@ -20,6 +20,7 @@ import {
   createSize,
   updateSize,
   deleteSize,
+  getSizesByCategory,
 } from "../controllers/ProductSizes.controller";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { roleMiddleware } from "../middlewares/roleMiddleware";
@@ -34,6 +35,7 @@ router.get("/variants/:id", getProductVariantsById);
 router.get("/category/:categoryId", getProductsByCategory);
 router.get("/subtypes", getSubtypes);
 router.get("/sizes", getAllSizes);
+router.get("/by-category", getSizesByCategory);
 // luôn để route này ở dưới cùng vì khi để /subtypes thì nó đang hiểu là
 // id = subtypes và ko tìm ra
 router.get("/:id", getProductById);

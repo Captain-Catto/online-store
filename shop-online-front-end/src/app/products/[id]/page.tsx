@@ -385,7 +385,7 @@ export default function Home({ params }: { params: unknown }) {
               </div>
 
               {/* Hình ảnh chính - full width ở mọi kích thước màn hình */}
-              <div className="relative h-[400px] sm:h-auto mb-3 sm:mb-0 w-full">
+              <div className="relative h-[400px] lg:h-auto mb-3 sm:mb-0 w-full">
                 <Image
                   src={currentImage}
                   alt={product.name}
