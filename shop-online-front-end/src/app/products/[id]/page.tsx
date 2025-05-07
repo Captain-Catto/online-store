@@ -169,53 +169,6 @@ export default function Home({ params }: { params: unknown }) {
     return 0;
   };
 
-  // Render stars for rating
-  // const renderStars = (rating?: number) => {
-  //   if (!rating) return null;
-
-  //   const fullStars = Math.floor(rating);
-  //   const halfStar = rating % 1 !== 0;
-  //   const stars = [];
-
-  //   for (let i = 0; i < fullStars; i++) {
-  //     stars.push(
-  //       <svg
-  //         key={`full-${i}`}
-  //         xmlns="http://www.w3.org/2000/svg"
-  //         width="19"
-  //         height="17"
-  //         viewBox="0 0 19 17"
-  //         fill="none"
-  //       >
-  //         <path
-  //           d="M9.65059 0.255005L12.2698 5.89491L18.4431 6.6431L13.8886 10.8769L15.0846 16.9793L9.65059 13.956L4.21655 16.9793L5.41263 10.8769L0.858134 6.6431L7.03139 5.89491L9.65059 0.255005Z"
-  //           fill="#FFC633"
-  //         />
-  //       </svg>
-  //     );
-  //   }
-
-  //   if (halfStar) {
-  //     stars.push(
-  //       <svg
-  //         key="half"
-  //         xmlns="http://www.w3.org/2000/svg"
-  //         width="9"
-  //         height="17"
-  //         viewBox="0 0 9 17"
-  //         fill="none"
-  //       >
-  //         <path
-  //           d="M3.56595 16.9793L8.99999 13.956V0.255005L6.38079 5.89491L0.207535 6.6431L4.76203 10.8769L3.56595 16.9793Z"
-  //           fill="#FFC633"
-  //         />
-  //       </svg>
-  //     );
-  //   }
-
-  //   return stars;
-  // };
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -313,7 +266,7 @@ export default function Home({ params }: { params: unknown }) {
         price: price,
         originalPrice: variantDetail?.originalPrice,
       },
-      duration: 4000,
+      duration: 400000000000,
     });
   };
 
@@ -361,37 +314,37 @@ export default function Home({ params }: { params: unknown }) {
         {/* Product content */}
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Product Images */}
-          <div className="lg:w-1/2">
-            {/* Container chính - flex-col dưới 640px, flex-row trên 640px */}
-            <div className="flex gap-1 w-full h-full flex-col sm:flex-row">
-              {/* Container hình nhỏ - ngang dưới 640px, dọc trên 640px */}
-              <div className="flex gap-2 flex-row sm:flex-col sm:w-1/16 md:w-1/12 lg:w-1/8 order-last sm:order-first">
+          <div className="lg:w-[55%] w-full">
+            <div className="flex flex-col sm:flex-row">
+              {/* Container hình nhỏ - responsive trên các kích thước màn hình */}
+              <div className="flex sm:flex-col order-last sm:order-first overflow-x-auto sm:overflow-y-auto scrollbar-hide gap-2 py-2 sm:py-0 sm:pr-1">
                 {colorImages.map((image, index) => (
                   <div
                     key={index}
-                    className={`relative cursor-pointer rounded-lg w-full h-20 ${
-                      currentImage === image ? "ring-2 ring-black" : ""
-                    }`}
+                    className={`relative cursor-pointer rounded-lg shrink-0 h-16 w-16 sm:w-20 sm:h-20 ${
+                      currentImage === image ? "" : "opacity-40"
+                    } transition-all duration-250`}
                     onClick={() => handleImageClick(image)}
                   >
                     <Image
                       src={image}
                       alt={`${product.name} - Image ${index + 1}`}
                       fill
-                      className="object-cover rounded-lg"
+                      sizes="80px"
+                      className="object-cover rounded-lg p-0.5"
                     />
                   </div>
                 ))}
               </div>
 
-              {/* Hình ảnh chính - full width ở mọi kích thước màn hình */}
-              <div className="relative h-[400px] lg:h-auto mb-3 sm:mb-0 w-full">
+              {/* Hình ảnh chính - thiết kế nâng cao */}
+              <div className="relative flex-1 aspect-square sm:aspect-[5/6] w-full rounded-xl">
                 <Image
                   src={currentImage}
                   alt={product.name}
                   fill
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 40vw"
-                  className="rounded-lg object-cover"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  className="rounded-lg object-cover transition-opacity duration-300"
                   priority
                 />
               </div>
@@ -399,25 +352,10 @@ export default function Home({ params }: { params: unknown }) {
           </div>
 
           {/* Product Info */}
-          <div className="lg:w-1/2 space-y-6">
+          <div className="lg:w-[45%] space-y-6">
             <div className="space-y-3">
               {/* Tên sản phẩm */}
               <h1 className="text-3xl md:text-4xl font-bold">{product.name}</h1>
-
-              {/* Hiển thị rating dạng sao */}
-              {/* {product.rating && (
-                <div className="flex items-center gap-4">
-                  {renderStars(product.rating.value)}
-                  <span className="font-semibold">
-                    {product.rating.value}/5
-                  </span>
-                  {product.rating.count && (
-                    <span className="text-gray-500">
-                      ({product.rating.count} đánh giá)
-                    </span>
-                  )}
-                </div>
-              )} */}
 
               {/* Giá & discount */}
               <div className="flex items-center gap-2">
@@ -517,13 +455,14 @@ export default function Home({ params }: { params: unknown }) {
               </div>
               {/* báo số tồn kho của size và màu đó */}
               <div className="text-gray-500 text-sm">
-                {stockCount} sản phẩm có sẵn
+                {stockCount > 0 ? `${stockCount} sản phẩm có sẵn` : "Hết hàng"}
               </div>
             </div>
 
             <div className="h-[1px] w-full border border-[#0000001A]"></div>
 
             {/* Số lượng và thêm vào giỏ hàng */}
+            {/* nếu stockCount = 0 thì disable hết nút trừ nút yêu thích */}
             <div className="flex flex-wrap gap-5 w-full">
               <div className="px-5 py-4 flex-1 flex items-center justify-between gap-4 bg-[#F0F0F0] rounded-full">
                 <button
@@ -592,11 +531,14 @@ export default function Home({ params }: { params: unknown }) {
         </div>
         <ProductDescription
           description={product.description}
-          material={product.material}
+          material={
+            Array.isArray(product.material)
+              ? product.material.join(", ")
+              : product.material
+          }
           brand={product.brand}
           sku={product.sku}
         />
-        {/* Thêm phần đề xuất sản phẩm tương tự ở đây nếu cần */}
       </main>
       <Footer />
       {Toast}

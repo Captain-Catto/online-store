@@ -37,6 +37,7 @@ export interface Product {
   categories: Array<{ id: number; name: string; slug: string }>;
   suitabilities: string[];
   variants: Record<string, VariantDetail>;
+  material: string[];
 }
 
 export interface SimpleProduct

@@ -421,7 +421,7 @@ export const getOrderById = async (
 
     // Kiểm tra quyền truy cập
     // Nếu không phải admin và không phải đơn hàng của người dùng đó
-    if (req.user.role !== 1 && order.userId !== req.user.id) {
+    if (req.user.role !== 1 && req.user.role !== 2 && order.userId !== req.user.id) {
       res.status(403).json({ message: "Bạn không có quyền xem đơn hàng này" });
       return;
     }
@@ -775,7 +775,7 @@ export const calculateShippingFeeForCart = async (
 export const getUserOrdersByAdmin = async (req: Request, res: Response) => {
   try {
     // Kiểm tra quyền admin
-    if (!req.user || req.user.role !== 1) {
+    if (!req.user || (req.user.role !== 1 && req.user.role !== 2)) {
       res.status(403).json({ message: "Không có quyền truy cập" });
       return;
     }
@@ -801,6 +801,36 @@ export const getUserOrdersByAdmin = async (req: Request, res: Response) => {
     const where: any = { userId };
     if (req.query.status) {
       where.status = req.query.status;
+    }
+    // điều kiện lọc id đơn hàng orderId (nếu có)
+    if (req.query.orderId) {
+      where.id = req.query.orderId;
+    }
+    // điều kiện lọc theo khoảng thời gian (nếu có)
+    if (req.query.startDate || req.query.endDate) {
+      where.createdAt = {};
+
+      // Nếu có startDate
+      if (req.query.startDate) {
+        const startDate = new Date(req.query.startDate as string);
+        startDate.setHours(0, 0, 0, 0);
+        where.createdAt[Op.gte] = startDate;
+      }
+
+      // Nếu có endDate
+      if (req.query.endDate) {
+        const endDate = new Date(req.query.endDate as string);
+        endDate.setHours(23, 59, 59, 999);
+        where.createdAt[Op.lte] = endDate;
+      }
+    }
+    // Nếu chỉ có orderDate (xử lý tương thích ngược)
+    else if (req.query.orderDate) {
+      const orderDate = new Date(req.query.orderDate as string);
+      where.createdAt = {
+        [Op.gte]: new Date(orderDate.setHours(0, 0, 0, 0)),
+        [Op.lte]: new Date(orderDate.setHours(23, 59, 59, 999)),
+      };
     }
 
     // Đếm tổng số đơn hàng

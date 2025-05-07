@@ -60,12 +60,8 @@ export default function FilterSidebar({
   childCategories,
   mainCategories,
   showCategoryFilters = true,
-  availableColors, // Thêm props mới
   availableSizes, // Thêm props này để khắc phục lỗi
-  availableBrands, // Thêm props mới
-  priceRange, // Thêm props mới
 }: FilterSidebarProps) {
-  console.log("FilterSidebar received availableSizes:", availableSizes);
   return (
     <div className="lg:w-1/4">
       <div className="sticky top-24">
@@ -109,12 +105,6 @@ export default function FilterSidebar({
           onToggle={() => toggleFilter("size")}
           onFilterChange={handleSizeFilter}
           availableSizes={availableSizes || []}
-          sizesByType={{
-            letter: availableSizes.map((size) => ({
-              value: size,
-              displayName: size,
-            })),
-          }}
         />
 
         <ColorFilter

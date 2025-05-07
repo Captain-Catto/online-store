@@ -26,7 +26,7 @@ router.post("/refresh-token", refreshToken);
 router.post("/logout", logout);
 
 // api admin, check role = 1 (admin)
-router.get("/admin", authMiddleware, roleMiddleware([1]), (req, res) => {
+router.get("/admin", authMiddleware, roleMiddleware([1, 2]), (req, res) => {
   res.json({ message: "chào mừng, admin" });
 });
 

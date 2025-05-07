@@ -79,7 +79,29 @@ export class AuthClient {
 
       if (!response.ok) {
         console.error("Refresh token API error:", response.status);
-        // Xóa thông tin đăng nhập nếu refresh thất bại
+
+        // Gọi API logout để xóa cookie refreshToken ở server
+        if (response.status === 401) {
+          try {
+            await fetch(API_BASE_URL + "/auth/logout", {
+              method: "POST",
+              credentials: "include",
+            });
+            console.log("Đã logout do refresh token không hợp lệ");
+            // xóa thông tin đăng nhập ở client
+            document.cookie = `auth_status=; max-age=0; path=/`;
+            localStorage.removeItem("isLoggedIn");
+            localStorage.removeItem("user");
+          } catch (logoutError) {
+            console.error("Lỗi khi logout:", logoutError);
+            // Vẫn phải xóa cookie ngay cả khi API lỗi
+            document.cookie = `auth_status=; max-age=0; path=/`;
+            localStorage.removeItem("isLoggedIn");
+            localStorage.removeItem("user");
+          }
+        }
+
+        // Xóa thông tin đăng nhập ở client
         sessionStorage.removeItem("authToken");
         isRefreshing = false;
         return null;
@@ -112,6 +134,7 @@ export class AuthClient {
 
   static async fetchWithAuth(url: string, options: RequestInit = {}) {
     try {
+      console.log("Gọi API với token xác thực:", url, options);
       // Lấy token từ sessionStorage
       let token = sessionStorage.getItem("authToken");
 

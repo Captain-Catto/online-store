@@ -5,9 +5,14 @@ import {
   getAllUsers,
   updateUser,
   toggleUserStatus,
+  updateUserByAdmin,
 } from "../controllers/User.controller";
 import { authMiddleware } from "../middlewares/authMiddleware";
-import { roleMiddleware } from "../middlewares/roleMiddleware";
+import {
+  roleMiddleware,
+  permissionMiddleware,
+  Permission,
+} from "../middlewares/roleMiddleware";
 
 const router = Router();
 
@@ -18,17 +23,25 @@ router.get("/me", authMiddleware, getCurrentUser);
 router.put("/me", authMiddleware, updateUser);
 
 // Lấy danh sách người dùng (admin only)
-router.get("/", authMiddleware, roleMiddleware([1]), getAllUsers);
+router.get("/", authMiddleware, roleMiddleware([1, 2]), getAllUsers);
 
 // Lấy thông tin người dùng theo ID (admin only)
-router.get("/:id", authMiddleware, roleMiddleware([1]), getUserById);
+router.get("/:id", authMiddleware, roleMiddleware([1, 2]), getUserById);
+
+// Cập nhật thông tin người dùng theo ID (admin only)
+router.put(
+  "/:id",
+  authMiddleware,
+  permissionMiddleware([Permission.EDIT_USERS]),
+  updateUserByAdmin
+);
 
 // mở/khóa tài khoản (âdmin only)
 // xài patch vì nó chỉ thay đổi một thuộc tính trong bảng user
 router.patch(
   "/:id/toggle-status",
   authMiddleware,
-  roleMiddleware([1]),
+  permissionMiddleware([Permission.TOGGLE_USER_STATUS]),
   toggleUserStatus
 );
 

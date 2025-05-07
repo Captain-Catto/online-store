@@ -436,6 +436,135 @@ class UserService {
       throw error;
     }
   }
+
+  // update thông tin người dùng theo id (admin only)
+  static async updateUserByAdmin(
+    id: number,
+    userData: UserProfileUpdate
+  ): Promise<UserProfile> {
+    try {
+      const response = await AuthClient.fetchWithAuth(
+        `${API_BASE_URL}/users/${id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(userData),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || "Không thể cập nhật thông tin người dùng"
+        );
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.message === "NO_AUTH_TOKEN" ||
+          error.message === "TOKEN_REFRESH_FAILED")
+      ) {
+        throw new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
+      }
+
+      console.error("Error updating user by admin:", error);
+      throw error;
+    }
+  }
+
+  // Admin: Lấy danh sách địa chỉ của người dùng
+  static async getUserAddressesByAdmin(userId: number): Promise<Address[]> {
+    const response = await AuthClient.fetchWithAuth(
+      `${API_BASE_URL}/addresses/admin/users/${userId}/addresses`
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Không thể lấy danh sách địa chỉ");
+    }
+
+    return response.json();
+  }
+
+  // Admin: Cập nhật địa chỉ
+  static async updateAddressByAdmin(address: AddressUpdate): Promise<Address> {
+    const response = await AuthClient.fetchWithAuth(
+      `${API_BASE_URL}/user-addresses/admin/addresses/${address.id}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(address),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Không thể cập nhật địa chỉ");
+    }
+
+    return response.json().then((data) => data.address);
+  }
+
+  // Admin: Tạo địa chỉ mới cho người dùng
+  static async createAddressByAdmin(
+    userId: number,
+    addressData: AddressCreate
+  ): Promise<Address> {
+    const response = await AuthClient.fetchWithAuth(
+      `${API_BASE_URL}/user-addresses/admin/users/${userId}/addresses`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(addressData),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Không thể tạo địa chỉ");
+    }
+
+    return response.json().then((data) => data.address);
+  }
+
+  // Admin: Xóa địa chỉ
+  static async deleteAddressByAdmin(id: number): Promise<{ message: string }> {
+    const response = await AuthClient.fetchWithAuth(
+      `${API_BASE_URL}/user-addresses/admin/addresses/${id}`,
+      {
+        method: "DELETE",
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Không thể xóa địa chỉ");
+    }
+
+    return response.json();
+  }
+
+  // Admin: Đặt địa chỉ mặc định
+  static async setDefaultAddressByAdmin(id: number): Promise<Address> {
+    const response = await AuthClient.fetchWithAuth(
+      `${API_BASE_URL}/user-addresses/admin/addresses/${id}/default`,
+      {
+        method: "PUT",
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Không thể đặt địa chỉ mặc định");
+    }
+
+    return response.json().then((data) => data.address);
+  }
 }
 
 export { UserService };

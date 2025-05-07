@@ -21,7 +21,15 @@ export const refreshToken = async (
     // Lấy refreshToken từ cookie
     const refreshToken = req.cookies.refreshToken;
 
+    // Trường hợp 1: Không tìm thấy token trong cookie
     if (!refreshToken) {
+      // Vẫn nên xóa cookie để đảm bảo
+      res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        path: "/",
+      });
       res.status(401).json({ message: "Không tìm thấy Refresh Token" });
       return;
     }
@@ -38,8 +46,15 @@ export const refreshToken = async (
       ],
     });
 
-    // Kiểm tra token có tồn tại không
+    // Trường hợp 2: Token không tìm thấy trong database
     if (!tokenRecord) {
+      // Xóa cookie vì token không hợp lệ
+      res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        path: "/",
+      });
       res.status(401).json({ message: "Refresh Token không hợp lệ" });
       return;
     }
@@ -319,6 +334,45 @@ export const getUserById = async (
       return;
     }
 
+    if (req.user?.role === 2) {
+      // Ẩn một phần email và số điện thoại
+      if (user.email) {
+        // Ẩn một phần email chừa lại 4 ký tự đầu và 4 ký tự sau trước @
+        // nếu dưới 10 thì chừa lại 4 ký tự cuối,
+        // nếu như dưới 4 ký tự thì ẩn hết
+        user.email = user.email.replace(
+          /^(.{4})(.*)(@.*)$/,
+          (match, p1, p2, p3) => {
+            if (p1.length + p2.length < 10) {
+              // Nếu phần trước @ có dưới 10 ký tự
+              if (p1.length + p2.length <= 4) {
+                // Nếu phần trước @ ngắn (≤ 4 ký tự), ẩn hết
+                return `${"*".repeat(p1.length + p2.length)}${p3}`;
+              } else {
+                // Giữ 4 ký tự cuối trước @
+                return `${"*".repeat(p1.length + p2.length - 4)}${p2.slice(
+                  -4
+                )}${p3}`;
+              }
+            } else {
+              // Giữ 4 ký tự đầu và 4 ký tự cuối trước @
+              return `${p1}${"*".repeat(p2.length - 4)}${p2.slice(-4)}${p3}`;
+            }
+          }
+        );
+      }
+      if (user.phoneNumber) {
+        // nửa đầu của số điện thoại
+        user.phoneNumber =
+          user.phoneNumber.substring(0, 3) +
+          "***" +
+          // nửa sau của số điện thoại
+          (user.phoneNumber.length > 6
+            ? user.phoneNumber.substring(user.phoneNumber.length - 4)
+            : "");
+      }
+    }
+
     res.status(200).json(user);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -332,7 +386,7 @@ export const getAllUsers = async (
 ): Promise<void> => {
   try {
     // Sử dụng req.user từ middleware xác thực
-    if (!req.user || req.user.role !== 1) {
+    if (!req.user || (req.user.role !== 1 && req.user.role !== 2)) {
       res.status(403).json({ message: "Không có quyền truy cập" });
       return;
     }
@@ -400,6 +454,43 @@ export const getAllUsers = async (
       order: [["createdAt", "DESC"]],
       distinct: true,
     });
+
+    // Kiểm tra nếu user hiện tại là employee (role 3), ẩn một phần thông tin nhạy cảm
+    if (req.user?.role === 2) {
+      users.forEach((user) => {
+        // Ẩn một phần email
+        user.email = user.email.replace(
+          /^(.{4})(.*)(@.*)$/,
+          (match, p1, p2, p3) => {
+            if (p1.length + p2.length < 10) {
+              // Nếu phần trước @ có dưới 10 ký tự
+              if (p1.length + p2.length <= 4) {
+                // Nếu phần trước @ ngắn (≤ 4 ký tự), ẩn hết
+                return `${"*".repeat(p1.length + p2.length)}${p3}`;
+              } else {
+                // Giữ 4 ký tự cuối trước @
+                return `${"*".repeat(p1.length + p2.length - 4)}${p2.slice(
+                  -4
+                )}${p3}`;
+              }
+            } else {
+              // Giữ 4 ký tự đầu và 4 ký tự cuối trước @
+              return `${p1}${"*".repeat(p2.length - 4)}${p2.slice(-4)}${p3}`;
+            }
+          }
+        );
+
+        // Ẩn một phần số điện thoại
+        if (user.phoneNumber) {
+          user.phoneNumber =
+            user.phoneNumber.substring(0, 3) +
+            "***" +
+            (user.phoneNumber.length > 6
+              ? user.phoneNumber.substring(user.phoneNumber.length - 4)
+              : "");
+        }
+      });
+    }
 
     res.status(200).json({
       users,
@@ -666,6 +757,68 @@ export const toggleUserStatus = async (
     });
   } catch (error: any) {
     console.error("Error toggling user status:", error);
+    res.status(500).json({ message: error.message || "Đã xảy ra lỗi" });
+  }
+};
+
+// update thông tin người dùng (admin only)
+export const updateUserByAdmin = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    // Kiểm tra quyền admin
+    if (!req.user || req.user.role !== 1) {
+      res.status(403).json({ message: "Không có quyền truy cập" });
+      return;
+    }
+
+    const userId = parseInt(req.params.id);
+    const { username, phoneNumber, dateOfBirth } = req.body;
+
+    // validate dữ liệu đầu vào
+
+    if (!username) {
+      res.status(400).json({ message: "Tên người dùng là bắt buộc" });
+      return;
+    }
+    // kiểm tra sdt có hợp lệ hay không
+    // Số điện thoại từ 10 đến 15 chữ số
+    // Regex cho số điện thoại Việt Nam
+    const phoneRegex = /^(0[3|5|7|8|9]|[1-9][0-9])[0-9]{8,14}$/;
+    if (phoneNumber && !phoneRegex.test(phoneNumber)) {
+      res.status(400).json({
+        message:
+          "Số điện thoại không hợp lệ, Số điện thoại từ 10-15 chữ số, đúng định dạng 0xx-xxx-xxxx",
+      });
+      return;
+    }
+
+    // Tìm người dùng
+    const user = await Users.findByPk(userId);
+    if (!user) {
+      res.status(404).json({ message: "Không tìm thấy người dùng" });
+      return;
+    }
+
+    // Cập nhật thông tin người dùng
+    await user.update({
+      username,
+      phoneNumber,
+      dateOfBirth,
+    });
+
+    res.status(200).json({
+      message: "Cập nhật thông tin thành công",
+      user: {
+        id: user.id,
+        username: user.username,
+        phoneNumber: user.phoneNumber,
+        dateOfBirth: user.dateOfBirth,
+      },
+    });
+  } catch (error: any) {
+    console.error("Error updating user by admin:", error);
     res.status(500).json({ message: error.message || "Đã xảy ra lỗi" });
   }
 };

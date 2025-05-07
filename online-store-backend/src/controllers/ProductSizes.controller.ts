@@ -8,6 +8,7 @@ export const getAllSizes = async (
   res: Response
 ): Promise<void> => {
   try {
+    console.log("đang chạy getAllSizes");
     const sizes = await ProductSize.findAll({
       order: [["displayOrder", "ASC"]],
     });
@@ -23,16 +24,28 @@ export const getSizesByCategory = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { category } = req.query; // Lấy category từ query params
+    const { categoryId } = req.query; // Lấy categoryId từ query params
 
-    if (!category) {
-      res.status(400).json({ message: "Danh mục không được để trống" });
+    if (!categoryId) {
+      res.status(400).json({ message: "ID danh mục không được để trống" });
+      return;
+    }
+
+    // Chuyển đổi categoryId từ string sang number
+    const categoryIdNumber = parseInt(categoryId.toString());
+
+    if (isNaN(categoryIdNumber)) {
+      res.status(400).json({ message: "ID danh mục phải là số" });
       return;
     }
 
     const sizes = await ProductSize.findAll({
-      // Lọc theo category và chỉ lấy kích thước đang hoạt động
-      where: { category: category.toString(), active: true },
+      // Lọc theo categoryId và chỉ lấy kích thước đang hoạt động
+      where: {
+        categoryId: categoryIdNumber,
+        active: true,
+      },
+      // Sắp xếp theo displayOrder tăng dần
       order: [["displayOrder", "ASC"]],
     });
 
@@ -45,7 +58,11 @@ export const getSizesByCategory = async (
 
     res.status(200).json(sizes);
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    console.error("Lỗi khi lấy kích thước theo danh mục:", error);
+    res.status(500).json({
+      message: "Có lỗi xảy ra khi lấy kích thước",
+      error: error.message,
+    });
   }
 };
 

@@ -23,7 +23,7 @@ const router = Router();
 router.post("/", authMiddleware, createOrder);
 // ADMIN ROUTES (Tất cả đều yêu cầu quyền admin)
 // Lấy tất cả đơn hàng (Admin)
-router.get("/admin/all", authMiddleware, roleMiddleware([1]), getAllOrders);
+router.get("/admin/all", authMiddleware, roleMiddleware([1, 2]), getAllOrders);
 
 // Lấy danh sách đơn hàng của người dùng (chỉ người dùng đã đăng nhập)
 router.get("/my-orders", authMiddleware, getUserOrders);
@@ -32,7 +32,7 @@ router.get("/my-orders", authMiddleware, getUserOrders);
 router.get(
   "/user/:userId",
   authMiddleware,
-  roleMiddleware([1]),
+  roleMiddleware([1, 2]),
   getUserOrdersByAdmin
 );
 
@@ -43,7 +43,7 @@ router.get("/:id", authMiddleware, getOrderById);
 router.put(
   "/:id/status",
   authMiddleware,
-  roleMiddleware([1]),
+  roleMiddleware([1, 2]),
   updateOrderStatus
 );
 

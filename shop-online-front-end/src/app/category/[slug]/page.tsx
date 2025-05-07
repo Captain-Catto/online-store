@@ -14,7 +14,7 @@ import ProductGrid from "@/components/Category/ProductGrid";
 import Pagination from "@/components/Category/Pagination";
 import { CategoryService } from "@/services/CategoryService";
 import { ProductService } from "@/services/ProductService";
-import { Product } from "@/types/product";
+import { Product, VariantDetail } from "@/types/product";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 // Định nghĩa interface cho thông tin danh mục
@@ -54,6 +54,7 @@ export default function CategoryDetailPage() {
   // Thông tin danh mục
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [categoryName, setCategoryName] = useState<string>("");
+  const [parentCategoryId, setParentCategoryId] = useState<string | null>(null);
   const [childCategories, setChildCategories] = useState<CategoryInfo[]>([]);
   const [mainCategories, setMainCategories] = useState<CategoryInfo[]>([]);
 
@@ -85,15 +86,6 @@ export default function CategoryDetailPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [sizesByCategory, setSizesByCategory] = useState<
-    Record<
-      string,
-      Record<
-        string,
-        Array<{ value: string; displayName: string; displayOrder: number }>
-      >
-    >
-  >({});
   const [secondaryImages, setSecondaryImages] = useState<
     Record<string, string>
   >({});
@@ -144,7 +136,6 @@ export default function CategoryDetailPage() {
     const fetchSuitabilities = async () => {
       try {
         const suitabilitiesData = await ProductService.getSuitabilities();
-        console.log("Suitabilities data:", suitabilitiesData);
 
         // Chuyển đổi dữ liệu sang định dạng phù hợp
         if (Array.isArray(suitabilitiesData)) {
@@ -161,122 +152,6 @@ export default function CategoryDetailPage() {
 
     fetchSuitabilities();
   }, []);
-
-  // Fetch category and its children from slug
-  // Trong useEffect fetchCategoryFromSlug
-  useEffect(() => {
-    const fetchCategoryFromSlug = async (): Promise<void> => {
-      try {
-        const category = await CategoryService.getCategoryBySlug(categorySlug);
-
-        // Kiểm tra xem đây có phải là danh mục con không
-        const isChildCategory =
-          category.parentId !== null && category.parentId !== undefined;
-
-        // Cập nhật state để biết đây là danh mục con hay cha
-        setIsCurrentCategoryChild(isChildCategory);
-
-        if (isChildCategory) {
-          // Đây là danh mục con, cần lấy thông tin danh mục cha
-          const parentCategory = await CategoryService.getCategoryById(
-            category.parentId
-          );
-          setCategoryId(category.id.toString()); // Sửa đổi: lưu ID của danh mục con
-          setCategoryName(category.name); // Sửa đổi: lưu tên của danh mục con
-
-          // Không cần thiết lập danh mục con làm filter vì URL đã là danh mục con
-
-          // Không cần thiết lập childCategories vì ta sẽ ẩn filter danh mục con
-          setChildCategories([]);
-        } else {
-          // Đây là danh mục cha, giữ nguyên logic cũ
-          setCategoryId(category.id.toString());
-          setCategoryName(category.name);
-
-          if (category.children && category.children.length > 0) {
-            setChildCategories(category.children);
-          }
-        }
-      } catch (error) {
-        console.error("Không thể lấy thông tin danh mục:", error);
-        setError("Không thể tìm thấy danh mục. Vui lòng thử lại sau.");
-      }
-    };
-
-    if (categorySlug) {
-      void fetchCategoryFromSlug();
-    }
-  }, [categorySlug]);
-
-  // Trong useEffect của CategoryDetailPage
-  useEffect(() => {
-    const fetchSizes = async () => {
-      try {
-        const sizesData = await ProductService.getSizes();
-        console.log("Sizes data:", sizesData);
-
-        const sizesByCategory = {};
-
-        sizesData.forEach((size) => {
-          if (!size.active) return;
-
-          if (!sizesByCategory[size.category]) {
-            sizesByCategory[size.category] = {};
-          }
-
-          if (!sizesByCategory[size.category][size.sizeType]) {
-            sizesByCategory[size.category][size.sizeType] = [];
-          }
-
-          sizesByCategory[size.category][size.sizeType].push({
-            value: size.value,
-            displayName: size.displayName,
-            displayOrder: size.displayOrder,
-          });
-        });
-
-        Object.keys(sizesByCategory).forEach((category) => {
-          Object.keys(sizesByCategory[category]).forEach((type) => {
-            sizesByCategory[category][type].sort(
-              (a, b) => a.displayOrder - b.displayOrder
-            );
-          });
-        });
-
-        setSizesByCategory(sizesByCategory);
-
-        const currentCategory = "clothing";
-        const availableSizeValues: string[] = [];
-
-        if (sizesByCategory[currentCategory]) {
-          Object.keys(sizesByCategory[currentCategory]).forEach((type) => {
-            sizesByCategory[currentCategory][type].forEach((size) => {
-              availableSizeValues.push(size.value);
-            });
-          });
-        }
-
-        console.log("Setting availableSizes to:", availableSizeValues);
-        setAvailableSizes(availableSizeValues);
-      } catch (error) {
-        console.error("Không thể tải kích thước:", error);
-      }
-    };
-
-    void fetchSizes();
-  }, []);
-
-  useEffect(() => {
-    console.log("Updated availableSizes:", availableSizes);
-  }, [availableSizes]);
-
-  // Chuyển hướng đến trang danh mục khác
-  const handleCategoryFilter = useCallback(
-    (newCategorySlug: string): void => {
-      router.push(`/category/${newCategorySlug}`);
-    },
-    [router]
-  );
 
   // Update URL with current filters
   const updateUrlWithFilters = useCallback((): void => {
@@ -307,6 +182,26 @@ export default function CategoryDetailPage() {
       pathname + (params.toString() ? `?${params.toString()}` : "");
     router.push(newUrl, { scroll: false });
   }, [currentPage, filters, pathname, router]);
+
+  // Thêm hàm trích xuất hình ảnh
+  const extractImages = useCallback((variant: VariantDetail) => {
+    if (!variant?.images || variant.images.length === 0) {
+      return { mainImage: null, secondaryImage: null };
+    }
+
+    const mainImage =
+      variant.images.find((img) => img.isMain) || variant.images[0];
+    let secondaryImage = null;
+
+    if (variant.images.length > 1) {
+      secondaryImage = variant.images.find((img) => !img.isMain);
+    }
+
+    return {
+      mainImage: mainImage ? mainImage.url : null,
+      secondaryImage: secondaryImage ? secondaryImage.url : null,
+    };
+  }, []);
 
   // Fetch products when filters or pagination changes
   useEffect(() => {
@@ -359,9 +254,14 @@ export default function CategoryDetailPage() {
             );
           });
         });
-
+        console.log("categoryData", categoryData);
         setProducts(filteredProducts);
         setTotalItems(pagination.total);
+        setParentCategoryId(
+          // nếu có categoryData.parentCategory thì lấy id của nó
+          // còn không thì lấy id của categoryData
+          categoryData.parentCategory?.id || categoryData.id
+        );
 
         if (categoryData) {
           setCategoryName(categoryData.name);
@@ -370,7 +270,7 @@ export default function CategoryDetailPage() {
 
         if (responseFilters) {
           setAvailableColors(responseFilters.availableColors || []);
-          setAvailableSizes(responseFilters.availableSizes || []);
+          // setAvailableSizes(responseFilters.availableSizes || []);
           setPriceRange(responseFilters.priceRange || { min: 0, max: 0 });
           setAvailableBrands(responseFilters.brands || []);
         }
@@ -442,7 +342,89 @@ export default function CategoryDetailPage() {
     filters,
     itemsPerPage,
     updateUrlWithFilters,
+    extractImages,
+    parentCategoryId,
   ]);
+
+  // Fetch category and its children from slug
+  // Trong useEffect fetchCategoryFromSlug
+  useEffect(() => {
+    const fetchCategoryFromSlug = async (): Promise<void> => {
+      try {
+        const category = await CategoryService.getCategoryBySlug(categorySlug);
+
+        // Kiểm tra xem đây có phải là danh mục con không
+        const isChildCategory =
+          category.parentId !== null && category.parentId !== undefined;
+
+        // Cập nhật state để biết đây là danh mục con hay cha
+        setIsCurrentCategoryChild(isChildCategory);
+
+        if (isChildCategory) {
+          setCategoryId(category.id.toString()); // Sửa đổi: lưu ID của danh mục con
+          setCategoryName(category.name); // Sửa đổi: lưu tên của danh mục con
+          // Không cần thiết lập childCategories vì ta sẽ ẩn filter danh mục con
+          setChildCategories([]);
+        } else {
+          // Đây là danh mục cha
+          // Lưu ID và tên của danh mục cha
+          // hiển thị danh sách danh mục con trong bộ lọc
+          setCategoryId(category.id.toString());
+          setCategoryName(category.name);
+
+          if (category.children && category.children.length > 0) {
+            setChildCategories(category.children);
+          }
+        }
+      } catch (error) {
+        console.error("Không thể lấy thông tin danh mục:", error);
+        setError("Không thể tìm thấy danh mục. Vui lòng thử lại sau.");
+      }
+    };
+
+    if (categorySlug) {
+      void fetchCategoryFromSlug();
+    }
+  }, [categorySlug]);
+
+  // Trong useEffect của CategoryDetailPage
+  useEffect(() => {
+    const fetchSizes = async () => {
+      try {
+        // Kiểm tra xem có parentCategoryId không
+        if (!parentCategoryId) {
+          return;
+        }
+
+        const sizesData = await ProductService.getSizesByCategory(
+          parentCategoryId
+        );
+
+        console.log("sizesData", sizesData);
+
+        const availableSizeValues = sizesData
+          .filter((size) => size.active)
+          .map((size) => size.value);
+
+        setAvailableSizes(availableSizeValues);
+      } catch (error) {
+        console.error("Không thể tải kích thước:", error);
+      }
+    };
+
+    // Chỉ fetch sizes khi có parentCategoryId
+    if (parentCategoryId) {
+      void fetchSizes();
+    }
+  }, [parentCategoryId]);
+
+  // Chuyển hướng đến trang danh mục khác
+  const handleCategoryFilter = useCallback(
+    (newCategorySlug: string): void => {
+      router.push(`/category/${newCategorySlug}`);
+    },
+    [router]
+  );
 
   // Toggle filter sections
   const toggleFilter = useCallback(
@@ -490,11 +472,6 @@ export default function CategoryDetailPage() {
   const handleChildCategoryFilter = useCallback(
     (childCategorySlug: string): void => {
       // Log để debug
-      console.log("Current categoryId:", categoryId);
-      console.log("Current categorySlug:", categorySlug);
-      console.log("Selected childSlug:", childCategorySlug);
-      console.log("Current filters:", filters);
-
       if (!childCategorySlug) {
         // Khi người dùng chọn "Tất cả" trong bộ lọc danh mục con
         // KHÔNG chuyển hướng đến URL mới, chỉ cập nhật query params
@@ -505,7 +482,6 @@ export default function CategoryDetailPage() {
         const newUrl = `${pathname}${
           params.toString() ? `?${params.toString()}` : ""
         }`;
-        console.log("New URL after selecting All:", newUrl);
         router.push(newUrl, { scroll: false });
 
         // Cập nhật state filters
@@ -516,10 +492,8 @@ export default function CategoryDetailPage() {
       } else {
         // Khi chọn một danh mục con cụ thể
         const params = new URLSearchParams(searchParams.toString());
-        params.set("childCategory", childCategorySlug);
 
         const newUrl = `${pathname}?${params.toString()}`;
-        console.log("New URL after selecting child:", newUrl);
         router.push(newUrl, { scroll: false });
 
         // Cập nhật state filters
@@ -529,28 +503,8 @@ export default function CategoryDetailPage() {
         }));
       }
     },
-    [categorySlug, pathname, router, searchParams]
+    [pathname, router, searchParams]
   );
-
-  // Thêm hàm trích xuất hình ảnh
-  const extractImages = useCallback((variant) => {
-    if (!variant?.images || variant.images.length === 0) {
-      return { mainImage: null, secondaryImage: null };
-    }
-
-    const mainImage =
-      variant.images.find((img) => img.isMain) || variant.images[0];
-    let secondaryImage = null;
-
-    if (variant.images.length > 1) {
-      secondaryImage = variant.images.find((img) => !img.isMain);
-    }
-
-    return {
-      mainImage: mainImage ? mainImage.url : null,
-      secondaryImage: secondaryImage ? secondaryImage.url : null,
-    };
-  }, []);
 
   // Handle color selection for product display
   const handleColorSelect = useCallback(

@@ -1483,7 +1483,6 @@ const Addresses: React.FC<{
       )}
 
       {/* Modal Thêm địa chỉ mới */}
-      {/* Modal Thêm địa chỉ mới */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
@@ -1937,7 +1936,7 @@ const Wishlist: React.FC<{
 
                 <div className="flex justify-between items-end mt-2">
                   <div className="flex gap-1">
-                    <p className="text-sm font-bold text-pink-600">
+                    <p className="text-sm font-bold text-blue-600">
                       {formatCurrency(detail.price)}
                     </p>
                     {detail.originalPrice > detail.price && (

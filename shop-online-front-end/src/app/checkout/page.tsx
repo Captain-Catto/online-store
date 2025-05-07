@@ -15,7 +15,6 @@ import { AuthService } from "@/services/AuthService";
 import { UserService } from "@/services/UserService";
 import { Address } from "@/types/address";
 import { OrderService } from "@/services/OrderService";
-import { clearCart } from "@/utils/cartUtils";
 import { useCart } from "@/contexts/CartContext";
 
 // Định nghĩa kiểu dữ liệu
@@ -96,7 +95,7 @@ export default function CheckoutPage() {
   const [voucherError, setVoucherError] = useState<string | null>(null);
   const [appliedVoucher, setAppliedVoucher] = useState<Voucher | null>(null);
   // state cho cart items
-  const { cartItems, cartCount, loading: cartLoading, clearCart } = useCart();
+  const { cartItems, loading: cartLoading, clearCart } = useCart();
 
   // State cho tính phí vận chuyển
   const [calculatingShippingFee, setCalculatingShippingFee] = useState(false);

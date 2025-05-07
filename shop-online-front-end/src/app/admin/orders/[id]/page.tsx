@@ -11,6 +11,7 @@ import { formatDateDisplay } from "@/utils/dateUtils";
 import { Order } from "@/types/order";
 import CancelOrderModal from "@/components/admin/dashboard/CancelOrderModal";
 import { formatCurrency } from "@/utils/currencyUtils";
+import { useToast } from "@/utils/useToast"; // Import useToast
 
 export default function OrderDetailPage() {
   const { id } = useParams() as { id: string };
@@ -20,10 +21,12 @@ export default function OrderDetailPage() {
   const [error, setError] = useState<string | undefined>();
   const [updating, setUpdating] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [toast, setToast] = useState({ show: false, message: "", type: "" });
 
   const [selectedCancelReason, setSelectedCancelReason] = useState("");
   const [customCancelReason, setCustomCancelReason] = useState("");
+
+  // Khởi tạo useToast
+  const { showToast, Toast } = useToast();
 
   const cancelReasons = useMemo(
     () => [
@@ -143,27 +146,23 @@ export default function OrderDetailPage() {
       // Update order data with the response
       if (data.order) {
         setOrder(data.order);
-        // Đồng bộ orderStatus với dữ liệu mới
         setOrderStatus(data.order.status);
       }
 
       // Hiển thị toast thông báo thành công
-      setToast({
-        show: true,
-        message: data.message || "Cập nhật trạng thái đơn hàng thành công",
+      showToast("Cập nhật trạng thái đơn hàng thành công", {
         type: "success",
+        duration: 3000,
       });
     } catch (error) {
       console.error("Error updating status:", error);
       // Hiển thị toast lỗi
-      setToast({
-        show: true,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Có lỗi xảy ra khi cập nhật trạng thái",
-        type: "error",
-      });
+      showToast(
+        error instanceof Error
+          ? error.message
+          : "Có lỗi xảy ra khi cập nhật trạng thái",
+        { type: "error", duration: 4000 }
+      );
     } finally {
       setUpdating(false);
     }
@@ -176,29 +175,27 @@ export default function OrderDetailPage() {
     { label: id, active: true },
   ];
 
-  // Thay thế hàm handleCancelOrder hiện tại
+  // Xử lý hủy đơn hàng
   const handleCancelOrder = () => {
-    setShowCancelModal(true); // Mở modal thay vì hiển thị alert
+    setShowCancelModal(true); // Mở modal
   };
 
-  // Thêm hàm xác nhận hủy đơn hàng
+  // Xác nhận hủy đơn hàng
   const confirmCancelOrder = useCallback(async () => {
     // Validate that a reason is selected
     if (!selectedCancelReason) {
-      setToast({
-        show: true,
-        message: "Vui lòng chọn lý do hủy đơn hàng",
+      showToast("Vui lòng chọn lý do hủy đơn hàng", {
         type: "error",
+        duration: 4000,
       });
       return;
     }
 
     // If "Khác" is selected, ensure a custom reason is provided
     if (selectedCancelReason === "Khác" && !customCancelReason.trim()) {
-      setToast({
-        show: true,
-        message: "Vui lòng nhập lý do hủy đơn hàng",
+      showToast("Vui lòng nhập lý do hủy đơn hàng", {
         type: "error",
+        duration: 4000,
       });
       return;
     }
@@ -239,10 +236,9 @@ export default function OrderDetailPage() {
         setOrderStatus(data.order.status);
       }
 
-      setToast({
-        show: true,
-        message: data.message || "Đơn hàng đã được hủy thành công",
+      showToast("Đơn hàng đã được hủy thành công", {
         type: "success",
+        duration: 3000,
       });
 
       // Reset fields when closing modal
@@ -251,14 +247,12 @@ export default function OrderDetailPage() {
       setShowCancelModal(false);
     } catch (error) {
       console.error("Error cancelling order:", error);
-      setToast({
-        show: true,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Có lỗi xảy ra khi hủy đơn hàng",
-        type: "error",
-      });
+      showToast(
+        error instanceof Error
+          ? error.message
+          : "Có lỗi xảy ra khi hủy đơn hàng",
+        { type: "error", duration: 4000 }
+      );
     } finally {
       setUpdating(false);
     }
@@ -312,46 +306,11 @@ export default function OrderDetailPage() {
 
   if (!order) return null;
 
-  const Toast = () => {
-    useEffect(() => {
-      if (!toast.show) return;
-
-      const timer = setTimeout(() => {
-        setToast((prevToast) => ({ ...prevToast, show: false }));
-      }, 3000);
-
-      return () => clearTimeout(timer);
-    }, [toast.show]);
-
-    // Điều kiện render sau khi đã khai báo tất cả hooks
-    if (!toast.show) return null;
-
-    const bgColor =
-      toast.type === "success"
-        ? "bg-green-500"
-        : toast.type === "error"
-        ? "bg-red-500"
-        : "bg-blue-500";
-
-    return (
-      <div className="fixed bottom-4 right-4 z-50">
-        <div
-          className={`${bgColor} text-white px-6 py-4 rounded-lg shadow-lg flex items-center`}
-        >
-          {toast.type === "success" && (
-            <i className="fas fa-check-circle mr-2"></i>
-          )}
-          {toast.type === "error" && (
-            <i className="fas fa-exclamation-circle mr-2"></i>
-          )}
-          <span>{toast.message}</span>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <AdminLayout title={`Chi tiết đơn hàng ${id}`}>
+      {/* Render Toast component */}
+      {Toast}
+
       {/* Content Header */}
       <div className="px-4 py-4 sm:px-6 border-b border-gray-200">
         <div className="container mx-auto">
@@ -433,14 +392,6 @@ export default function OrderDetailPage() {
                             : "Đã thanh toán"}
                         </td>
                       </tr>
-                      {/* <tr>
-                        <th className="text-left py-2 w-2/5 text-gray-600 font-medium">
-                          Ghi chú
-                        </th>
-                        <td className="py-2 text-gray-800">
-                          {order.note || "Không có"}
-                        </td>
-                      </tr> */}
                       <tr>
                         <th className="text-left py-2 w-2/5 text-gray-600 font-medium">
                           Trạng thái đơn hàng
@@ -477,7 +428,7 @@ export default function OrderDetailPage() {
                       )}
                       {order.paymentStatusId === 4 && (
                         <tr>
-                          <th className="text-left py-2 w-2/5 text-gray-600 font-medium">
+                          <th className="text-left py-2 w-2/5 text İmportant-gray-600 font-medium">
                             Số tiền hoàn
                           </th>
                           <td className="py-2 text-gray-800">
@@ -515,7 +466,6 @@ export default function OrderDetailPage() {
                           {order.phoneNumber}
                         </td>
                       </tr>
-
                       <tr>
                         <th className="text-left py-2 w-2/5 text-gray-600 font-medium">
                           Địa chỉ giao hàng
@@ -524,7 +474,6 @@ export default function OrderDetailPage() {
                           {order.shippingAddress}
                         </td>
                       </tr>
-
                       <tr>
                         <th className="text-left py-2 w-2/5 text-gray-600 font-medium">
                           Xem chi tiết thông tin khách hàng
@@ -789,8 +738,6 @@ export default function OrderDetailPage() {
         onReasonChange={handleReasonChange}
         onCustomReasonChange={handleCustomReasonChange}
       />
-      {/* Toast Notification */}
-      <Toast />
     </AdminLayout>
   );
 }

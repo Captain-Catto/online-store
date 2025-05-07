@@ -14,7 +14,7 @@ const router = Router();
 router.post(
   "/users/:id/notes",
   authMiddleware,
-  roleMiddleware([1]), // Chỉ admin
+  roleMiddleware([1, 2]), // Chỉ admin
   addUserNote
 );
 
@@ -22,7 +22,7 @@ router.post(
 router.get(
   "/users/:id/notes",
   authMiddleware,
-  roleMiddleware([1]), // Chỉ admin
+  roleMiddleware([1, 2]), // Chỉ admin
   getUserNotes
 );
 
@@ -30,7 +30,7 @@ router.get(
 router.delete(
   "/notes/:noteId",
   authMiddleware,
-  roleMiddleware([1]), // Chỉ admin
+  roleMiddleware([1, 2]), // Chỉ admin
   deleteUserNote
 );
 
@@ -38,7 +38,7 @@ router.delete(
 router.put(
   "/notes/:noteId",
   authMiddleware,
-  roleMiddleware([1]), // Chỉ admin
+  roleMiddleware([1, 2]), // Chỉ admin
   updateUserNote
 );
 

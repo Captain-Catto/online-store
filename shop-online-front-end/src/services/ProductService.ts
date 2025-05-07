@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "@/config/apiConfig";
 import { AuthClient } from "@/services/AuthClient";
+import { BreadcrumbItem } from "@/types/breadcrumb";
 
 export interface ProductDetail {
   id?: number;
@@ -511,7 +512,14 @@ export const ProductService = {
 
   // Lấy tất cả kích thước
   getSizes: async (): Promise<
-    { id: number; value: string; displayName: string }[]
+    {
+      id: number;
+      value: string;
+      displayName: string;
+      categoryId: number;
+      active: boolean;
+      displayOrder: number;
+    }[]
   > => {
     try {
       const response = await fetch(`${API_BASE_URL}/products/sizes`);
@@ -527,11 +535,20 @@ export const ProductService = {
 
   // lấy kích thước theo danh mục
   getSizesByCategory: async (
-    category: string
-  ): Promise<{ id: number; value: string; displayName: string }[]> => {
+    categoryId: string
+  ): Promise<
+    {
+      id: number;
+      value: string;
+      displayName: string;
+      categoryId: number;
+      active: boolean;
+      displayOrder: number;
+    }[]
+  > => {
     try {
       const response = await fetch(
-        `${API_BASE_URL}/sizes/by-category?category=${category}`
+        `${API_BASE_URL}/products/by-category?categoryId=${categoryId}`
       );
       if (!response.ok) {
         throw new Error("Không thể lấy danh sách kích thước theo danh mục");
@@ -580,7 +597,7 @@ export const ProductService = {
       displayOrder?: number;
       active?: boolean;
     }
-  ): Promise<any> => {
+  ): Promise<{ success: boolean; message: string }> => {
     try {
       const response = await AuthClient.fetchWithAuth(
         `${API_BASE_URL}/products/sizes/${id}`,
@@ -621,7 +638,9 @@ export const ProductService = {
   },
 
   // Trong file ProductService.ts
-  removeProductDetails: async (detailIds: number[]): Promise<any> => {
+  removeProductDetails: async (
+    detailIds: number[]
+  ): Promise<{ success: boolean; detailId: number }[]> => {
     const token = sessionStorage.getItem("authToken");
     if (!token) throw new Error("Token không hợp lệ");
 
@@ -650,5 +669,37 @@ export const ProductService = {
     }
 
     return results;
+  },
+
+  // Lấy đường dẫn breadcrumb cho sản phẩm
+  async getProductBreadcrumb(productId: string): Promise<BreadcrumbItem[]> {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/products/${productId}/breadcrumb`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch product breadcrumb");
+      }
+      return await response.json();
+    } catch (error) {
+      console.error("Error fetching product breadcrumb:", error);
+      return [];
+    }
+  },
+
+  // Lấy đường dẫn breadcrumb cho danh mục
+  async getCategoryBreadcrumb(slug: string): Promise<BreadcrumbItem[]> {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/categories/${slug}/breadcrumb`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch category breadcrumb");
+      }
+      return await response.json();
+    } catch (error) {
+      console.error("Error fetching category breadcrumb:", error);
+      return [];
+    }
   },
 };

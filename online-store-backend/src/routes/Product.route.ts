@@ -51,7 +51,6 @@ router.post(
 router.post("/sizes", authMiddleware, roleMiddleware([1]), createSize);
 router.put("/sizes/:id", authMiddleware, roleMiddleware([1]), updateSize);
 router.delete("/sizes/:id", authMiddleware, roleMiddleware([1]), deleteSize);
-// Thêm các route mới cho update sản phẩm theo từng phần
 // Basic info
 router.patch(
   "/:id/basic-info",

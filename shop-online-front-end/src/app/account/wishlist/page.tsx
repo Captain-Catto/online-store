@@ -9,11 +9,11 @@ import Footer from "@/components/Footer/Footer";
 import { WishlistService } from "@/services/WishlistService";
 import { useToast } from "@/utils/useToast";
 import { AuthService } from "@/services/AuthService";
-import { addToCart, getCartItemCount } from "@/utils/cartUtils"; //bỏ
 import { formatCurrency } from "@/utils/currencyUtils";
 import { CartItem } from "@/types/cart";
 import { WishlistItem } from "@/types/wishlist";
 import { useCart } from "@/contexts/CartContext";
+import { colorToVietnamese } from "@/utils/colorUtils";
 
 // Component Modal chi tiết sản phẩm
 const ProductDetailModal = ({
@@ -99,7 +99,40 @@ const ProductDetailModal = ({
       ? images[selectedImageIndex].url
       : "/images/placeholder.jpg";
   const inventories = selectedDetail.inventories || [];
-  const sizes: string[] = inventories.map((inv) => inv.size);
+  // tạo map ánh xạ từ size sang thứ tự
+  const sizeOrder = {
+    XXS: 0,
+    XS: 1,
+    S: 2,
+    M: 3,
+    L: 4,
+    XL: 5,
+    XXL: 6,
+    "2XL": 6, // Cùng giá trị với XXL
+    "3XL": 7,
+    "4XL": 8,
+  };
+
+  // lấy kích thước từ inventory và sắp xếp theo map
+  const sizes: string[] = inventories
+    .map((inv) => inv.size)
+    .sort((a, b) => {
+      // Trường hợp số nguyên (vd: 38, 39, 40 cho giày)
+      if (!isNaN(Number(a)) && !isNaN(Number(b))) {
+        return Number(a) - Number(b);
+      }
+
+      // Trường hợp chữ cái
+      return (
+        (sizeOrder[a as keyof typeof sizeOrder] !== undefined
+          ? sizeOrder[a as keyof typeof sizeOrder]
+          : 999) -
+        (sizeOrder[b as keyof typeof sizeOrder] !== undefined
+          ? sizeOrder[b as keyof typeof sizeOrder]
+          : 999)
+      );
+    });
+
   const selectedInventory = inventories.find(
     (inv) => inv.size === selectedSize
   );
@@ -126,6 +159,7 @@ const ProductDetailModal = ({
     const cartItem: CartItem = {
       id: product.id.toString(),
       productId: product.id,
+      productDetailId: selectedDetail.id,
       name: product.name,
       price: selectedDetail.price,
       originalPrice: selectedDetail.originalPrice,
@@ -134,6 +168,7 @@ const ProductDetailModal = ({
       size: selectedSize,
       image: images.length > 0 ? images[0].url : "/images/placeholder.jpg",
     };
+    console.log("img", images[0].url);
 
     onAddToCart(cartItem);
     onClose();
@@ -249,10 +284,10 @@ const ProductDetailModal = ({
                     const detail = product.details.find(
                       (d) => d.color === color
                     );
+
                     const hasStock =
                       detail?.inventories?.some((inv) => inv.stock > 0) ||
                       false;
-
                     return (
                       <button
                         key={color}
@@ -265,7 +300,7 @@ const ProductDetailModal = ({
                             : "border-gray-200 text-gray-400 cursor-default"
                         }`}
                       >
-                        {color}
+                        {colorToVietnamese[color]}
                       </button>
                     );
                   })}
@@ -527,20 +562,25 @@ export default function WishlistPage() {
   // Thêm vào giỏ hàng từ modal
   const handleAddToCart = (cartItem: CartItem) => {
     addToCart(cartItem);
-    showToast(`Đã thêm ${cartItem.name} vào giỏ hàng`, { type: "success" });
-
-    const cartCount = getCartItemCount();
-    const event = new CustomEvent("cart-updated", {
-      detail: { count: cartCount },
+    showToast(`Đã thêm vào giỏ hàng thành công!`, {
+      type: "cart",
+      product: {
+        name: cartItem.name,
+        price: cartItem.price,
+        originalPrice: cartItem.originalPrice,
+        image: cartItem.image,
+        color: cartItem.color,
+        size: cartItem.size,
+        quantity: cartItem.quantity,
+      },
     });
-    window.dispatchEvent(event);
   };
 
   return (
     <>
       <Header />
       <main className="container mx-auto px-4 py-8">
-        <div className="bg-white shadow-md rounded-lg p-6">
+        <div className="mx-auto bg-white shadow-md rounded-lg p-6">
           <h1 className="text-2xl font-bold mb-6">Danh sách yêu thích</h1>
 
           {loading ? (
@@ -574,14 +614,14 @@ export default function WishlistPage() {
               <div className="mt-6">
                 <Link
                   href="/"
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-pink-600 hover:bg-pink-700"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
                 >
                   Tiếp tục mua sắm
                 </Link>
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
               {wishlistItems.map((item) => {
                 const product = item.product;
                 const detail = product.details[0];
@@ -592,9 +632,15 @@ export default function WishlistPage() {
                 return (
                   <div
                     key={item.id}
-                    className="border rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
+                    className="product-container w-full rounded-lg flex-shrink-0 mx-auto flex flex-col relative p-2"
                   >
-                    <div className="relative h-48 bg-gray-200">
+                    <div className="relative w-full aspect-[2/3]">
+                      {/* nếu có Featured thì hiển thị */}
+                      {product.featured && (
+                        <div className="absolute top-2 left-2 z-10 bg-yellow-500 text-white px-3 py-1 text-xs font-semibold rounded-md">
+                          Đáng mua
+                        </div>
+                      )}
                       <Link href={`/products/${product.id}`}>
                         <Image
                           src={imageUrl}
@@ -602,7 +648,7 @@ export default function WishlistPage() {
                           fill
                           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                           style={{ objectFit: "cover" }}
-                          className="transition-transform hover:scale-105"
+                          className="transition-transform "
                         />
                       </Link>
                       <button
@@ -624,14 +670,14 @@ export default function WishlistPage() {
                         </svg>
                       </button>
                     </div>
-                    <div className="p-4">
+                    <div className="block mt-2">
                       <Link href={`/products/${product.id}`}>
-                        <h3 className="font-medium text-gray-900 mb-1 hover:text-pink-600 transition-colors line-clamp-2">
+                        <h3 className="font-medium text-gray-900 mb-1 hover:text-blue-600 transition-colors line-clamp-2">
                           {product.name}
                         </h3>
                       </Link>
                       <div className="flex items-end justify-between mb-4">
-                        <p className="text-lg font-bold text-pink-600">
+                        <p className="text-lg font-bold text-blue-600">
                           {formatCurrency(detail.price)}
                         </p>
                         {/* thêm tính toán  */}

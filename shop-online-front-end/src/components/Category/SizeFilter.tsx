@@ -5,10 +5,7 @@ interface SizeFilterProps {
   activeFilters: string[]; // Mảng string chứa các giá trị đã chọn
   onToggle: () => void;
   onFilterChange: (size: string) => void;
-  availableSizes?: string[]; // Thêm prop này để nhận kích thước động
-  sizesByType?: {
-    letter?: { value: string; displayName: string }[]; // Kích thước chữ
-  };
+  availableSizes?: string[];
 }
 
 export default function SizeFilter({
@@ -16,11 +13,8 @@ export default function SizeFilter({
   activeFilters,
   onToggle,
   onFilterChange,
-  availableSizes = [], // Mặc định là mảng rỗng nếu không được cung cấp
-  sizesByType = {}, // Truyền kích thước được nhóm theo loại
+  availableSizes = [],
 }: SizeFilterProps) {
-  console.log("SizeFilter received sizesByType:", sizesByType);
-  console.log("SizeFilter received availableSizes:", availableSizes);
   // Sử dụng availableSizes từ props thay vì hardcode
   const sizes =
     availableSizes.length > 0
@@ -55,64 +49,34 @@ export default function SizeFilter({
 
       {isOpen && (
         <div className="mt-3">
-          {Object.keys(sizesByType).length > 0 ? (
-            <>
-              {/* Size chữ */}
-              {sizesByType.letter && sizesByType.letter.length > 0 && (
-                <div className="mb-3">
-                  <h6 className="text-sm font-medium mb-2">Size chữ</h6>
-                  <ul className="grid grid-cols-4 gap-2">
-                    {sizesByType.letter.map((size) => (
-                      <li key={size.value} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id={`size_${size.value}`}
-                          name="size"
-                          checked={activeFilters.includes(size.value)}
-                          onChange={() => onFilterChange(size.value)}
-                          className="hidden"
-                        />
-                        <label
-                          htmlFor={`size_${size.value}`}
-                          className={`inline-block px-3 py-2 rounded-lg border flex-1 text-center ${
-                            activeFilters.includes(size.value)
-                              ? "bg-blue-600 text-white border-blue-600"
-                              : "hover:bg-gray-100 border-gray-300"
-                          } cursor-pointer text-sm`}
-                          title={size.displayName}
-                        >
-                          {size.value}
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Size số */}
-              {sizesByType.number && sizesByType.number.length > 0 && (
-                <div className="mb-3">
-                  <h6 className="text-sm font-medium mb-2">Size số</h6>
-                  <ul className="grid grid-cols-4 gap-2">
-                    {sizesByType.number.map((size) => (
-                      <li key={size.value} className="flex items-center">
-                        {/* Tương tự như trên */}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Các loại size khác tương tự */}
-            </>
-          ) : availableSizes.length > 0 ? (
-            <ul className="grid grid-cols-4 gap-2">
-              {sizes.map((size) => (
-                <li key={size} className="flex items-center">
-                  {/* Fallback display */}
-                </li>
-              ))}
-            </ul>
+          {sizes.length > 0 ? (
+            <div className="mb-3">
+              <ul className="grid grid-cols-4 gap-2">
+                {sizes.map((size) => (
+                  <li key={size} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id={`size_${size}`}
+                      name="size"
+                      checked={activeFilters.includes(size)}
+                      onChange={() => onFilterChange(size)}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor={`size_${size}`}
+                      className={`inline-block px-3 py-2 rounded-lg border flex-1 text-center ${
+                        activeFilters.includes(size)
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "hover:bg-gray-100 border-gray-300"
+                      } cursor-pointer text-sm`}
+                      title={size}
+                    >
+                      {size}
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : (
             <p>Không có kích thước nào để hiển thị.</p>
           )}

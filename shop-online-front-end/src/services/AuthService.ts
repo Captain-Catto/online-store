@@ -129,7 +129,7 @@ export const AuthService = {
     }
   },
 
-  // Phương thức isAdmin để kiểm tra người dùng có phải admin không
+  // Phương thức để kiểm tra người dùng có phải admin không
   isAdmin: (): boolean => {
     if (typeof window === "undefined") return false;
 
@@ -138,7 +138,7 @@ export const AuthService = {
       if (!userStr) return false;
 
       const user = JSON.parse(userStr);
-      return user.role === 1;
+      return user.role === 1 || user.role === 2;
     } catch (error) {
       console.error("Error checking admin status:", error);
       return false;

@@ -166,11 +166,10 @@ export const useToast = () => {
   // Component hiển thị toast cho giỏ hàng
   const CartToast = () => {
     if (!productInfo) return null;
-
     return (
-      <div className="notify-product flex flex-col items-start gap-3">
-        {/* Header thông báo */}
-        <div className="flex justify-between items-center w-full">
+      <div className="notify-product">
+        {/* Header với nút đóng */}
+        <div className="flex justify-between items-center p-4 border-b border-gray-200">
           <span className="text-green-600 font-medium">
             Đã thêm vào giỏ hàng
           </span>
@@ -196,20 +195,17 @@ export const useToast = () => {
           </button>
         </div>
 
-        {/* Divider */}
-        <div className="w-full h-[1px] bg-gray-200" />
-
         {/* Nội dung sản phẩm */}
-        <div className="flex items-stretch gap-3 w-full">
-          {/* Hình ảnh sản phẩm */}
+        <div className="flex p-4 gap-2">
+          {/* Hình ảnh sản phẩm - kích thước lớn hơn */}
           {productInfo.image && (
-            <div className="notify-product__image flex-shrink-0 w-16 overflow-hidden rounded-md border border-gray-200">
+            <div className="notify-product__thumbnail flex-shrink-0 overflow-hidden rounded-md">
               <Image
                 src={productInfo.image}
                 alt={productInfo.name}
-                className="w-full h-full object-contain"
+                className=" object-contain rounded-md"
                 width={64}
-                height={64}
+                height={84}
                 onError={(e) => {
                   (e.target as HTMLImageElement).src =
                     "/images/placeholder.jpg";
@@ -219,38 +215,31 @@ export const useToast = () => {
           )}
 
           {/* Thông tin sản phẩm */}
-          <div className="notify-product__content flex-1 flex flex-col gap-1 justify-between">
-            {/* Tên sản phẩm và thông tin chi tiết */}
-            <div>
-              <span className="notify-product__title font-medium text-sm line-clamp-1 block">
-                {productInfo.name}
-              </span>
-              <div className="flex flex-col gap-0.5 text-gray-500 text-xs">
-                {productInfo.color && (
-                  <span className="notify-product__option block">
-                    Màu sắc:{" "}
-                    {colorToVietnamese[productInfo.color] || productInfo.color}
-                  </span>
-                )}
-                {productInfo.size && (
-                  <span className="notify-product__option block">
-                    Kích thước: {productInfo.size}
-                  </span>
-                )}
-              </div>
-            </div>
+          <div className="notify-product__content flex-grow flex flex-col">
+            {/* Tên sản phẩm */}
+            <span className="notify-product__title font-medium text-base mb-1 line-clamp-2">
+              {productInfo.name}
+            </span>
+
+            {/* Tùy chọn sản phẩm */}
+            <span className="notify-product__option text-gray-600 text-sm mb-2">
+              {(productInfo.color && colorToVietnamese[productInfo.color]) ||
+                productInfo.color}
+              {productInfo.color && productInfo.size ? " / " : ""}
+              {productInfo.size}
+            </span>
 
             {/* Giá sản phẩm */}
-            <div className="notify-product__prices text-sm flex items-center gap-2 whitespace-nowrap">
-              <span className="text-red-600 font-semibold">
-                {productInfo.price?.toLocaleString("vi-VN")}đ
-              </span>
+            <div className="notify-product__prices mt-auto">
               {productInfo.originalPrice &&
                 productInfo.originalPrice > (productInfo.price || 0) && (
-                  <span className="text-gray-400 line-through text-xs">
+                  <del className="text-gray-400 text-sm mr-2">
                     {productInfo.originalPrice.toLocaleString("vi-VN")}đ
-                  </span>
+                  </del>
                 )}
+              <ins className="text-red-600 font-semibold text-base no-underline">
+                {productInfo.price?.toLocaleString("vi-VN")}đ
+              </ins>
             </div>
           </div>
         </div>
@@ -263,7 +252,9 @@ export const useToast = () => {
     isVisible && portalContainer && typeof window !== "undefined"
       ? createPortal(
           <div
-            className={`fixed top-4 right-4 z-[9999] ${getToastClasses()} shadow-lg rounded-lg p-4 max-w-xs w-[320px] animate-fadeIn`}
+            className={`fixed top-10 right-4 z-[9999] ${getToastClasses()} shadow-lg rounded-lg ${
+              type === "cart" ? "p-0 w-80" : "p-4"
+            } animate-fadeIn`}
           >
             <div className="notify__content">
               {type === "cart" ? (
@@ -279,10 +270,10 @@ export const useToast = () => {
                 </div>
               ) : (
                 // Toast thông thường
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start">
+                <div className="flex justify-center">
+                  <div className="flex items-center justify-center">
                     {getToastIcon()}
-                    <p
+                    <span
                       className={`notify__message ml-2 ${
                         type === "success"
                           ? "text-green-700"
@@ -294,7 +285,7 @@ export const useToast = () => {
                       }`}
                     >
                       {message}
-                    </p>
+                    </span>
                   </div>
                   <button
                     onClick={closeToast}
