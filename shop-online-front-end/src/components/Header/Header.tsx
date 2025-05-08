@@ -5,8 +5,8 @@ import IconNavBar from "./IconNavBar";
 import Logo from "./Logo";
 import MenuToggle from "./MenuToggle";
 // import MegaMenu from "./MegaMenu";
-// import NavbarCategory from "./NavbarCategory";
 import Navbar from "./NavBar";
+import SearchInput from "../Search/SearchInput";
 
 const Header: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState<boolean>(false);
@@ -43,12 +43,20 @@ const Header: React.FC = () => {
           {/* Desktop Navigation with MegaMenu */}
           <div className="hidden md:block">
             {/* <MegaMenu /> */}
-            {/* <NavbarCategory /> */}
             <Navbar />
           </div>
 
-          {/* User Icons (cart, account, etc) */}
-          <IconNavBar />
+          <div className="flex items-center space-x-4">
+            {/* Search Input */}
+            <SearchInput
+              placeholder="Tìm sản phẩm..."
+              showButton={true}
+              size="sm"
+            />
+
+            {/* User Icons (cart, account, etc) */}
+            <IconNavBar />
+          </div>
         </div>
       </div>
     </header>

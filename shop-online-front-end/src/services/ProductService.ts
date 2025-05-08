@@ -58,8 +58,10 @@ export const ProductService = {
       const response = await fetch(
         `${API_BASE_URL}/products?${params.toString()}`
       );
+      const data = await response.json();
+      console.log("API Response:", data);
       if (!response.ok) throw new Error("Network response was not ok");
-      return await response.json();
+      return await data;
     } catch (error) {
       console.error("Error fetching products:", error);
       throw error;

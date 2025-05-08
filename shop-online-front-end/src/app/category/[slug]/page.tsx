@@ -78,6 +78,9 @@ export default function CategoryDetailPage() {
     max: 0,
   });
 
+  // State cho bộ lọc
+  const [sortOption, setSortOption] = useState<string>("");
+
   // State cho sản phẩm
   const [products, setProducts] = useState<Product[]>([]);
   const [productImages, setProductImages] = useState<Record<string, string>>(
@@ -181,12 +184,21 @@ export default function CategoryDetailPage() {
       params.set("childCategory", filters.childCategory);
     }
 
+    if (sortOption) {
+      params.set("sort", sortOption);
+    }
+
     console.log("childCategory", filters.childCategory);
 
     const newUrl =
       pathname + (params.toString() ? `?${params.toString()}` : "");
     router.push(newUrl, { scroll: false });
-  }, [currentPage, filters, pathname, router]);
+  }, [currentPage, filters, pathname, router, sortOption]);
+
+  const handleSort = useCallback((option: string): void => {
+    setSortOption(option);
+    setCurrentPage(1); // Reset về trang đầu khi thay đổi sort
+  }, []);
 
   // Thêm hàm trích xuất hình ảnh
   const extractImages = useCallback((variant: VariantDetail) => {
@@ -230,12 +242,19 @@ export default function CategoryDetailPage() {
           apiFilters.childCategory = filters.childCategory;
         }
 
+        if (sortOption) {
+          apiFilters.sort = sortOption;
+        }
+        console.log("apiFilters", apiFilters);
+
         const response = await CategoryService.getProductsByCategorySlug(
           categorySlug,
           currentPage,
           itemsPerPage,
           apiFilters
         );
+
+        console.log("response getProductsByCategorySlug", response);
 
         const {
           products: productsData,
@@ -348,6 +367,7 @@ export default function CategoryDetailPage() {
     updateUrlWithFilters,
     extractImages,
     parentCategoryId,
+    sortOption,
   ]);
 
   // Fetch category and its children from slug
@@ -605,6 +625,8 @@ export default function CategoryDetailPage() {
                 currentPage={currentPage}
                 itemsPerPage={itemsPerPage}
                 totalItems={totalItems}
+                sortOption={sortOption}
+                onSort={handleSort}
               />
 
               {!loading && !error && totalItems > 0 && (

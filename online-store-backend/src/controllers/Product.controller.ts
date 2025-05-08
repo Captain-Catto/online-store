@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import sequelize from "../config/db";
+import { Op, literal, FindOptions, col } from "sequelize";
 import Product from "../models/Product";
 import ProductDetail from "../models/ProductDetail";
 import ProductInventory from "../models/ProductInventory";
@@ -7,9 +7,9 @@ import ProductImage from "../models/ProductImage";
 import ProductCategory from "../models/ProductCategory";
 import Category from "../models/Category";
 import { getPublicUrl, deleteFile } from "../services/imageUpload";
-import { Op, FindOptions } from "sequelize";
 import Suitability from "../models/Suitability";
 import ProductSuitability from "../models/ProductSuitability";
+import sequelize from "../config/db";
 
 interface ExtendedFindOptions extends FindOptions {
   distinct?: boolean;
@@ -272,7 +272,7 @@ export const getProductsWithVariants = async (
         validDirections.includes(direction?.toLowerCase())
       ) {
         if (field === "price") {
-          // Sắp xếp theo giá cần xử lý đặc biệt vì price nằm trong bảng ProductDetail
+          // Sắp xếp theo giá
           order = [
             [
               { model: ProductDetail, as: "details" },

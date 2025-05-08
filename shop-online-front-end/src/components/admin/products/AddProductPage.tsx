@@ -161,23 +161,6 @@ export default function AddProductPage() {
     []
   );
 
-  // Tách hàm xác định loại kích thước ra khỏi useEffect
-  const getSizeCategory = useCallback(
-    (categoryId: string): string => {
-      const category = categoryList.find(
-        (cat) => cat.id.toString() === categoryId
-      );
-      if (category) {
-        const nameLower = category.name.toLowerCase();
-        if (nameLower.includes("giày") || nameLower.includes("dép"))
-          return "shoes";
-        if (nameLower.includes("phụ kiện")) return "accessories";
-      }
-      return "clothing"; // Mặc định
-    },
-    [categoryList]
-  );
-
   // Lấy danh sách danh mục khi component mount
   useEffect(() => {
     const fetchCategories = async () => {
@@ -314,12 +297,18 @@ export default function AddProductPage() {
 
     const loadSizes = async () => {
       try {
+        // Tải tất cả các kích thước từ API
         const sizes = await ProductService.getSizes();
-        const currentSizeCategory = getSizeCategory(product.category);
+        console.log("All sizes loaded:", sizes);
 
+        // Chuyển category ID về dạng số để so sánh
+        const selectedCategoryId = parseInt(product.category);
+        console.log("Selected Category ID:", selectedCategoryId);
+
+        // Lọc size theo categoryId thực tế, không dùng getSizeCategory nữa
         const sizeOptions = sizes
           .filter(
-            (size) => size.active && size.category === currentSizeCategory
+            (size) => size.active && size.categoryId === selectedCategoryId
           )
           .sort((a, b) => a.displayOrder - b.displayOrder)
           .map((size) => ({
@@ -327,6 +316,7 @@ export default function AddProductPage() {
             label: size.displayName || size.value,
           }));
 
+        console.log("Filtered size options:", sizeOptions);
         setAvailableSizeOptions(sizeOptions);
 
         // Kiểm tra các size đã chọn, giữ lại những gì vẫn hợp lệ với danh mục mới
@@ -380,7 +370,7 @@ export default function AddProductPage() {
     };
 
     loadSizes();
-  }, [product.category, getSizeCategory, showToast, categoryList]);
+  }, [product.category, showToast, categoryList, product.sizes]);
 
   // Các hàm xử lý (hầu hết đã tốt, thêm useCallback nếu cần)
   const handleImageChange = useCallback(

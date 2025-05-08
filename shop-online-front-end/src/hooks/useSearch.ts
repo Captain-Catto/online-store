@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { ProductService } from "@/services/ProductService";
 import { CategoryService } from "@/services/CategoryService";
+import { Product } from "@/types/product";
+import { Category } from "@/types/category";
 
 export function useSearch() {
   const [query, setQuery] = useState<string>("");
-  const [products, setProducts] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +36,8 @@ export function useSearch() {
   // Hàm tải danh mục
   const loadCategories = async () => {
     try {
-      const data = await CategoryService.getNavCategories();
+      const data = await CategoryService.getAllCategories();
+      console.log("Danh mục:", data);
       setCategories(data);
     } catch (error) {
       console.error("Không thể tải danh mục:", error);
@@ -53,6 +56,7 @@ export function useSearch() {
         search: query,
       });
       setProducts(response.products || []);
+      console.log("Kết quả tìm kiếm:", response.products);
     } catch (error) {
       console.error("Lỗi tìm kiếm:", error);
       setError("Không thể tìm kiếm sản phẩm");

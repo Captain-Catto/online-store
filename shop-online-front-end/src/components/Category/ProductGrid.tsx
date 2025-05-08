@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import ProductCard from "../ProductCard/ProductCard";
 import { Product, SimpleProduct, VariantDetail } from "@/types/product";
-import LoadingSpinner from "../UI/LoadingSpinner";
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
+import SortingFilter from "@/components/UI/SortingFilter";
 
 interface ProcessedProduct extends SimpleProduct {
   colorToImage: Record<string, string>;
@@ -12,7 +13,7 @@ interface ProductGridProps {
   products: Product[];
   selectedColors: { [productId: string]: string };
   productImages: { [productId: string]: string };
-  secondaryImages?: { [productId: string]: string }; // Thêm dòng này
+  secondaryImages?: { [productId: string]: string };
 
   onColorSelect: (productId: number, color: string) => void;
   category?: string;
@@ -21,7 +22,9 @@ interface ProductGridProps {
   totalItems: number;
   loading?: boolean;
   error?: string | null;
-  activeFilters?: { size: string[] }; // Thêm activeFilters để lọc kích thước
+  activeFilters?: { size: string[] };
+  sortOption?: string;
+  onSort?: (option: string) => void;
 }
 
 export default function ProductGrid({
@@ -37,10 +40,18 @@ export default function ProductGrid({
   loading = false,
   error = null,
   activeFilters,
+  sortOption,
+  onSort,
 }: ProductGridProps) {
   const [processedProducts, setProcessedProducts] = useState<
     ProcessedProduct[]
   >([]);
+
+  const handleSort = (option: string) => {
+    if (onSort) {
+      onSort(option);
+    }
+  };
 
   // Xử lý sản phẩm để tạo dữ liệu phù hợp cho ProductCard
   useEffect(() => {
@@ -178,16 +189,19 @@ export default function ProductGrid({
     <div className="w-full">
       {/* Tiêu đề và thông tin phân trang */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <h1 className="text-2xl font-bold text-gray-800">
-          {category
-            ? `Danh mục: ${decodeURIComponent(category)}`
-            : "Tất cả sản phẩm"}
-        </h1>
-        <div className="text-sm text-gray-600">
-          {loading
-            ? "Đang tải sản phẩm..."
-            : `Hiển thị ${startItem} - ${endItem} / ${totalItems} sản phẩm`}
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">
+            {category
+              ? `Danh mục: ${decodeURIComponent(category)}`
+              : "Tất cả sản phẩm"}
+          </h1>
+          <div className="text-sm text-gray-600">
+            {loading
+              ? "Đang tải sản phẩm..."
+              : `Hiển thị ${startItem} - ${endItem} / ${totalItems} sản phẩm`}
+          </div>
         </div>
+        <SortingFilter sortOption={sortOption || ""} onChange={handleSort} />
       </div>
 
       {/* Thông báo khi không có sản phẩm */}

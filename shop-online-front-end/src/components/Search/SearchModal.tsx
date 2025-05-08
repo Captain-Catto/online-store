@@ -1,17 +1,17 @@
 import React, { useRef, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { useSearch } from "@/hooks/useSearch";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
-import { formatPrice } from "@/utils/formatPrice";
+import SearchProductCard from "./SearchProductCard";
+import { Product } from "@/types/product";
+import { Category } from "@/types/category";
 
 interface SearchModalProps {
   isOpen: boolean;
   onClose: () => void;
   query: string;
   setQuery: (query: string) => void;
-  products: any[];
-  categories: any[];
+  products: Product[];
+  categories: Category[];
   loading: boolean;
   error: string | null;
 }
@@ -76,12 +76,13 @@ const SearchModal: React.FC<SearchModalProps> = ({
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
+  console.log("categories", categories);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center pt-10">
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[200] flex items-start justify-center pt-10">
       <div
         ref={modalRef}
-        className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[80vh] overflow-y-auto"
+        className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[80vh] overflow-y-auto z-[200]"
       >
         {/* Thanh tìm kiếm */}
         <div className="p-4 border-b flex items-center">
@@ -132,12 +133,13 @@ const SearchModal: React.FC<SearchModalProps> = ({
 
         {/* Danh mục nhanh */}
         <div className="p-4 border-b">
-          <div className="flex flex-wrap gap-4">
-            {categories.slice(0, 5).map((category) => (
+          <h5 className="text-sm text-gray-500 mb-3">Danh mục phổ biến</h5>
+          <div className="flex flex-wrap gap-2">
+            {categories.map((category) => (
               <Link
                 key={category.id}
                 href={`/category/${category.slug}`}
-                className="text-gray-800 hover:text-blue-600"
+                className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-md text-sm text-gray-800 transition-colors border border-gray-200"
                 onClick={onClose}
               >
                 {category.name}
@@ -158,51 +160,19 @@ const SearchModal: React.FC<SearchModalProps> = ({
             <div className="text-center py-8 text-red-600">{error}</div>
           ) : products.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {products.map((product) => (
-                  <Link
-                    href={`/products/${product.id}`}
+                  <SearchProductCard
                     key={product.id}
-                    className="group"
+                    product={product}
                     onClick={onClose}
-                  >
-                    <div className="relative overflow-hidden rounded-lg">
-                      {product.discount > 0 && (
-                        <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-md">
-                          -{product.discount}%
-                        </div>
-                      )}
-                      <Image
-                        src={product.image || "/placeholder.jpg"}
-                        alt={product.name}
-                        width={200}
-                        height={200}
-                        className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                    </div>
-                    <div className="mt-2">
-                      <p className="text-sm text-gray-500">{product.brand}</p>
-                      <h3 className="font-medium text-gray-900 line-clamp-2">
-                        {product.name}
-                      </h3>
-                      <div className="flex items-center mt-1">
-                        <span className="text-red-600 font-semibold">
-                          {formatPrice(product.price)}
-                        </span>
-                        {product.originalPrice > product.price && (
-                          <span className="ml-2 text-gray-500 text-sm line-through">
-                            {formatPrice(product.originalPrice)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </Link>
+                  />
                 ))}
               </div>
               <div className="text-center mt-6">
                 <Link
                   href={`/search?q=${encodeURIComponent(query)}`}
-                  className="inline-block px-6 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors"
+                  className="inline-block px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
                   onClick={onClose}
                 >
                   Xem tất cả

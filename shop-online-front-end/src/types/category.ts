@@ -32,6 +32,7 @@ export interface CategoryWithSubtypes {
 export interface Category {
   id: number | string;
   name: string;
+  slug: string;
 }
 
 interface FilterResponse {

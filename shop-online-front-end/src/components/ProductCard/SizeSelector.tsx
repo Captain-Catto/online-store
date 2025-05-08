@@ -73,7 +73,7 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
   };
 
   return (
-    <div className="size-selector">
+    <div className="">
       <span className="text-xs text-center mt-2 text-black font-bold">
         Thêm nhanh vào giỏ hàng:
       </span>
@@ -110,20 +110,6 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
           </button>
         ))}
       </div>
-
-      <style jsx>{`
-        @keyframes fadeIn {
-          0% {
-            opacity: 0;
-          }
-          100% {
-            opacity: 1;
-          }
-        }
-        .animate-fade-in {
-          animation: fadeIn 0.5s ease-in-out;
-        }
-      `}</style>
     </div>
   );
 };

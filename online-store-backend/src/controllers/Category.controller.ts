@@ -332,9 +332,7 @@ export const getProductsByCategorySlug = async (
     const minPrice = parseFloat(req.query.minPrice as string) || 0;
     const maxPrice = parseFloat(req.query.maxPrice as string) || 9999999999;
     const featured = req.query.featured === "true" ? true : undefined;
-    const sortBy = (req.query.sortBy as string) || "createdAt";
-    const sortOrder =
-      (req.query.sortOrder as string)?.toUpperCase() === "ASC" ? "ASC" : "DESC";
+    const sort = (req.query.sort as string) || "createdAt";
 
     const suitabilityParam = req.query.suitability as string;
     const suitabilities = suitabilityParam ? suitabilityParam.split(",") : [];
@@ -430,15 +428,27 @@ export const getProductsByCategorySlug = async (
     let order: any[] = [];
 
     // Sắp xếp theo giá là trường hợp đặc biệt vì giá nằm trong ProductDetail
-    if (sortBy === "price") {
-      order = [[{ model: ProductDetail, as: "details" }, "price", sortOrder]];
-    } else {
-      // Các trường sắp xếp khác thuộc về Product
-      const validFields = ["createdAt", "name", "brand"];
-      if (validFields.includes(sortBy)) {
-        order = [[sortBy, sortOrder]];
-      } else {
-        order = [["createdAt", "DESC"]]; // Default
+    if (sort) {
+      const [field, direction] = sort.split("_");
+      const validFields = ["name", "createdAt", "price", "featured"];
+      const validDirections = ["asc", "desc"];
+
+      if (
+        validFields.includes(field) &&
+        validDirections.includes(direction?.toLowerCase())
+      ) {
+        if (field === "price") {
+          // Sắp xếp theo giá
+          order = [
+            [
+              { model: ProductDetail, as: "details" },
+              "price",
+              direction.toUpperCase(),
+            ],
+          ];
+        } else {
+          order = [[field, direction.toUpperCase()]];
+        }
       }
     }
 

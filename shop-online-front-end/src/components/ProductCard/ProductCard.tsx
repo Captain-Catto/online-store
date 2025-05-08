@@ -124,7 +124,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
         </Link>
         {/* Size selector hiển thị đè lên hình ảnh */}
         <div
-          className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[80%] max-w-[90%] backdrop-blur-2xl bg-white/40 rounded-lg text-white text-center p-3 opacity-0 transition-all duration-500 ease-in-out z-[100] ${
+          className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[80%] max-w-[90%] backdrop-blur-2xl bg-white/40 rounded-lg text-white text-center p-3 opacity-0 transition-all duration-500 ease-in-out z-[10] ${
             isHovered ? "opacity-100 bottom-[30px]" : ""
           }`}
         >

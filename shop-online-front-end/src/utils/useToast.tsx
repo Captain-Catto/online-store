@@ -252,7 +252,7 @@ export const useToast = () => {
     isVisible && portalContainer && typeof window !== "undefined"
       ? createPortal(
           <div
-            className={`fixed top-10 right-4 z-[9999] ${getToastClasses()} shadow-lg rounded-lg ${
+            className={`fixed top-10 right-4 z-[8] ${getToastClasses()} shadow-lg rounded-lg ${
               type === "cart" ? "p-0 w-80" : "p-4"
             } animate-fadeIn`}
           >

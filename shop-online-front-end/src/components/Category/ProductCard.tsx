@@ -3,7 +3,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { Product } from "@/types/product";
 import { useToast } from "@/utils/useToast";
-import { addToCart, getCartItemCount } from "@/utils/cartUtils"; // bỏ
 import { useCart } from "@/contexts/CartContext";
 
 interface ProductCardProps {
@@ -73,6 +72,7 @@ export default function ProductCard({
     const cartItem = {
       id: `${product.id}-${selectedColor}-${selectedSize}`,
       productId: product.id,
+      productDetailId: `${product.id}-${selectedColor}-${selectedSize}`,
       name: product.name,
       price,
       originalPrice,
@@ -86,11 +86,6 @@ export default function ProductCard({
     showToast(`Đã thêm ${product.name} vào giỏ hàng!`, { type: "success" });
     setShowSizeSelector(false);
     setSelectedSize(null); // Reset kích thước sau khi thêm vào giỏ hàng
-
-    const event = new CustomEvent("cart-updated", {
-      detail: { count: getCartItemCount() },
-    });
-    window.dispatchEvent(event);
   };
 
   return (
@@ -155,7 +150,11 @@ export default function ProductCard({
       </div>
 
       {showSizeSelector && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div
+          className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[80%] max-w-[90%] 
+    backdrop-blur-2xl bg-white/80 rounded-lg text-white text-center p-3
+    z-[50] transition-all duration-300 ease-in-out"
+        >
           <div className="bg-white p-6 rounded-lg max-w-sm w-full">
             <h3 className="text-lg font-bold mb-4">Chọn kích thước</h3>
 
