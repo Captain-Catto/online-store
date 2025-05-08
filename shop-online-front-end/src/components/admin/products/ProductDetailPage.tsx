@@ -14,6 +14,7 @@ import InventoryTab from "./ProductDetail/InventoryTab";
 import ImagesTab from "./ProductDetail/ImagesTab";
 import ConfirmModal from "@/components/admin/shared/ConfirmModal";
 import { colorToVietnamese } from "@/utils/colorUtils";
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 // Định nghĩa các kiểu dữ liệu
 interface ProductDetail {
@@ -89,12 +90,6 @@ export interface FormattedProduct {
     images: Array<{ id: number; url: string; isMain: boolean }>;
   }>;
   categories: Array<{ id: number; name: string }>;
-}
-
-interface BreadcrumbItem {
-  label: string;
-  href?: string;
-  active?: boolean;
 }
 
 interface NewImage {
@@ -1098,74 +1093,108 @@ const ProductDetailPage: FC = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <AdminLayout title="Đang tải...">
-        <div className="content-header">
-          <div className="container-fluid">
-            <div className="row mb-2">
-              <div className="col-sm-6">
-                <h1 className="m-0">Chi tiết sản phẩm</h1>
-              </div>
-              <div className="col-sm-6">
-                <Breadcrumb
-                  items={[
-                    { label: "Trang chủ", href: "/admin" },
-                    { label: "Sản phẩm", href: "/admin/products" },
-                    { label: "Đang tải...", active: true },
-                  ]}
-                />
-              </div>
+  return (
+    <AdminLayout
+      title={
+        product ? `Chi tiết sản phẩm ${product.name}` : "Chi tiết sản phẩm"
+      }
+    >
+      <div className="content-header">
+        <div className="container-fluid">
+          <div className="row mb-2">
+            <div className="col-sm-6">
+              <h1 className="m-0">Chi tiết sản phẩm</h1>
+            </div>
+            <div className="col-sm-6">
+              <Breadcrumb
+                items={[
+                  { label: "Trang chủ", href: "/admin" },
+                  { label: "Sản phẩm", href: "/admin/products" },
+                  {
+                    label: product
+                      ? product.name
+                      : loading
+                      ? "Đang tải..."
+                      : "Chi tiết sản phẩm",
+                    active: true,
+                  },
+                ]}
+              />
             </div>
           </div>
         </div>
-        <section className="content">
-          <div className="container-fluid">
+      </div>
+
+      <section className="content">
+        <div className="container-fluid">
+          <div className="mb-3">
+            <Link href="/admin/products" className="btn btn-secondary mr-2">
+              <i className="fas fa-arrow-left mr-1" /> Quay lại
+            </Link>
+            {!loading && !error && product && (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-danger mr-2"
+                  onClick={() => {
+                    setProductToDelete(product);
+                    setShowDeleteModal(true);
+                  }}
+                >
+                  <i className="fas fa-trash mr-1" /> Xóa
+                </button>
+                {isEditing ? (
+                  <>
+                    <button
+                      className="btn btn-success mr-2"
+                      onClick={handleSaveProduct}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <i className="fas fa-spinner fa-spin mr-1" />
+                          Đang lưu...
+                        </>
+                      ) : (
+                        <>
+                          <i className="fas fa-save mr-1" />
+                          Lưu thay đổi
+                        </>
+                      )}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => setIsEditing(false)}
+                      disabled={isSubmitting}
+                    >
+                      <i className="fas fa-times mr-1" /> Hủy
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => setIsEditing(true)}
+                  >
+                    <i className="fas fa-edit mr-1" /> Chỉnh sửa sản phẩm
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+
+          {loading ? (
             <div className="card">
               <div
                 className="card-body d-flex justify-content-center align-items-center"
-                style={{ minHeight: "300px" }}
+                style={{ minHeight: "400px" }}
               >
-                <div className="text-center">
-                  <div
-                    className="spinner-border text-primary mb-3"
-                    role="status"
-                  >
-                    <span className="sr-only">Đang tải...</span>
-                  </div>
-                  <p className="mb-0">Đang tải thông tin sản phẩm...</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      </AdminLayout>
-    );
-  }
-
-  if (error) {
-    return (
-      <AdminLayout title="Lỗi">
-        <div className="content-header">
-          <div className="container-fluid">
-            <div className="row mb-2">
-              <div className="col-sm-6">
-                <h1 className="m-0">Chi tiết sản phẩm</h1>
-              </div>
-              <div className="col-sm-6">
-                <Breadcrumb
-                  items={[
-                    { label: "Trang chủ", href: "/admin" },
-                    { label: "Sản phẩm", href: "/admin/products" },
-                    { label: "Lỗi", active: true },
-                  ]}
+                <LoadingSpinner
+                  size="lg"
+                  text="Đang tải thông tin sản phẩm..."
                 />
               </div>
             </div>
-          </div>
-        </div>
-        <section className="content">
-          <div className="container-fluid">
+          ) : error ? (
             <div className="card">
               <div
                 className="card-body text-center"
@@ -1185,35 +1214,7 @@ const ProductDetailPage: FC = () => {
                 </button>
               </div>
             </div>
-          </div>
-        </section>
-      </AdminLayout>
-    );
-  }
-
-  if (!product) {
-    return (
-      <AdminLayout title="Không tìm thấy sản phẩm">
-        <div className="content-header">
-          <div className="container-fluid">
-            <div className="row mb-2">
-              <div className="col-sm-6">
-                <h1 className="m-0">Chi tiết sản phẩm</h1>
-              </div>
-              <div className="col-sm-6">
-                <Breadcrumb
-                  items={[
-                    { label: "Trang chủ", href: "/admin" },
-                    { label: "Sản phẩm", href: "/admin/products" },
-                    { label: "Không tìm thấy", active: true },
-                  ]}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-        <section className="content">
-          <div className="container-fluid">
+          ) : !product ? (
             <div className="card">
               <div
                 className="card-body text-center"
@@ -1233,847 +1234,800 @@ const ProductDetailPage: FC = () => {
                 </button>
               </div>
             </div>
-          </div>
-        </section>
-      </AdminLayout>
-    );
-  }
-
-  const breadcrumbItems: BreadcrumbItem[] = [
-    { label: "Trang chủ", href: "/admin" },
-    { label: "Sản phẩm", href: "/admin/products" },
-    { label: product.name || "Chi tiết sản phẩm", active: true },
-  ];
-
-  return (
-    <AdminLayout title={`Chi tiết sản phẩm ${product.name}`}>
-      <div className="content-header">
-        <div className="container-fluid">
-          <div className="row mb-2">
-            <div className="col-sm-6">
-              <h1 className="m-0">Chi tiết sản phẩm</h1>
-            </div>
-            <div className="col-sm-6">
-              <Breadcrumb items={breadcrumbItems} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <section className="content">
-        <div className="container-fluid">
-          <div className="mb-3">
-            <Link href="/admin/products" className="btn btn-secondary mr-2">
-              <i className="fas fa-arrow-left mr-1" /> Quay lại
-            </Link>
-            <button
-              type="button"
-              className="btn btn-danger mr-2"
-              onClick={() => {
-                setProductToDelete(product);
-                setShowDeleteModal(true);
-              }}
-            >
-              <i className="fas fa-trash mr-1" /> Xóa
-            </button>
-            {isEditing ? (
-              <>
-                <button
-                  className="btn btn-success mr-2"
-                  onClick={handleSaveProduct}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <i className="fas fa-spinner fa-spin mr-1" />
-                      Đang lưu...
-                    </>
-                  ) : (
-                    <>
-                      <i className="fas fa-save mr-1" />
-                      Lưu thay đổi
-                    </>
-                  )}
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => setIsEditing(false)}
-                  disabled={isSubmitting}
-                >
-                  <i className="fas fa-times mr-1" /> Hủy
-                </button>
-              </>
-            ) : (
-              <button
-                className="btn btn-primary"
-                onClick={() => setIsEditing(true)}
-              >
-                <i className="fas fa-edit mr-1" /> Chỉnh sửa sản phẩm
-              </button>
-            )}
-          </div>
-
-          <div className="card">
-            <div className="card-header">
-              <h3 className="card-title">Thông tin cơ bản</h3>
-            </div>
-            <div className="card-body">
-              {isEditing ? (
-                <BasicInfoForm
-                  product={product}
-                  setProduct={setProduct}
-                  categoryList={categoryList}
-                  subtypes={subtypes}
-                  categoryLoading={categoryLoading}
-                  subtypeLoading={subtypeLoading}
-                />
-              ) : (
-                <>
-                  <div className="row">
-                    <div className="col-md-6">
-                      <div className="form-group">
-                        <label>Tên sản phẩm</label>
-                        <p>{product.name}</p>
-                      </div>
-                      <div className="form-group">
-                        <label>Mã SKU</label>
-                        <p>{product.sku}</p>
-                      </div>
-                      <div className="form-group">
-                        <label>Danh mục</label>
-                        <p>{product.categoryName}</p>
-                      </div>
-                      <div className="form-group">
-                        <label>Loại sản phẩm</label>
-                        <p>{product.subtypeName || "Không có"}</p>
-                      </div>
-                      <div className="form-group">
-                        <label>Thương hiệu</label>
-                        <p>{product.brand || "Không có"}</p>
-                      </div>
-                    </div>
-                    <div className="col-md-6">
-                      <div className="form-group">
-                        <label>Giá bán</label>
-                        <p>{product.price.toLocaleString("vi-VN")}đ</p>
-                      </div>
-                      <div className="form-group">
-                        <label>Giá gốc</label>
-                        <p>{product.originalPrice.toLocaleString("vi-VN")}đ</p>
-                      </div>
-                      <div className="form-group">
-                        <label>Trạng thái</label>
-                        <p>
-                          <span className={`badge ${product.statusClass}`}>
-                            {product.statusLabel}
-                          </span>
-                        </p>
-                      </div>
-                      <div className="form-group">
-                        <label>Chất liệu</label>
-                        <p>{product.material || "Không có"}</p>
-                      </div>
-                      <div className="form-group">
-                        <label>Sản phẩm nổi bật</label>
-                        <p>
-                          <span
-                            className={`badge ${
-                              product.featured
-                                ? "badge-success"
-                                : "badge-secondary"
-                            }`}
-                          >
-                            {product.featured ? "Có" : "Không"}
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <label>Mô tả sản phẩm</label>
-                    <p>{product.description || "Chưa có mô tả"}</p>
-                  </div>
-                  <div className="row">
-                    <div className="col-md-6 form-group">
-                      <label>Màu sắc</label>
-                      <div>
-                        {product.colors.map((color, index) => (
-                          <div
-                            key={index}
-                            className="d-inline-flex align-items-center mr-2 mb-2"
-                          >
-                            <div
-                              className="mr-1"
-                              style={{
-                                backgroundColor: color.toLowerCase(),
-                                width: "20px",
-                                height: "20px",
-                                border: "1px solid #ddd",
-                                display: "inline-block",
-                              }}
-                            />
-                            <span className="badge badge-primary">
-                              {colorToVietnamese[color] || color}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="col-md-6 form-group">
-                      <label>Kích thước</label>
-                      <div>
-                        {product.sizes.map((size, index) => (
-                          <span key={index} className="badge badge-info mr-1">
-                            {size}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <label>Tags</label>
-                    <div>
-                      {product.tags.length > 0 ? (
-                        product.tags.map((tag, index) => (
-                          <span
-                            key={index}
-                            className="badge badge-secondary mr-1"
-                          >
-                            {tag}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-muted">Chưa có tag</span>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className="card card-primary card-outline card-tabs">
-            <div className="card-header p-0 pt-1 border-bottom-0">
-              <ul className="nav nav-tabs" role="tablist">
-                <li className="nav-item">
-                  <a
-                    className={`nav-link ${
-                      activeTab === "info" ? "active" : ""
-                    }`}
-                    onClick={() => setActiveTab("info")}
-                    href="#info-tab"
-                    role="tab"
-                    aria-controls="info-tab"
-                    aria-selected={activeTab === "info"}
-                  >
-                    <i className="fas fa-info-circle mr-1" />
-                    Chi tiết
-                  </a>
-                </li>
-                <li className="nav-item">
-                  <a
-                    className={`nav-link ${
-                      activeTab === "variants" ? "active" : ""
-                    }`}
-                    onClick={() => setActiveTab("variants")}
-                    href="#variants-tab"
-                    role="tab"
-                    aria-controls="variants-tab"
-                    aria-selected={activeTab === "variants"}
-                  >
-                    <i className="fas fa-cubes mr-1" />
-                    Biến thể
-                  </a>
-                </li>
-                <li className="nav-item">
-                  <a
-                    className={`nav-link ${
-                      activeTab === "inventory" ? "active" : ""
-                    }`}
-                    onClick={() => setActiveTab("inventory")}
-                    href="#inventory-tab"
-                    role="tab"
-                    aria-controls="inventory-tab"
-                    aria-selected={activeTab === "inventory"}
-                  >
-                    <i className="fas fa-box mr-1" />
-                    Tồn kho
-                  </a>
-                </li>
-                <li className="nav-item">
-                  <a
-                    className={`nav-link ${
-                      activeTab === "images" ? "active" : ""
-                    }`}
-                    onClick={() => setActiveTab("images")}
-                    href="#images-tab"
-                    role="tab"
-                    aria-controls="images-tab"
-                    aria-selected={activeTab === "images"}
-                  >
-                    <i className="fas fa-images mr-1" />
-                    Hình ảnh
-                  </a>
-                </li>
-                <li className="nav-item">
-                  <a
-                    className={`nav-link ${
-                      activeTab === "history" ? "active" : ""
-                    }`}
-                    onClick={() => setActiveTab("history")}
-                    href="#history-tab"
-                    role="tab"
-                    aria-controls="history-tab"
-                    aria-selected={activeTab === "history"}
-                  >
-                    <i className="fas fa-history mr-1" />
-                    Lịch sử
-                  </a>
-                </li>
-              </ul>
-            </div>
-            <div className="card-body">
-              <div className="tab-content">
-                <div
-                  className={`tab-pane ${activeTab === "info" ? "active" : ""}`}
-                  id="info-tab"
-                  role="tabpanel"
-                >
+          ) : (
+            <>
+              <div className="card">
+                <div className="card-header">
+                  <h3 className="card-title">Thông tin cơ bản</h3>
+                </div>
+                <div className="card-body">
                   {isEditing ? (
-                    <AttributesTab
+                    <BasicInfoForm
                       product={product}
                       setProduct={setProduct}
-                      suitabilities={suitabilities}
-                      suitabilityLoading={suitabilityLoading}
-                      availableColors={availableColors}
-                      availableSizes={availableSizes}
-                      tagInput={tagInput}
-                      setTagInput={setTagInput}
+                      categoryList={categoryList}
+                      subtypes={subtypes}
+                      categoryLoading={categoryLoading}
+                      subtypeLoading={subtypeLoading}
                     />
                   ) : (
-                    <div className="card card-body mb-3">
-                      <div className="row mt-4">
+                    <>
+                      <div className="row">
                         <div className="col-md-6">
                           <div className="form-group">
-                            <label className="font-weight-bold">
-                              <i className="fas fa-palette mr-1" /> Màu sắc
-                            </label>
-                            <div className="d-flex flex-wrap">
-                              {product.colors.length > 0 ? (
-                                product.colors.map((color, index) => (
-                                  <div
-                                    key={index}
-                                    className="d-inline-flex align-items-center mr-2 mb-2 bg-white p-1 rounded border"
-                                  >
-                                    <div
-                                      className="mr-1"
-                                      style={{
-                                        backgroundColor: color.toLowerCase(),
-                                        width: "20px",
-                                        height: "20px",
-                                        borderRadius: "3px",
-                                        border: "1px solid #ddd",
-                                        display: "inline-block",
-                                      }}
-                                    />
-                                    <span className="badge badge-light">
-                                      {colorToVietnamese[color] || color}
-                                    </span>
-                                  </div>
-                                ))
-                              ) : (
-                                <span className="text-muted">
-                                  Chưa có màu sắc
-                                </span>
-                              )}
-                            </div>
+                            <label>Tên sản phẩm</label>
+                            <p>{product.name}</p>
+                          </div>
+                          <div className="form-group">
+                            <label>Mã SKU</label>
+                            <p>{product.sku}</p>
+                          </div>
+                          <div className="form-group">
+                            <label>Danh mục</label>
+                            <p>{product.categoryName}</p>
+                          </div>
+                          <div className="form-group">
+                            <label>Loại sản phẩm</label>
+                            <p>{product.subtypeName || "Không có"}</p>
+                          </div>
+                          <div className="form-group">
+                            <label>Thương hiệu</label>
+                            <p>{product.brand || "Không có"}</p>
                           </div>
                         </div>
                         <div className="col-md-6">
                           <div className="form-group">
-                            <label className="font-weight-bold">
-                              <i className="fas fa-ruler mr-1" /> Kích thước
-                            </label>
-                            <div>
-                              {product.sizes.length > 0 ? (
-                                product.sizes.map((size, index) => (
-                                  <span
-                                    key={index}
-                                    className="badge badge-info mr-2 mb-2 p-2"
-                                    style={{ fontSize: "90%" }}
-                                  >
-                                    {size}
-                                  </span>
-                                ))
-                              ) : (
-                                <span className="text-muted">
-                                  Chưa có kích thước
-                                </span>
-                              )}
-                            </div>
+                            <label>Giá bán</label>
+                            <p>{product.price.toLocaleString("vi-VN")}đ</p>
+                          </div>
+                          <div className="form-group">
+                            <label>Giá gốc</label>
+                            <p>
+                              {product.originalPrice.toLocaleString("vi-VN")}đ
+                            </p>
+                          </div>
+                          <div className="form-group">
+                            <label>Trạng thái</label>
+                            <p>
+                              <span className={`badge ${product.statusClass}`}>
+                                {product.statusLabel}
+                              </span>
+                            </p>
+                          </div>
+                          <div className="form-group">
+                            <label>Chất liệu</label>
+                            <p>{product.material || "Không có"}</p>
+                          </div>
+                          <div className="form-group">
+                            <label>Sản phẩm nổi bật</label>
+                            <p>
+                              <span
+                                className={`badge ${
+                                  product.featured
+                                    ? "badge-success"
+                                    : "badge-secondary"
+                                }`}
+                              >
+                                {product.featured ? "Có" : "Không"}
+                              </span>
+                            </p>
                           </div>
                         </div>
                       </div>
-                      <div className="row mt-4">
-                        <div className="col-md-6">
-                          <div className="form-group">
-                            <label className="font-weight-bold">
-                              <i className="fas fa-check-circle mr-1" /> Phù hợp
-                              cho
-                            </label>
-                            <div>
-                              {product.suitability.length > 0 ? (
-                                product.suitability.map((item, index) => (
-                                  <span
-                                    key={index}
-                                    className="badge badge-info mr-2 mb-2 p-2"
-                                    style={{ fontSize: "90%" }}
-                                  >
-                                    <i className="fas fa-tag mr-1" /> {item}
-                                  </span>
-                                ))
-                              ) : (
-                                <span className="text-muted">
-                                  Chưa có thông tin phù hợp
+                      <div className="form-group">
+                        <label>Mô tả sản phẩm</label>
+                        <p>{product.description || "Chưa có mô tả"}</p>
+                      </div>
+                      <div className="row">
+                        <div className="col-md-6 form-group">
+                          <label>Màu sắc</label>
+                          <div>
+                            {product.colors.map((color, index) => (
+                              <div
+                                key={index}
+                                className="d-inline-flex align-items-center mr-2 mb-2"
+                              >
+                                <div
+                                  className="mr-1"
+                                  style={{
+                                    backgroundColor: color.toLowerCase(),
+                                    width: "20px",
+                                    height: "20px",
+                                    border: "1px solid #ddd",
+                                    display: "inline-block",
+                                  }}
+                                />
+                                <span className="badge badge-primary">
+                                  {colorToVietnamese[color] || color}
                                 </span>
-                              )}
-                            </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
-                        <div className="col-md-6">
-                          <div className="form-group">
-                            <label className="font-weight-bold">
-                              <i className="fas fa-tags mr-1" /> Tags
-                            </label>
-                            <div>
-                              {product.tags.length > 0 ? (
-                                product.tags.map((tag, index) => (
-                                  <span
-                                    key={index}
-                                    className="badge badge-secondary mr-2 mb-2 p-2"
-                                    style={{ fontSize: "90%" }}
-                                  >
-                                    {tag}
-                                  </span>
-                                ))
-                              ) : (
-                                <span className="text-muted">Chưa có tag</span>
-                              )}
-                            </div>
+                        <div className="col-md-6 form-group">
+                          <label>Kích thước</label>
+                          <div>
+                            {product.sizes.map((size, index) => (
+                              <span
+                                key={index}
+                                className="badge badge-info mr-1"
+                              >
+                                {size}
+                              </span>
+                            ))}
                           </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-
-                <div
-                  className={`tab-pane ${
-                    activeTab === "variants" ? "active" : ""
-                  }`}
-                  id="variants-tab"
-                  role="tabpanel"
-                >
-                  {isEditing ? (
-                    <div className="table-responsive">
-                      <table className="table table-bordered">
-                        <thead>
-                          <tr>
-                            <th>Màu sắc</th>
-                            <th>Giá bán</th>
-                            <th>Giá gốc</th>
-                            <th>Kích thước</th>
-                            <th>Thao tác</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {productVariants.map((variant, index) => (
-                            <tr key={index}>
-                              <td>
-                                <input
-                                  type="text"
-                                  className="form-control"
-                                  value={variant.color}
-                                  onChange={(e) =>
-                                    handleVariantChange(
-                                      index,
-                                      "color",
-                                      e.target.value
-                                    )
-                                  }
-                                />
-                              </td>
-                              <td>
-                                <input
-                                  type="number"
-                                  className="form-control"
-                                  value={variant.price}
-                                  onChange={(e) =>
-                                    handleVariantChange(
-                                      index,
-                                      "price",
-                                      parseInt(e.target.value)
-                                    )
-                                  }
-                                />
-                              </td>
-                              <td>
-                                <input
-                                  type="number"
-                                  className="form-control"
-                                  value={variant.originalPrice}
-                                  onChange={(e) =>
-                                    handleVariantChange(
-                                      index,
-                                      "originalPrice",
-                                      parseInt(e.target.value)
-                                    )
-                                  }
-                                />
-                              </td>
-                              <td>
-                                <div className="variant-sizes">
-                                  {variant.sizes.map((sizeItem, sizeIndex) => (
-                                    <div
-                                      key={sizeIndex}
-                                      className="size-item d-flex mb-2"
-                                    >
-                                      <select
-                                        className="form-control mr-2"
-                                        value={sizeItem.size}
-                                        onChange={(e) =>
-                                          handleSizeChange(
-                                            index,
-                                            sizeIndex,
-                                            "size",
-                                            e.target.value
-                                          )
-                                        }
-                                      >
-                                        {availableSizes.map((size) => (
-                                          <option
-                                            key={size.value}
-                                            value={size.value}
-                                          >
-                                            {size.label}
-                                          </option>
-                                        ))}
-                                      </select>
-                                      <input
-                                        type="number"
-                                        className="form-control"
-                                        value={sizeItem.stock}
-                                        onChange={(e) =>
-                                          handleSizeChange(
-                                            index,
-                                            sizeIndex,
-                                            "stock",
-                                            parseInt(e.target.value)
-                                          )
-                                        }
-                                        placeholder="Tồn kho"
-                                      />
-                                      <button
-                                        className="btn btn-danger ml-2"
-                                        onClick={() =>
-                                          removeSize(index, sizeIndex)
-                                        }
-                                      >
-                                        <i className="fas fa-times" />
-                                      </button>
-                                    </div>
-                                  ))}
-                                  <button
-                                    className="btn btn-sm btn-info mt-2"
-                                    onClick={() => addSize(index)}
-                                  >
-                                    <i className="fas fa-plus mr-1" /> Thêm kích
-                                    thước
-                                  </button>
-                                </div>
-                              </td>
-                              <td>
-                                <button
-                                  className="btn btn-sm btn-danger"
-                                  onClick={() =>
-                                    handleVariantDeleteRequest(index)
-                                  }
-                                >
-                                  <i className="fas fa-trash" /> Xóa
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                          <tr>
-                            <td colSpan={2}>
-                              <button
-                                className="btn btn-success"
-                                onClick={addVariant}
+                      <div className="form-group">
+                        <label>Tags</label>
+                        <div>
+                          {product.tags.length > 0 ? (
+                            product.tags.map((tag, index) => (
+                              <span
+                                key={index}
+                                className="badge badge-secondary mr-1"
                               >
-                                <i className="fas fa-plus mr-1" /> Thêm biến thể
-                                mới
-                              </button>
-                            </td>
-                            <td colSpan={2}>
-                              <button
-                                className="btn btn-primary"
-                                onClick={handleVariantsUpdate}
-                                disabled={isSubmitting}
-                              >
-                                Lưu biến thể
-                              </button>
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="table-responsive">
-                      <table className="table table-bordered">
-                        <thead>
-                          <tr>
-                            <th>Màu sắc</th>
-                            <th>Giá bán</th>
-                            <th>Giá gốc</th>
-                            <th>Kích thước</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {productVariants.map((variant, index) => (
-                            <tr key={index}>
-                              <td>{variant.color}</td>
-                              <td>{variant.price.toLocaleString("vi-VN")}đ</td>
-                              <td>
-                                {variant.originalPrice.toLocaleString("vi-VN")}đ
-                              </td>
-                              <td>
-                                {variant.sizes.map((sizeItem, sizeIndex) => (
-                                  <div key={sizeIndex}>
-                                    {sizeItem.size}: {sizeItem.stock}
-                                  </div>
-                                ))}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-
-                <div
-                  className={`tab-pane ${
-                    activeTab === "inventory" ? "active" : ""
-                  }`}
-                  id="inventory-tab"
-                  role="tabpanel"
-                >
-                  {isEditing ? (
-                    <InventoryTab
-                      product={product}
-                      setProduct={setProduct}
-                      availableColors={availableColors}
-                      newVariant={{
-                        color: product.colors[0] || "",
-                        size: product.sizes[0] || "",
-                        stock: 0,
-                      }}
-                      setNewVariant={() => {}}
-                    />
-                  ) : (
-                    <div className="table-responsive">
-                      <table className="table table-bordered">
-                        <thead>
-                          <tr>
-                            <th>Màu sắc</th>
-                            <th>Kích thước</th>
-                            <th>Số lượng tồn</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {product.stock.variants.map((variant, index) => (
-                            <tr key={index}>
-                              <td>
-                                <div className="d-flex align-items-center">
-                                  <div
-                                    className="mr-2"
-                                    style={{
-                                      backgroundColor:
-                                        variant.color.toLowerCase(),
-                                      width: "20px",
-                                      height: "20px",
-                                      border: "1px solid #ddd",
-                                      display: "inline-block",
-                                    }}
-                                  />
-                                  {variant.color}
-                                </div>
-                              </td>
-                              <td>{variant.size}</td>
-                              <td>
-                                <span
-                                  className={
-                                    variant.stock <= 5
-                                      ? "text-danger font-weight-bold"
-                                      : ""
-                                  }
-                                >
-                                  {variant.stock}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr>
-                            <th colSpan={2}>Tổng số lượng tồn kho:</th>
-                            <th>{product.stock.total}</th>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-                  )}
-                </div>
-
-                <div
-                  className={`tab-pane ${
-                    activeTab === "images" ? "active" : ""
-                  }`}
-                  id="images-tab"
-                  role="tabpanel"
-                >
-                  {isEditing ? (
-                    <ImagesTab
-                      productColors={product.colors}
-                      selectedColor={selectedImageColor}
-                      setSelectedColor={setSelectedImageColor}
-                      colorImages={Object.fromEntries(
-                        product.colors.map((color) => [
-                          color,
-                          product.images.filter((img) => img.color === color),
-                        ])
-                      )}
-                      setColorImages={(updatedImages) => {
-                        const allImages: ProductImage[] =
-                          Object.values(updatedImages).flat();
-                        setProduct((prev) =>
-                          prev ? { ...prev, images: allImages } : prev
-                        );
-                      }}
-                      availableColors={availableColors}
-                      handleImageChange={(e) => {
-                        e.preventDefault();
-                        const files = e.target.files;
-                        if (!files || files.length === 0 || !product) return;
-
-                        if (!product.colors.includes(selectedImageColor)) {
-                          showToast("Vui lòng chọn màu hợp lệ", {
-                            type: "error",
-                          });
-                          return;
-                        }
-
-                        const currentImagesForColor = product.images.filter(
-                          (img) => img.color === selectedImageColor
-                        );
-                        const remainingSlots =
-                          10 - currentImagesForColor.length;
-
-                        if (remainingSlots <= 0) {
-                          showToast(
-                            "Mỗi màu chỉ được phép tải lên tối đa 10 hình ảnh",
-                            { type: "warning" }
-                          );
-                          return;
-                        }
-
-                        const selectedFiles = Array.from(files).slice(
-                          0,
-                          remainingSlots
-                        );
-                        const hasMainImage = currentImagesForColor.some(
-                          (img) => img.isMain
-                        );
-
-                        const newUploadedImages = selectedFiles.map(
-                          (file, index) => ({
-                            file,
-                            color: selectedImageColor,
-                            isMain: !hasMainImage && index === 0,
-                          })
-                        );
-
-                        setNewImages((prev) => [...prev, ...newUploadedImages]);
-
-                        const imageURLs = selectedFiles.map((file, index) => ({
-                          id: `new-${Date.now()}-${Math.random()
-                            .toString(36)
-                            .substring(2, 9)}`,
-                          url: URL.createObjectURL(file),
-                          color: selectedImageColor,
-                          isMain: !hasMainImage && index === 0,
-                        }));
-
-                        setProduct((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                images: [...prev.images, ...imageURLs],
-                              }
-                            : prev
-                        );
-                        e.target.value = "";
-                      }}
-                      handleSetMainImage={handleSetMainImage}
-                      handleRemoveImage={handleImageDeleteRequest}
-                    />
-                  ) : (
-                    <ImagesTab
-                      productColors={product.colors}
-                      selectedColor={selectedImageColor}
-                      setSelectedColor={setSelectedImageColor}
-                      colorImages={Object.fromEntries(
-                        product.colors.map((color) => [
-                          color,
-                          product.images.filter((img) => img.color === color),
-                        ])
-                      )}
-                      setColorImages={() => {}}
-                      availableColors={availableColors}
-                      handleImageChange={() => {}}
-                      handleSetMainImage={() => {}}
-                      handleRemoveImage={() => {}}
-                      viewMode
-                    />
-                  )}
-                </div>
-
-                <div
-                  className={`tab-pane ${
-                    activeTab === "history" ? "active" : ""
-                  }`}
-                  id="history-tab"
-                  role="tabpanel"
-                >
-                  <ul className="timeline-inverse">
-                    {product.modificationHistory.map((item, index) => (
-                      <li key={index}>
-                        <div className="timeline-item">
-                          <span className="time">
-                            <i className="fas fa-clock" /> {item.date}
-                          </span>
-                          <h3 className="timeline-header">
-                            <a href="#">{item.user}</a> - {item.action}
-                          </h3>
-                          <div className="timeline-body">{item.detail}</div>
+                                {tag}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-muted">Chưa có tag</span>
+                          )}
                         </div>
-                      </li>
-                    ))}
-                  </ul>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
-            </div>
-          </div>
+
+              <div className="card card-primary card-outline card-tabs">
+                <div className="card-header p-0 pt-1 border-bottom-0">
+                  <ul className="nav nav-tabs" role="tablist">
+                    <li className="nav-item">
+                      <a
+                        className={`nav-link ${
+                          activeTab === "info" ? "active" : ""
+                        }`}
+                        onClick={() => setActiveTab("info")}
+                        href="#info-tab"
+                        role="tab"
+                        aria-controls="info-tab"
+                        aria-selected={activeTab === "info"}
+                      >
+                        <i className="fas fa-info-circle mr-1" />
+                        Chi tiết
+                      </a>
+                    </li>
+                    <li className="nav-item">
+                      <a
+                        className={`nav-link ${
+                          activeTab === "variants" ? "active" : ""
+                        }`}
+                        onClick={() => setActiveTab("variants")}
+                        href="#variants-tab"
+                        role="tab"
+                        aria-controls="variants-tab"
+                        aria-selected={activeTab === "variants"}
+                      >
+                        <i className="fas fa-cubes mr-1" />
+                        Biến thể
+                      </a>
+                    </li>
+                    <li className="nav-item">
+                      <a
+                        className={`nav-link ${
+                          activeTab === "inventory" ? "active" : ""
+                        }`}
+                        onClick={() => setActiveTab("inventory")}
+                        href="#inventory-tab"
+                        role="tab"
+                        aria-controls="inventory-tab"
+                        aria-selected={activeTab === "inventory"}
+                      >
+                        <i className="fas fa-box mr-1" />
+                        Tồn kho
+                      </a>
+                    </li>
+                    <li className="nav-item">
+                      <a
+                        className={`nav-link ${
+                          activeTab === "images" ? "active" : ""
+                        }`}
+                        onClick={() => setActiveTab("images")}
+                        href="#images-tab"
+                        role="tab"
+                        aria-controls="images-tab"
+                        aria-selected={activeTab === "images"}
+                      >
+                        <i className="fas fa-images mr-1" />
+                        Hình ảnh
+                      </a>
+                    </li>
+                    <li className="nav-item">
+                      <a
+                        className={`nav-link ${
+                          activeTab === "history" ? "active" : ""
+                        }`}
+                        onClick={() => setActiveTab("history")}
+                        href="#history-tab"
+                        role="tab"
+                        aria-controls="history-tab"
+                        aria-selected={activeTab === "history"}
+                      >
+                        <i className="fas fa-history mr-1" />
+                        Lịch sử
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+                <div className="card-body">
+                  <div className="tab-content">
+                    <div
+                      className={`tab-pane ${
+                        activeTab === "info" ? "active" : ""
+                      }`}
+                      id="info-tab"
+                      role="tabpanel"
+                    >
+                      {isEditing ? (
+                        <AttributesTab
+                          product={product}
+                          setProduct={setProduct}
+                          suitabilities={suitabilities}
+                          suitabilityLoading={suitabilityLoading}
+                          availableColors={availableColors}
+                          availableSizes={availableSizes}
+                          tagInput={tagInput}
+                          setTagInput={setTagInput}
+                        />
+                      ) : (
+                        <div className="card card-body mb-3">
+                          <div className="row mt-4">
+                            <div className="col-md-6">
+                              <div className="form-group">
+                                <label className="font-weight-bold">
+                                  <i className="fas fa-palette mr-1" /> Màu sắc
+                                </label>
+                                <div className="d-flex flex-wrap">
+                                  {product.colors.length > 0 ? (
+                                    product.colors.map((color, index) => (
+                                      <div
+                                        key={index}
+                                        className="d-inline-flex align-items-center mr-2 mb-2 bg-white p-1 rounded border"
+                                      >
+                                        <div
+                                          className="mr-1"
+                                          style={{
+                                            backgroundColor:
+                                              color.toLowerCase(),
+                                            width: "20px",
+                                            height: "20px",
+                                            borderRadius: "3px",
+                                            border: "1px solid #ddd",
+                                            display: "inline-block",
+                                          }}
+                                        />
+                                        <span className="badge badge-light">
+                                          {colorToVietnamese[color] || color}
+                                        </span>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <span className="text-muted">
+                                      Chưa có màu sắc
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="col-md-6">
+                              <div className="form-group">
+                                <label className="font-weight-bold">
+                                  <i className="fas fa-ruler mr-1" /> Kích thước
+                                </label>
+                                <div>
+                                  {product.sizes.length > 0 ? (
+                                    product.sizes.map((size, index) => (
+                                      <span
+                                        key={index}
+                                        className="badge badge-info mr-2 mb-2 p-2"
+                                        style={{ fontSize: "90%" }}
+                                      >
+                                        {size}
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span className="text-muted">
+                                      Chưa có kích thước
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="row mt-4">
+                            <div className="col-md-6">
+                              <div className="form-group">
+                                <label className="font-weight-bold">
+                                  <i className="fas fa-check-circle mr-1" /> Phù
+                                  hợp cho
+                                </label>
+                                <div>
+                                  {product.suitability.length > 0 ? (
+                                    product.suitability.map((item, index) => (
+                                      <span
+                                        key={index}
+                                        className="badge badge-info mr-2 mb-2 p-2"
+                                        style={{ fontSize: "90%" }}
+                                      >
+                                        <i className="fas fa-tag mr-1" /> {item}
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span className="text-muted">
+                                      Chưa có thông tin phù hợp
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="col-md-6">
+                              <div className="form-group">
+                                <label className="font-weight-bold">
+                                  <i className="fas fa-tags mr-1" /> Tags
+                                </label>
+                                <div>
+                                  {product.tags.length > 0 ? (
+                                    product.tags.map((tag, index) => (
+                                      <span
+                                        key={index}
+                                        className="badge badge-secondary mr-2 mb-2 p-2"
+                                        style={{ fontSize: "90%" }}
+                                      >
+                                        {tag}
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span className="text-muted">
+                                      Chưa có tag
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div
+                      className={`tab-pane ${
+                        activeTab === "variants" ? "active" : ""
+                      }`}
+                      id="variants-tab"
+                      role="tabpanel"
+                    >
+                      {isEditing ? (
+                        <div className="table-responsive">
+                          <table className="table table-bordered">
+                            <thead>
+                              <tr>
+                                <th>Màu sắc</th>
+                                <th>Giá bán</th>
+                                <th>Giá gốc</th>
+                                <th>Kích thước</th>
+                                <th>Thao tác</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {productVariants.map((variant, index) => (
+                                <tr key={index}>
+                                  <td>
+                                    <input
+                                      type="text"
+                                      className="form-control"
+                                      value={variant.color}
+                                      onChange={(e) =>
+                                        handleVariantChange(
+                                          index,
+                                          "color",
+                                          e.target.value
+                                        )
+                                      }
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      type="number"
+                                      className="form-control"
+                                      value={variant.price}
+                                      onChange={(e) =>
+                                        handleVariantChange(
+                                          index,
+                                          "price",
+                                          parseInt(e.target.value)
+                                        )
+                                      }
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      type="number"
+                                      className="form-control"
+                                      value={variant.originalPrice}
+                                      onChange={(e) =>
+                                        handleVariantChange(
+                                          index,
+                                          "originalPrice",
+                                          parseInt(e.target.value)
+                                        )
+                                      }
+                                    />
+                                  </td>
+                                  <td>
+                                    <div className="variant-sizes">
+                                      {variant.sizes.map(
+                                        (sizeItem, sizeIndex) => (
+                                          <div
+                                            key={sizeIndex}
+                                            className="size-item d-flex mb-2"
+                                          >
+                                            <select
+                                              className="form-control mr-2"
+                                              value={sizeItem.size}
+                                              onChange={(e) =>
+                                                handleSizeChange(
+                                                  index,
+                                                  sizeIndex,
+                                                  "size",
+                                                  e.target.value
+                                                )
+                                              }
+                                            >
+                                              {availableSizes.map((size) => (
+                                                <option
+                                                  key={size.value}
+                                                  value={size.value}
+                                                >
+                                                  {size.label}
+                                                </option>
+                                              ))}
+                                            </select>
+                                            <input
+                                              type="number"
+                                              className="form-control"
+                                              value={sizeItem.stock}
+                                              onChange={(e) =>
+                                                handleSizeChange(
+                                                  index,
+                                                  sizeIndex,
+                                                  "stock",
+                                                  parseInt(e.target.value)
+                                                )
+                                              }
+                                              placeholder="Tồn kho"
+                                            />
+                                            <button
+                                              className="btn btn-danger ml-2"
+                                              onClick={() =>
+                                                removeSize(index, sizeIndex)
+                                              }
+                                            >
+                                              <i className="fas fa-times" />
+                                            </button>
+                                          </div>
+                                        )
+                                      )}
+                                      <button
+                                        className="btn btn-sm btn-info mt-2"
+                                        onClick={() => addSize(index)}
+                                      >
+                                        <i className="fas fa-plus mr-1" /> Thêm
+                                        kích thước
+                                      </button>
+                                    </div>
+                                  </td>
+                                  <td>
+                                    <button
+                                      className="btn btn-sm btn-danger"
+                                      onClick={() =>
+                                        handleVariantDeleteRequest(index)
+                                      }
+                                    >
+                                      <i className="fas fa-trash" /> Xóa
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                              <tr>
+                                <td colSpan={2}>
+                                  <button
+                                    className="btn btn-success"
+                                    onClick={addVariant}
+                                  >
+                                    <i className="fas fa-plus mr-1" /> Thêm biến
+                                    thể mới
+                                  </button>
+                                </td>
+                                <td colSpan={2}>
+                                  <button
+                                    className="btn btn-primary"
+                                    onClick={handleVariantsUpdate}
+                                    disabled={isSubmitting}
+                                  >
+                                    Lưu biến thể
+                                  </button>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="table-responsive">
+                          <table className="table table-bordered">
+                            <thead>
+                              <tr>
+                                <th>Màu sắc</th>
+                                <th>Giá bán</th>
+                                <th>Giá gốc</th>
+                                <th>Kích thước</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {productVariants.map((variant, index) => (
+                                <tr key={index}>
+                                  <td>{variant.color}</td>
+                                  <td>
+                                    {variant.price.toLocaleString("vi-VN")}đ
+                                  </td>
+                                  <td>
+                                    {variant.originalPrice.toLocaleString(
+                                      "vi-VN"
+                                    )}
+                                    đ
+                                  </td>
+                                  <td>
+                                    {variant.sizes.map(
+                                      (sizeItem, sizeIndex) => (
+                                        <div key={sizeIndex}>
+                                          {sizeItem.size}: {sizeItem.stock}
+                                        </div>
+                                      )
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    <div
+                      className={`tab-pane ${
+                        activeTab === "inventory" ? "active" : ""
+                      }`}
+                      id="inventory-tab"
+                      role="tabpanel"
+                    >
+                      {isEditing ? (
+                        <InventoryTab
+                          product={product}
+                          setProduct={setProduct}
+                          availableColors={availableColors}
+                          newVariant={{
+                            color: product.colors[0] || "",
+                            size: product.sizes[0] || "",
+                            stock: 0,
+                          }}
+                          setNewVariant={() => {}}
+                        />
+                      ) : (
+                        <div className="table-responsive">
+                          <table className="table table-bordered">
+                            <thead>
+                              <tr>
+                                <th>Màu sắc</th>
+                                <th>Kích thước</th>
+                                <th>Số lượng tồn</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {product.stock.variants.map((variant, index) => (
+                                <tr key={index}>
+                                  <td>
+                                    <div className="d-flex align-items-center">
+                                      <div
+                                        className="mr-2"
+                                        style={{
+                                          backgroundColor:
+                                            variant.color.toLowerCase(),
+                                          width: "20px",
+                                          height: "20px",
+                                          border: "1px solid #ddd",
+                                          display: "inline-block",
+                                        }}
+                                      />
+                                      {variant.color}
+                                    </div>
+                                  </td>
+                                  <td>{variant.size}</td>
+                                  <td>
+                                    <span
+                                      className={
+                                        variant.stock <= 5
+                                          ? "text-danger font-weight-bold"
+                                          : ""
+                                      }
+                                    >
+                                      {variant.stock}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                            <tfoot>
+                              <tr>
+                                <th colSpan={2}>Tổng số lượng tồn kho:</th>
+                                <th>{product.stock.total}</th>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    <div
+                      className={`tab-pane ${
+                        activeTab === "images" ? "active" : ""
+                      }`}
+                      id="images-tab"
+                      role="tabpanel"
+                    >
+                      {isEditing ? (
+                        <ImagesTab
+                          productColors={product.colors}
+                          selectedColor={selectedImageColor}
+                          setSelectedColor={setSelectedImageColor}
+                          colorImages={Object.fromEntries(
+                            product.colors.map((color) => [
+                              color,
+                              product.images.filter(
+                                (img) => img.color === color
+                              ),
+                            ])
+                          )}
+                          setColorImages={(updatedImages) => {
+                            const allImages: ProductImage[] =
+                              Object.values(updatedImages).flat();
+                            setProduct((prev) =>
+                              prev ? { ...prev, images: allImages } : prev
+                            );
+                          }}
+                          availableColors={availableColors}
+                          handleImageChange={(e) => {
+                            e.preventDefault();
+                            const files = e.target.files;
+                            if (!files || files.length === 0 || !product)
+                              return;
+
+                            if (!product.colors.includes(selectedImageColor)) {
+                              showToast("Vui lòng chọn màu hợp lệ", {
+                                type: "error",
+                              });
+                              return;
+                            }
+
+                            const currentImagesForColor = product.images.filter(
+                              (img) => img.color === selectedImageColor
+                            );
+                            const remainingSlots =
+                              10 - currentImagesForColor.length;
+
+                            if (remainingSlots <= 0) {
+                              showToast(
+                                "Mỗi màu chỉ được phép tải lên tối đa 10 hình ảnh",
+                                { type: "warning" }
+                              );
+                              return;
+                            }
+
+                            const selectedFiles = Array.from(files).slice(
+                              0,
+                              remainingSlots
+                            );
+                            const hasMainImage = currentImagesForColor.some(
+                              (img) => img.isMain
+                            );
+
+                            const newUploadedImages = selectedFiles.map(
+                              (file, index) => ({
+                                file,
+                                color: selectedImageColor,
+                                isMain: !hasMainImage && index === 0,
+                              })
+                            );
+
+                            setNewImages((prev) => [
+                              ...prev,
+                              ...newUploadedImages,
+                            ]);
+
+                            const imageURLs = selectedFiles.map(
+                              (file, index) => ({
+                                id: `new-${Date.now()}-${Math.random()
+                                  .toString(36)
+                                  .substring(2, 9)}`,
+                                url: URL.createObjectURL(file),
+                                color: selectedImageColor,
+                                isMain: !hasMainImage && index === 0,
+                              })
+                            );
+
+                            setProduct((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    images: [...prev.images, ...imageURLs],
+                                  }
+                                : prev
+                            );
+                            e.target.value = "";
+                          }}
+                          handleSetMainImage={handleSetMainImage}
+                          handleRemoveImage={handleImageDeleteRequest}
+                        />
+                      ) : (
+                        <ImagesTab
+                          productColors={product.colors}
+                          selectedColor={selectedImageColor}
+                          setSelectedColor={setSelectedImageColor}
+                          colorImages={Object.fromEntries(
+                            product.colors.map((color) => [
+                              color,
+                              product.images.filter(
+                                (img) => img.color === color
+                              ),
+                            ])
+                          )}
+                          setColorImages={() => {}}
+                          availableColors={availableColors}
+                          handleImageChange={() => {}}
+                          handleSetMainImage={() => {}}
+                          handleRemoveImage={() => {}}
+                          viewMode
+                        />
+                      )}
+                    </div>
+
+                    <div
+                      className={`tab-pane ${
+                        activeTab === "history" ? "active" : ""
+                      }`}
+                      id="history-tab"
+                      role="tabpanel"
+                    >
+                      <ul className="timeline-inverse">
+                        {product.modificationHistory.map((item, index) => (
+                          <li key={index}>
+                            <div className="timeline-item">
+                              <span className="time">
+                                <i className="fas fa-clock" /> {item.date}
+                              </span>
+                              <h3 className="timeline-header">
+                                <a href="#">{item.user}</a> - {item.action}
+                              </h3>
+                              <div className="timeline-body">{item.detail}</div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </section>
 

@@ -62,8 +62,7 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
   const refreshNavigation = async () => {
     try {
       setLoading(true);
-      // Thêm tham số timestamp để bypass cache
-      const data = await NavigationService.getPublicMenu(`?_t=${Date.now()}`);
+      const data = await NavigationService.getPublicMenu();
       setMenuItems(data);
       setError(null);
     } catch (err) {

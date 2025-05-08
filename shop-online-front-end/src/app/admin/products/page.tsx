@@ -8,6 +8,8 @@ import Breadcrumb from "@/components/admin/shared/Breadcrumb";
 import { ProductService } from "@/services/ProductService";
 import { Product } from "@/types/product";
 import { useToast } from "@/utils/useToast";
+import { CategoryService } from "@/services/CategoryService";
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 export default function ProductsPage() {
   const [search, setSearchTerm] = useState("");
@@ -15,13 +17,13 @@ export default function ProductsPage() {
   const [status, setStatusFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [productToDelete, setProductToDelete] = useState<any>(null);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const { showToast, Toast } = useToast();
   const productsPerPage = 10;
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -29,12 +31,9 @@ export default function ProductsPage() {
     limit: 10,
   });
 
-  // Mock product categories
-  const categories = [
-    { value: "", label: "Tất cả danh mục" },
-    { value: "1", label: "Áo" },
-    { value: "2", label: "Quần" },
-  ];
+  const [categories, setCategories] = useState<
+    { value: string; label: string }[]
+  >([{ value: "", label: "Tất cả danh mục" }]);
 
   // Mock product statuses
   const statuses = [
@@ -84,10 +83,42 @@ export default function ProductsPage() {
     }
   }, [currentPage, productsPerPage, search, category, status]);
 
+  // lấy tất cả category
+  const fetchCategories = useCallback(async () => {
+    try {
+      const response = await CategoryService.getAllCategories();
+      // Tạo danh sách categories cho dropdown
+      const categoryOptions = [{ value: "", label: "Tất cả danh mục" }];
+
+      // Xử lý danh mục cha
+      response.forEach((parentCat) => {
+        categoryOptions.push({
+          value: parentCat.id.toString(),
+          label: parentCat.name,
+        });
+
+        // Xử lý danh mục con (nếu có), thêm - vào để phân biệt
+        if (parentCat.children && parentCat.children.length > 0) {
+          parentCat.children.forEach((childCat) => {
+            categoryOptions.push({
+              value: childCat.id.toString(),
+              label: `— ${childCat.name}`,
+            });
+          });
+        }
+      });
+
+      setCategories(categoryOptions);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  }, []);
+
   // Lấy dữ liệu khi component mount hoặc khi các filter thay đổi
   useEffect(() => {
     fetchProducts();
-  }, [fetchProducts]);
+    fetchCategories();
+  }, [fetchProducts, fetchCategories]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -224,9 +255,9 @@ export default function ProductsPage() {
                       value={category}
                       onChange={(e) => setCategoryFilter(e.target.value)}
                     >
-                      {categories.map((category) => (
-                        <option key={category.value} value={category.value}>
-                          {category.label}
+                      {categories.map((cat) => (
+                        <option key={cat.value} value={cat.value}>
+                          {cat.label}
                         </option>
                       ))}
                     </select>
@@ -293,7 +324,16 @@ export default function ProductsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {currentProducts.length > 0 ? (
+                  {loading ? (
+                    <tr>
+                      <td colSpan={8} className="text-center py-5">
+                        <LoadingSpinner
+                          size="lg"
+                          text="Đang tải danh sách sản phẩm..."
+                        />
+                      </td>
+                    </tr>
+                  ) : currentProducts.length > 0 ? (
                     currentProducts.map((product) => (
                       <tr key={product.id}>
                         <td>
@@ -308,7 +348,6 @@ export default function ProductsPage() {
                         <td>{product.sku}</td>
                         <td>{product.name}</td>
                         <td>{product.categoryLabel}</td>
-
                         <td>
                           <span
                             className={
@@ -335,7 +374,6 @@ export default function ProductsPage() {
                             >
                               <i className="fas fa-eye"></i>
                             </Link>
-
                             <button
                               className="btn btn-sm btn-danger"
                               title="Xóa"
@@ -349,8 +387,15 @@ export default function ProductsPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={10} className="text-center py-4">
-                        Không tìm thấy sản phẩm nào
+                      <td colSpan={8} className="text-center py-4">
+                        {error ? (
+                          <div className="text-danger">
+                            <i className="fas fa-exclamation-triangle mr-2"></i>
+                            {error}
+                          </div>
+                        ) : (
+                          "Không tìm thấy sản phẩm nào"
+                        )}
                       </td>
                     </tr>
                   )}

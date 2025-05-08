@@ -9,6 +9,7 @@ import {
   getProductsByCategorySlug,
   getAllCategories,
   getSubCategories,
+  getCategoryBreadcrumb,
 } from "../controllers/Category.controller";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { roleMiddleware } from "../middlewares/roleMiddleware";
@@ -35,6 +36,9 @@ router.put("/:id", authMiddleware, roleMiddleware([1]), updateCategory);
 
 // Xóa một Category (chỉ admin)
 router.delete("/:id", authMiddleware, roleMiddleware([1]), deleteCategory);
+
+// Lấy breadcrumb cho một Category
+router.get("/slug/:slug/breadcrumb", getCategoryBreadcrumb);
 
 // Lấy danh mục theo slug
 router.get("/slug/:slug", getCategoryBySlug);

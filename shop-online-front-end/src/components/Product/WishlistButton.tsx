@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { WishlistService } from "@/services/WishlistService";
 import { AuthService } from "@/services/AuthService";
 import { useToast } from "@/utils/useToast";
+import LoadingSpinner from "../UI/LoadingSpinner";
 
 interface WishlistButtonProps {
   productId: number;
@@ -80,7 +81,7 @@ export default function WishlistButton({
       aria-label={isInWishlist ? "Xóa khỏi yêu thích" : "Thêm vào yêu thích"}
     >
       {isLoading ? (
-        <span className="inline-block w-5 h-5 border-2 border-t-2 border-gray-200 border-t-pink-600 rounded-full animate-spin"></span>
+        <LoadingSpinner size="sm" />
       ) : (
         <svg
           className={`w-6 h-6 ${

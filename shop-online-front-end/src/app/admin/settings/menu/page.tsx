@@ -25,6 +25,7 @@ import { MenuItemData } from "@/hooks/useAdminMenu";
 import SortableTableRow from "@/components/admin/settings/SortableMenuRow";
 import { useToast } from "@/utils/useToast";
 import ConfirmModal from "@/components/admin/shared/ConfirmModal";
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 export default function AdminMenuManagement() {
   const { showToast, Toast } = useToast();
@@ -422,12 +423,10 @@ export default function AdminMenuManagement() {
                 <div className="card-body table-responsive p-0">
                   {loading ? (
                     <div className="text-center my-3">
-                      <div
-                        className="spinner-border text-primary"
-                        role="status"
-                      >
-                        <span className="sr-only">Đang tải...</span>
-                      </div>
+                      <LoadingSpinner
+                        size="lg"
+                        text="Đang tải danh sách menu..."
+                      />
                     </div>
                   ) : (
                     <DndContext

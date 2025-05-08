@@ -3,6 +3,7 @@ import { UserAdminApi } from "@/types/user";
 import { UserService } from "@/services/UserService";
 import { UserAddress } from "@/types/user";
 import { useToast } from "@/utils/useToast";
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 interface AddressesTabProps {
   user: UserAdminApi | null;
@@ -380,10 +381,7 @@ const AddressesTab = ({
 
       {userLoading ? (
         <div className="text-center py-4">
-          <div className="spinner-border text-primary" role="status">
-            <span className="sr-only">Đang tải...</span>
-          </div>
-          <p className="mt-2">Đang tải dữ liệu địa chỉ...</p>
+          <LoadingSpinner size="lg" text="Đang tải địa chỉ..." />
         </div>
       ) : userError ? (
         <div className="alert alert-danger">

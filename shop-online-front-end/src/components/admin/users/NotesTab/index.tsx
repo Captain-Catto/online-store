@@ -2,6 +2,7 @@ import React from "react";
 import { UserNote } from "@/types/user";
 import NoteForm from "./NoteForm";
 import NoteItem from "./NoteItem";
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 interface NotesTabProps {
   notes: UserNote[];
@@ -48,10 +49,7 @@ const NotesTab = ({
 
         {notesLoading ? (
           <div className="text-center py-4">
-            <div className="spinner-border text-primary" role="status">
-              <span className="sr-only">Đang tải...</span>
-            </div>
-            <p className="mt-2">Đang tải danh sách ghi chú...</p>
+            <LoadingSpinner size="lg" text="Đang tải ghi chú..." />
           </div>
         ) : notesError ? (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">

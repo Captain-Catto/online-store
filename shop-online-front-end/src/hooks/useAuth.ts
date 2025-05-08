@@ -52,8 +52,8 @@ export function useAuth(redirectTo?: string) {
               try {
                 const userData = JSON.parse(userStr);
                 setUser(userData);
-                // Kiểm tra nếu user có role === 1 (admin role)
-                setIsAdmin(userData.role === 1);
+                // Kiểm tra nếu user có role === 1 (admin role) và role == 2 (employee role)
+                setIsAdmin(userData.role === 1 || userData.role === 2);
               } catch (e) {
                 console.error("Error parsing user data:", e);
               }

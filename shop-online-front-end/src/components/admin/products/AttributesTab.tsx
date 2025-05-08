@@ -1,4 +1,5 @@
 import React, { useCallback } from "react";
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 // Kiểu dữ liệu cho thông tin biến thể
 interface ProductVariant {
@@ -390,7 +391,7 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
           </div>
 
           {suitabilityLoading ? (
-            <div className="alert alert-info">Đang tải dữ liệu...</div>
+            <LoadingSpinner size="sm" text="Đang tải..." />
           ) : suitabilities.length === 0 ? (
             <div className="alert alert-warning">Không có dữ liệu phù hợp</div>
           ) : (

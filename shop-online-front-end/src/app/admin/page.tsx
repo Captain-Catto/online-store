@@ -10,6 +10,7 @@ import { OrderService } from "@/services/OrderService";
 import { useRouter } from "next/navigation";
 import { AuthService } from "@/services/AuthService";
 import { mapOrderStatus } from "@/utils/orderUtils";
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -160,16 +161,7 @@ export default function AdminDashboardPage() {
         <div className="container-fluid">
           {loading ? (
             // Hiển thị spinner khi đang tải
-            <div className="text-center my-5">
-              <div
-                className="spinner-border text-primary"
-                role="status"
-                style={{ width: "3rem", height: "3rem" }}
-              >
-                <span className="sr-only">Đang tải...</span>
-              </div>
-              <h4 className="mt-3">Đang tải dữ liệu...</h4>
-            </div>
+            <LoadingSpinner size="lg" text="Đang tải dữ liệu..." />
           ) : error ? (
             // Hiển thị thông báo lỗi khi có lỗi
             <div className="alert alert-danger alert-dismissible">

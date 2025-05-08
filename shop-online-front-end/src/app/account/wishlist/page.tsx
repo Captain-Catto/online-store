@@ -14,6 +14,7 @@ import { CartItem } from "@/types/cart";
 import { WishlistItem } from "@/types/wishlist";
 import { useCart } from "@/contexts/CartContext";
 import { colorToVietnamese } from "@/utils/colorUtils";
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 // Component Modal chi tiết sản phẩm
 const ProductDetailModal = ({
@@ -584,9 +585,7 @@ export default function WishlistPage() {
           <h1 className="text-2xl font-bold mb-6">Danh sách yêu thích</h1>
 
           {loading ? (
-            <div className="flex items-center justify-center py-10">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-500"></div>
-            </div>
+            <LoadingSpinner size="lg" text="Đang tải danh sách yêu thích..." />
           ) : error ? (
             <div className="bg-red-50 text-red-600 p-4 rounded-md">{error}</div>
           ) : wishlistItems.length === 0 ? (

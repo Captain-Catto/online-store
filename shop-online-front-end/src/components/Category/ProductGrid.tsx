@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ProductCard from "../ProductCard/ProductCard";
 import { Product, SimpleProduct, VariantDetail } from "@/types/product";
+import LoadingSpinner from "../UI/LoadingSpinner";
 
 interface ProcessedProduct extends SimpleProduct {
   colorToImage: Record<string, string>;
@@ -169,25 +170,6 @@ export default function ProductGrid({
     });
   }, [processedProducts, selectedColors, onColorSelect, activeFilters]);
 
-  // Trạng thái loading
-  if (loading) {
-    return (
-      <div className="w-full flex flex-col items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-pink-500" />
-        <p className="mt-2 text-gray-600">Đang tải sản phẩm...</p>
-      </div>
-    );
-  }
-
-  // Trạng thái lỗi
-  if (error) {
-    return (
-      <div className="w-full flex flex-col items-center py-12 text-red-500">
-        <p>{error}</p>
-      </div>
-    );
-  }
-
   // Tính toán thông tin phân trang
   const startItem = totalItems > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0;
   const endItem = Math.min(currentPage * itemsPerPage, totalItems);
@@ -202,12 +184,25 @@ export default function ProductGrid({
             : "Tất cả sản phẩm"}
         </h1>
         <div className="text-sm text-gray-600">
-          Hiển thị {startItem} - {endItem} / {totalItems} sản phẩm
+          {loading
+            ? "Đang tải sản phẩm..."
+            : `Hiển thị ${startItem} - ${endItem} / ${totalItems} sản phẩm`}
         </div>
       </div>
 
       {/* Thông báo khi không có sản phẩm */}
-      {processedProducts.length === 0 ? (
+      {loading ? (
+        <div className="flex justify-center items-center py-16">
+          <LoadingSpinner size="lg" text="Đang tải sản phẩm..." />
+        </div>
+      ) : error ? (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center my-8">
+          <div className="text-red-600 mb-2 text-xl">
+            <i className="fas fa-exclamation-circle"></i>
+          </div>
+          <p className="text-red-600">{error}</p>
+        </div>
+      ) : processedProducts.length === 0 ? (
         <div className="text-center py-12">
           <h3 className="text-xl font-semibold text-gray-800 mb-2">
             Không tìm thấy sản phẩm nào

@@ -70,7 +70,6 @@ export default function ResetPasswordPage() {
     }
   };
 
-  // Thêm phần giao diện giống như bạn đã làm với ForgotPasswordPage
   return (
     <>
       <Header />

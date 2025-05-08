@@ -24,6 +24,7 @@ import {
 } from "@dnd-kit/sortable";
 import SortableSuitabilityRow from "@/components/admin/suitability/SortableSuitabilityRow";
 import ConfirmModal from "@/components/admin/shared/ConfirmModal";
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 interface Suitability {
   id: number;
@@ -393,12 +394,7 @@ export default function SuitabilitiesManagement() {
                 <div className="card-body p-0">
                   {loading ? (
                     <div className="text-center p-4">
-                      <div
-                        className="spinner-border text-primary"
-                        role="status"
-                      >
-                        <span className="sr-only">Đang tải...</span>
-                      </div>
+                      <LoadingSpinner size="lg" text="Đang tải danh sách..." />
                     </div>
                   ) : (
                     <DndContext

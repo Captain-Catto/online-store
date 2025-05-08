@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useNavigation } from "@/contexts/NavigationContext";
 import { NavigationMenuItem } from "@/services/NaviagationService";
+import LoadingSpinner from "../UI/LoadingSpinner";
 
 export default function NavBar() {
   const { menuItems, loading } = useNavigation();
@@ -99,16 +100,18 @@ export default function NavBar() {
     );
   };
 
-  if (loading) {
-    return <div className="flex justify-center py-2">Loading...</div>;
-  }
-
   return (
     <nav className="w-full bg-white">
       <div className="container mx-auto">
-        <ul className="flex space-x-8 justify-center">
-          {menuItems.map(renderMenuItem)}
-        </ul>
+        {loading ? (
+          <div className="flex justify-center py-3">
+            <LoadingSpinner size="sm" color="black" />
+          </div>
+        ) : (
+          <ul className="flex space-x-8 justify-center">
+            {menuItems.map(renderMenuItem)}
+          </ul>
+        )}
       </div>
     </nav>
   );

@@ -5,6 +5,7 @@ import { formatDateDisplay } from "@/utils/dateUtils";
 import { formatCurrency } from "@/utils/currencyUtils";
 import PaginationComponent from "@/components/Category/Pagination";
 import OrderFilters from "./OrderFilters";
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 interface OrdersTabProps {
   userOrders: Order[];
@@ -107,10 +108,7 @@ const OrdersTab = ({
 
       {ordersLoading ? (
         <div className="text-center py-4">
-          <div className="spinner-border text-primary" role="status">
-            <span className="sr-only">Đang tải...</span>
-          </div>
-          <p className="mt-2">Đang tải dữ liệu đơn hàng...</p>
+          <LoadingSpinner size="lg" text="Đang tải đơn hàng..." />
         </div>
       ) : ordersError ? (
         <div className="alert alert-danger">

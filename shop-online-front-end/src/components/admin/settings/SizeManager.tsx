@@ -3,6 +3,7 @@ import { ProductService } from "@/services/ProductService";
 import { useToast } from "@/utils/useToast";
 import ConfirmModal from "@/components/admin/shared/ConfirmModal";
 import { CategoryService } from "@/services/CategoryService";
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 interface Size {
   id: number;
@@ -51,7 +52,12 @@ const SizeManager: React.FC = () => {
     setLoading(true);
     try {
       const data = await ProductService.getSizes();
-      setSizes(data);
+      setSizes(
+        data.map((size) => ({
+          ...size,
+          categoryId: size.categoryId.toString(),
+        }))
+      );
       setError(null);
     } catch (err) {
       setError("Không thể tải danh sách kích thước");
@@ -65,7 +71,9 @@ const SizeManager: React.FC = () => {
   const loadCategories = async () => {
     try {
       const data = await CategoryService.getAllCategories();
-      setCategories(data);
+      setCategories(
+        data.map((category) => ({ ...category, id: Number(category.id) }))
+      );
     } catch (err) {
       console.error("Không thể tải danh sách danh mục", err);
       showToast("Không thể tải danh sách danh mục", { type: "error" });
@@ -117,7 +125,7 @@ const SizeManager: React.FC = () => {
       await ProductService.updateSize(size.id, {
         value: size.value,
         displayName: size.displayName,
-        categoryId: size.categoryId,
+        category: size.categoryId,
         displayOrder: size.displayOrder,
         active: size.active,
       });
@@ -162,9 +170,6 @@ const SizeManager: React.FC = () => {
       handleCancelDelete();
     }
   };
-
-  if (loading) return <div className="p-4 text-center">Đang tải...</div>;
-  if (error) return <div className="p-4 text-red-500 text-center">{error}</div>;
 
   return (
     <div className="card">
@@ -248,166 +253,180 @@ const SizeManager: React.FC = () => {
             </div>
           </div>
         </form>
-
-        {/* Danh sách kích thước */}
-        <div className="table-responsive">
-          <table className="table table-bordered table-striped">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Giá trị</th>
-                <th>Tên hiển thị</th>
-                <th>Danh mục</th>
-                <th>Thứ tự</th>
-                <th>Trạng thái</th>
-                <th>Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sizes.map((size, index) => (
-                <tr key={size.id}>
-                  <td>{index + 1}</td>
-                  <td>
-                    {editId === size.id ? (
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={size.value}
-                        onChange={(e) => {
-                          const updatedSizes = [...sizes];
-                          updatedSizes[index].value = e.target.value;
-                          setSizes(updatedSizes);
-                        }}
-                      />
-                    ) : (
-                      size.value
-                    )}
-                  </td>
-                  <td>
-                    {editId === size.id ? (
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={size.displayName}
-                        onChange={(e) => {
-                          const updatedSizes = [...sizes];
-                          updatedSizes[index].displayName = e.target.value;
-                          setSizes(updatedSizes);
-                        }}
-                      />
-                    ) : (
-                      size.displayName
-                    )}
-                  </td>
-                  <td>
-                    {editId === size.id ? (
-                      <select
-                        className="form-control"
-                        value={size.categoryId}
-                        onChange={(e) => {
-                          const updatedSizes = [...sizes];
-                          updatedSizes[index].categoryId = e.target.value;
-                          setSizes(updatedSizes);
-                        }}
-                      >
-                        {categories.map((cat) => (
-                          <option key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      categories.find((cat) => cat.id === size.categoryId)
-                        ?.name || size.categoryId
-                    )}
-                  </td>
-                  <td>
-                    {editId === size.id ? (
-                      <input
-                        type="number"
-                        className="form-control"
-                        value={size.displayOrder}
-                        onChange={(e) => {
-                          const updatedSizes = [...sizes];
-                          updatedSizes[index].displayOrder = parseInt(
-                            e.target.value
-                          );
-                          setSizes(updatedSizes);
-                        }}
-                      />
-                    ) : (
-                      size.displayOrder
-                    )}
-                  </td>
-                  <td>
-                    {editId === size.id ? (
-                      <select
-                        className="form-control"
-                        value={size.active ? "1" : "0"}
-                        onChange={(e) => {
-                          const updatedSizes = [...sizes];
-                          updatedSizes[index].active = e.target.value === "1";
-                          setSizes(updatedSizes);
-                        }}
-                      >
-                        <option value="1">Kích hoạt</option>
-                        <option value="0">Vô hiệu</option>
-                      </select>
-                    ) : (
-                      <span
-                        className={`badge ${
-                          size.active ? "badge-success" : "badge-danger"
-                        }`}
-                      >
-                        {size.active ? "Kích hoạt" : "Vô hiệu"}
-                      </span>
-                    )}
-                  </td>
-                  <td>
-                    {editId === size.id ? (
-                      <>
-                        <button
-                          className="btn btn-sm btn-success mr-1"
-                          onClick={(e) => handleUpdateSize(e, size)}
-                        >
-                          <i className="fas fa-save"></i> Lưu
-                        </button>
-                        <button
-                          className="btn btn-sm btn-secondary"
-                          onClick={() => setEditId(null)}
-                        >
-                          <i className="fas fa-times"></i> Hủy
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          className="btn btn-sm btn-info mr-1"
-                          onClick={() => setEditId(size.id)}
-                        >
-                          <i className="fas fa-edit"></i> Sửa
-                        </button>
-                        <button
-                          className="btn btn-sm btn-danger"
-                          onClick={() => handleDeleteRequest(size)}
-                        >
-                          <i className="fas fa-trash"></i> Xóa
-                        </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {sizes.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="text-center">
-                    Chưa có dữ liệu kích thước
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        {loading ? (
+          <div className="d-flex justify-content-center align-items-center py-5">
+            <LoadingSpinner size="lg" text="Đang tải dữ liệu kích thước..." />
+          </div>
+        ) : error ? (
+          <div className="alert alert-danger text-center">
+            <i className="fas fa-exclamation-circle mr-2"></i>
+            {error}
+          </div>
+        ) : (
+          <>
+            {/* Danh sách kích thước */}
+            <div className="table-responsive">
+              <table className="table table-bordered table-striped">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Giá trị</th>
+                    <th>Tên hiển thị</th>
+                    <th>Danh mục</th>
+                    <th>Thứ tự</th>
+                    <th>Trạng thái</th>
+                    <th>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sizes.map((size, index) => (
+                    <tr key={size.id}>
+                      <td>{index + 1}</td>
+                      <td>
+                        {editId === size.id ? (
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={size.value}
+                            onChange={(e) => {
+                              const updatedSizes = [...sizes];
+                              updatedSizes[index].value = e.target.value;
+                              setSizes(updatedSizes);
+                            }}
+                          />
+                        ) : (
+                          size.value
+                        )}
+                      </td>
+                      <td>
+                        {editId === size.id ? (
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={size.displayName}
+                            onChange={(e) => {
+                              const updatedSizes = [...sizes];
+                              updatedSizes[index].displayName = e.target.value;
+                              setSizes(updatedSizes);
+                            }}
+                          />
+                        ) : (
+                          size.displayName
+                        )}
+                      </td>
+                      <td>
+                        {editId === size.id ? (
+                          <select
+                            className="form-control"
+                            value={size.categoryId}
+                            onChange={(e) => {
+                              const updatedSizes = [...sizes];
+                              updatedSizes[index].categoryId = e.target.value;
+                              setSizes(updatedSizes);
+                            }}
+                          >
+                            {categories.map((cat) => (
+                              <option key={cat.id} value={cat.id}>
+                                {cat.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          categories.find(
+                            (cat) => cat.id === Number(size.categoryId)
+                          )?.name || size.categoryId
+                        )}
+                      </td>
+                      <td>
+                        {editId === size.id ? (
+                          <input
+                            type="number"
+                            className="form-control"
+                            value={size.displayOrder}
+                            onChange={(e) => {
+                              const updatedSizes = [...sizes];
+                              updatedSizes[index].displayOrder = parseInt(
+                                e.target.value
+                              );
+                              setSizes(updatedSizes);
+                            }}
+                          />
+                        ) : (
+                          size.displayOrder
+                        )}
+                      </td>
+                      <td>
+                        {editId === size.id ? (
+                          <select
+                            className="form-control"
+                            value={size.active ? "1" : "0"}
+                            onChange={(e) => {
+                              const updatedSizes = [...sizes];
+                              updatedSizes[index].active =
+                                e.target.value === "1";
+                              setSizes(updatedSizes);
+                            }}
+                          >
+                            <option value="1">Kích hoạt</option>
+                            <option value="0">Vô hiệu</option>
+                          </select>
+                        ) : (
+                          <span
+                            className={`badge ${
+                              size.active ? "badge-success" : "badge-danger"
+                            }`}
+                          >
+                            {size.active ? "Kích hoạt" : "Vô hiệu"}
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        {editId === size.id ? (
+                          <>
+                            <button
+                              className="btn btn-sm btn-success mr-1"
+                              onClick={(e) => handleUpdateSize(e, size)}
+                            >
+                              <i className="fas fa-save"></i> Lưu
+                            </button>
+                            <button
+                              className="btn btn-sm btn-secondary"
+                              onClick={() => setEditId(null)}
+                            >
+                              <i className="fas fa-times"></i> Hủy
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              className="btn btn-sm btn-info mr-1"
+                              onClick={() => setEditId(size.id)}
+                            >
+                              <i className="fas fa-edit"></i> Sửa
+                            </button>
+                            <button
+                              className="btn btn-sm btn-danger"
+                              onClick={() => handleDeleteRequest(size)}
+                            >
+                              <i className="fas fa-trash"></i> Xóa
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {sizes.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="text-center">
+                        Chưa có dữ liệu kích thước
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
       {/* Modal xác nhận xóa */}
       <ConfirmModal

@@ -7,6 +7,7 @@ import { CategoryService } from "@/services/CategoryService";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
 import Image from "next/image";
 import ConfirmModal from "@/components/admin/shared/ConfirmModal";
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 // Define interfaces outside the component
 interface Category {
@@ -954,11 +955,7 @@ export default function CategoriesManagement() {
 
                 <div className="card-body table-responsive p-0">
                   {loading ? (
-                    <div className="d-flex justify-content-center p-5">
-                      <div className="spinner-border" role="status">
-                        <span className="sr-only">Loading...</span>
-                      </div>
-                    </div>
+                    <LoadingSpinner size="lg" text="Đang tải danh mục..." />
                   ) : (
                     <table className="table table-hover text-nowrap">
                       <thead>

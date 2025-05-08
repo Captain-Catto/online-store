@@ -19,6 +19,7 @@ import AddressesTab from "@/components/admin/users/AddressesTab";
 import NotesTab from "@/components/admin/users/NotesTab";
 import StatusToggleModal from "@/components/admin/users/modals/StatusToggleModal";
 import DeleteNoteModal from "@/components/admin/users/modals/DeleteNoteModal";
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 export default function UserDetailPage() {
   const { id } = useParams() as { id: string };
@@ -547,10 +548,10 @@ export default function UserDetailPage() {
 
             {userLoading ? (
               <div className="text-center py-10 bg-white rounded-lg shadow-sm mb-6">
-                <div className="spinner-border text-primary" role="status">
-                  <span className="sr-only">Đang tải...</span>
-                </div>
-                <p className="mt-2">Đang tải thông tin người dùng...</p>
+                <LoadingSpinner
+                  size="lg"
+                  text="Đang tải thông tin người dùng..."
+                />
               </div>
             ) : userError ? (
               <div className="alert alert-danger mb-6">

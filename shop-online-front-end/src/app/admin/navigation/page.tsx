@@ -29,6 +29,7 @@ import SortableTableRow from "@/components/admin/navigation/SortableTableRow";
 import { useNavigation } from "@/contexts/NavigationContext";
 import { useToast } from "@/utils/useToast";
 import ConfirmModal from "@/components/admin/shared/ConfirmModal";
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 export default function NavigationManagement() {
   const { showToast, Toast } = useToast();
@@ -513,14 +514,14 @@ export default function NavigationManagement() {
                 </div>
                 <div className="card-body table-responsive p-0">
                   {loading ? (
-                    <div className="text-center my-3">
-                      <div
-                        className="spinner-border text-primary"
-                        role="status"
-                      >
-                        <span className="sr-only">Đang tải...</span>
-                      </div>
+                    <div className="py-4">
+                      <LoadingSpinner
+                        size="lg"
+                        text="Đang tải danh sách menu..."
+                      />
                     </div>
+                  ) : error ? (
+                    <div className="alert alert-danger">{error}</div>
                   ) : (
                     <DndContext
                       sensors={sensors}

@@ -8,6 +8,7 @@ import ProductCard from "@/components/ProductCard/ProductCard";
 import { ProductService } from "@/services/ProductService";
 import { Product, VariantDetail } from "@/types/product";
 import { useCallback } from "react";
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 const LatestProducts: React.FC = () => {
   const sliderRef = useRef<Slider>(null);
@@ -136,65 +137,67 @@ const LatestProducts: React.FC = () => {
     ],
   };
 
-  if (loading) {
-    return (
-      <div className="w-full py-8 flex justify-center items-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="w-full text-center py-8 text-red-500">
-        <p>{error}</p>
-        <button
-          className="mt-4 px-4 py-2 bg-black text-white rounded"
-          onClick={() => window.location.reload()}
-        >
-          Thử lại
-        </button>
-      </div>
-    );
-  }
-
   // Lọc sản phẩm (tạm thời bỏ category rỗng để tránh lỗi logic)
   const displayProducts = products; // Có thể thêm logic lọc sau
-
   return (
     <div className="w-full xl:px-20 lg:px-10 md:px-4 px-2 mt-4">
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-semibold text-left">SẢN PHẨM NỔI BẬT</h2>
-        <Link
-          href={`/category/ao`}
-          className="text-right text-lg text-gray-500 hover:underline hover:text-gray-700"
-        >
-          Xem thêm
-        </Link>
+        {!loading && !error && (
+          <Link
+            href={`/category/ao`}
+            className="text-right text-lg text-gray-500 hover:underline hover:text-gray-700"
+          >
+            Xem thêm
+          </Link>
+        )}
       </div>
 
-      <div className="relative mt-6">
-        <Slider ref={sliderRef} {...settings}>
-          {displayProducts.map((product) => (
-            <div key={product.id}>
-              <ProductCard
-                product={{
-                  id: product.id,
-                  name: product.name,
-                  featured: product.featured,
-                  colors: product.colors,
-                  variants: product.variants,
-                  price: product.price,
-                }}
-                selectedColor={selectedColors[product.id] || product.colors[0]}
-                productImage={productImages[product.id] || ""}
-                secondaryImage={secondaryImages[product.id] || ""}
-                onColorSelect={handleColorSelect}
-              />
+      {loading ? (
+        <div className="py-16 flex justify-center items-center">
+          <LoadingSpinner size="lg" text="Đang tải sản phẩm nổi bật..." />
+        </div>
+      ) : error ? (
+        <div className="w-full text-center py-8">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 inline-block">
+            <div className="text-red-600 mb-2 text-xl">
+              <i className="fas fa-exclamation-circle"></i>
             </div>
-          ))}
-        </Slider>
-      </div>
+            <p className="text-red-600 mb-4">{error}</p>
+            <button
+              className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition"
+              onClick={() => window.location.reload()}
+            >
+              Thử lại
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="relative mt-6">
+          <Slider ref={sliderRef} {...settings}>
+            {displayProducts.map((product) => (
+              <div key={product.id}>
+                <ProductCard
+                  product={{
+                    id: product.id,
+                    name: product.name,
+                    featured: product.featured,
+                    colors: product.colors,
+                    variants: product.variants,
+                    price: product.price,
+                  }}
+                  selectedColor={
+                    selectedColors[product.id] || product.colors[0]
+                  }
+                  productImage={productImages[product.id] || ""}
+                  secondaryImage={secondaryImages[product.id] || ""}
+                  onColorSelect={handleColorSelect}
+                />
+              </div>
+            ))}
+          </Slider>
+        </div>
+      )}
     </div>
   );
 };

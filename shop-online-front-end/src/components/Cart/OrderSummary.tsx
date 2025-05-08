@@ -1,5 +1,4 @@
 import React from "react";
-import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 interface OrderSummaryProps {
   subtotal: number;
@@ -37,14 +36,7 @@ export default function OrderSummary({
               : "bg-black hover:bg-gray-800"
           } text-white font-medium rounded transition flex items-center justify-center`}
         >
-          {isProcessing ? (
-            <>
-              <LoadingSpinner size="xs" color="white" className="mr-2" />
-              Đang xử lý...
-            </>
-          ) : (
-            "Tiến hành thanh toán"
-          )}
+          {isProcessing ? "Đang xử lý.." : "Tiến hành thanh toán"}
         </button>
 
         <p className="text-sm text-gray-500 mt-4 text-center">

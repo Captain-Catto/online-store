@@ -671,3 +671,56 @@ export const getSubCategories = async (
     res.status(500).json({ message: error.message });
   }
 };
+
+/**
+ * Get category breadcrumb path
+ */
+export const getCategoryBreadcrumb = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { slug } = req.params;
+
+    const category = await Category.findOne({
+      where: { slug },
+      attributes: ["id", "name", "slug", "parentId"],
+    });
+
+    if (!category) {
+      res.status(404).json({ message: "Category not found" });
+      return;
+    }
+
+    // tạo breadcrumb mặc định
+    const breadcrumb: { label: string; href: string; isLast?: boolean }[] = [
+      { label: "Trang chủ", href: "/", isLast: false },
+    ];
+
+    // Thêm parent category nếu có
+    if (category.parentId) {
+      const parentCategory = await Category.findByPk(category.parentId, {
+        attributes: ["id", "name", "slug"],
+      });
+
+      if (parentCategory) {
+        breadcrumb.push({
+          label: parentCategory.name,
+          href: `/category/${parentCategory.slug}`,
+        });
+      }
+    }
+
+    // Thêm category hiện tại
+    breadcrumb.push({
+      label: category.name,
+      href: `/category/${slug}`,
+      isLast: true,
+    });
+
+    res.status(200).json(breadcrumb);
+  } catch (error: any) {
+    console.error("Error generating category breadcrumb:", error);
+    res.status(500).json({ message: error.message });
+  }
+};

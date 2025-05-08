@@ -290,13 +290,18 @@ export const getProductsWithVariants = async (
     const offset = (page - 1) * limit;
 
     // Tạo where condition
-    const where: any = {};
+    let where: any = {};
 
     // Xây dựng include
     const include: any[] = [];
 
     if (search) {
-      where.name = { [Op.like]: `%${search}%` };
+      where = {
+        [Op.or]: {
+          name: { [Op.like]: `%${search}%` },
+          sku: { [Op.like]: `%${search}%` },
+        },
+      };
     }
     if (status) {
       where.status = { [Op.eq]: status };
@@ -2155,5 +2160,91 @@ export const updateProductVariants = async (
       message: "Lỗi khi cập nhật biến thể sản phẩm",
       error: error.message,
     });
+  }
+};
+
+/**
+ * Get product breadcrumb path
+ */
+export const getProductBreadcrumb = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const product = await Product.findByPk(id, {
+      include: [
+        {
+          model: Category,
+          as: "categories",
+          attributes: ["id", "name", "slug", "parentId"],
+          through: { attributes: [] },
+        },
+      ],
+    });
+
+    if (!product) {
+      res.status(404).json({ message: "Product not found" });
+      return;
+    }
+
+    // tạo breadcrumb mặc định
+    const breadcrumb: { label: string; href: string; isLast?: boolean }[] = [
+      { label: "Trang chủ", href: "/", isLast: false },
+    ];
+
+    // Lấy category chính (ưu tiên category cha nếu có)
+    const categories = (product as any).categories || [];
+    let mainCategory = null;
+    let parentCategory = null;
+
+    // Tìm category cha (parentId === null)
+    for (const cat of categories) {
+      if (!cat.parentId) {
+        mainCategory = cat;
+        break;
+      }
+    }
+
+    // Nếu không tìm thấy category cha, lấy category đầu tiên
+    if (!mainCategory && categories.length > 0) {
+      mainCategory = categories[0];
+
+      // Lấy category cha của mainCategory nếu có
+      if (mainCategory.parentId) {
+        parentCategory = await Category.findByPk(mainCategory.parentId, {
+          attributes: ["id", "name", "slug"],
+        });
+      }
+    }
+
+    // Thêm category cha vào breadcrumb nếu có
+    if (parentCategory) {
+      breadcrumb.push({
+        label: parentCategory.name,
+        href: `/category/${parentCategory.slug}`,
+      });
+    }
+
+    // Thêm category hiện tại vào breadcrumb
+    if (mainCategory) {
+      breadcrumb.push({
+        label: mainCategory.name,
+        href: `/category/${mainCategory.slug}`,
+      });
+    }
+
+    // Thêm sản phẩm hiện tại vào breadcrumb
+    breadcrumb.push({
+      label: (product as any).name,
+      href: `/products/${id}`,
+      isLast: true,
+    });
+
+    res.status(200).json(breadcrumb);
+  } catch (error: any) {
+    console.error("Error generating product breadcrumb:", error);
+    res.status(500).json({ message: error.message });
   }
 };

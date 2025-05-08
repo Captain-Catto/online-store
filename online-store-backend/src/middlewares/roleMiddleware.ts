@@ -6,6 +6,7 @@ export enum Permission {
   EDIT_USERS = "EDIT_USERS", // Sửa thông tin users
   TOGGLE_USER_STATUS = "TOGGLE_USER_STATUS", // Vô hiệu hóa/kích hoạt user
   VIEW_ORDERS = "VIEW_ORDERS", // Xem đơn hàng
+  VIEW_FULL_ORDERS = "VIEW_FULL_ORDERS", // Xem đầy đủ thông tin đơn hàng
   MANAGE_ORDERS = "MANAGE_ORDERS", // Quản lý trạng thái đơn hàng
   VIEW_FULL_USER_INFO = "VIEW_FULL_USER_INFO", // Xem đầy đủ thông tin người dùng
   EDIT_USERS_ADDRESS = "EDIT_USERS_ADDRESS", // Sửa địa chỉ người dùng
@@ -15,10 +16,11 @@ export enum Permission {
 const rolePermissions: Record<number, Permission[]> = {
   1: [
     // Admin - Full quyền
-    Permission.VIEW_USERS,
+    Permission.VIEW_FULL_USER_INFO,
     Permission.EDIT_USERS,
     Permission.TOGGLE_USER_STATUS,
     Permission.VIEW_ORDERS,
+    Permission.VIEW_FULL_ORDERS,
     Permission.MANAGE_ORDERS,
     Permission.VIEW_FULL_USER_INFO,
     Permission.EDIT_USERS_ADDRESS,

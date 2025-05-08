@@ -15,15 +15,24 @@ import {
   processRefund,
 } from "../controllers/OrderEdit.controller";
 import { authMiddleware } from "../middlewares/authMiddleware";
-import { roleMiddleware } from "../middlewares/roleMiddleware";
+import {
+  roleMiddleware,
+  permissionMiddleware,
+  Permission,
+} from "../middlewares/roleMiddleware";
 
 const router = Router();
 
 // Tạo đơn hàng mới (cần đăng nhập)
 router.post("/", authMiddleware, createOrder);
 // ADMIN ROUTES (Tất cả đều yêu cầu quyền admin)
-// Lấy tất cả đơn hàng (Admin)
-router.get("/admin/all", authMiddleware, roleMiddleware([1, 2]), getAllOrders);
+// Lấy tất cả đơn hàng (Admin) - employee chỉ có thể xem 1 phần thông tin user
+router.get(
+  "/admin/all",
+  authMiddleware,
+  permissionMiddleware([Permission.VIEW_FULL_ORDERS]),
+  getAllOrders
+);
 
 // Lấy danh sách đơn hàng của người dùng (chỉ người dùng đã đăng nhập)
 router.get("/my-orders", authMiddleware, getUserOrders);

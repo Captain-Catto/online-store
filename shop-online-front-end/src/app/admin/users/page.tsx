@@ -7,6 +7,7 @@ import { AuthClient } from "@/services/AuthClient";
 import { API_BASE_URL } from "@/config/apiConfig";
 import { formatDateDisplay } from "@/utils/dateUtils";
 import { UserAdminApi } from "@/types/user";
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -196,9 +197,7 @@ export default function UsersPage() {
             <div className="card-body table-responsive p-0">
               {loading ? (
                 <div className="text-center p-4">
-                  <div className="spinner-border text-primary" role="status">
-                    <span className="sr-only">Đang tải...</span>
-                  </div>
+                  <LoadingSpinner size="lg" text="Đang tải người dùng..." />
                 </div>
               ) : error ? (
                 <div className="alert alert-danger m-3">{error}</div>

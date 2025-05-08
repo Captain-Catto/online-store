@@ -16,6 +16,8 @@ import { CategoryService } from "@/services/CategoryService";
 import { ProductService } from "@/services/ProductService";
 import { Product, VariantDetail } from "@/types/product";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
+import BreadcrumbTrail from "@/components/Breadcrumb/BreadcrumbTrail";
+import { useBreadcrumb } from "@/hooks/useBreadcrumb";
 
 // Định nghĩa interface cho thông tin danh mục
 interface CategoryInfo {
@@ -49,7 +51,8 @@ export default function CategoryDetailPage() {
   const searchParams = useSearchParams();
 
   const categorySlug = params.slug as string;
-  const childSlug = params.childSlug as string;
+
+  const { breadcrumbs } = useBreadcrumb("category", undefined, categorySlug);
 
   // Thông tin danh mục
   const [categoryId, setCategoryId] = useState<string | null>(null);
@@ -109,7 +112,7 @@ export default function CategoryDetailPage() {
         ? searchParams.get("size")!.split(",")
         : [],
       color: searchParams.get("color") || "",
-      childCategory: searchParams.get("childCategory") || childSlug || "",
+      childCategory: searchParams.get("childCategory") || "",
     };
   });
 
@@ -177,6 +180,8 @@ export default function CategoryDetailPage() {
     if (filters.childCategory) {
       params.set("childCategory", filters.childCategory);
     }
+
+    console.log("childCategory", filters.childCategory);
 
     const newUrl =
       pathname + (params.toString() ? `?${params.toString()}` : "");
@@ -337,7 +342,6 @@ export default function CategoryDetailPage() {
     updateUrlWithFilters();
   }, [
     categorySlug,
-    childSlug,
     currentPage,
     filters,
     itemsPerPage,
@@ -548,6 +552,9 @@ export default function CategoryDetailPage() {
       <Header />
 
       <main className="container mx-auto px-4 py-8">
+        {/* breadcrumb */}
+        <BreadcrumbTrail items={breadcrumbs} />
+
         <div className="mb-6">
           <h1 className="text-3xl font-bold">{categoryName}</h1>
           <p className="text-gray-600 mt-2">

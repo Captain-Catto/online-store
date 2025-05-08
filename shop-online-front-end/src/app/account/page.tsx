@@ -6,7 +6,7 @@ import { UserRight } from "@/components/User/User-right";
 import { useState, useEffect, useCallback } from "react";
 import { UserService } from "@/services/UserService";
 import { OrderService } from "@/services/OrderService";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
 import { Promotion } from "@/types/promotion";
@@ -14,6 +14,8 @@ import { Order } from "@/types/order";
 import { AddressPagination } from "@/types/address";
 import { WishlistItem } from "@/types/wishlist";
 import { WishlistService } from "@/services/WishlistService";
+import BreadcrumbTrail from "@/components/Breadcrumb/BreadcrumbTrail";
+import { BreadcrumbItem } from "@/types/breadcrumb";
 
 interface AccountData {
   name: string;
@@ -25,10 +27,21 @@ interface AccountData {
 export default function AccountPage() {
   const searchParams = useSearchParams();
   const { isLoggedIn, isLoading, logout, isAdmin } = useAuth("/login");
+  const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([
+    { label: "Trang chủ", href: "/" },
+    { label: "Tài khoản của tôi", href: "/account" },
+  ]);
 
-  const [activeTab, setActiveTab] = useState(() => {
-    return searchParams.get("tab") || "account";
-  });
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState(
+    () => searchParams.get("tab") || "account"
+  );
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    // Cập nhật URL mà không reload trang
+    router.push(`/account?tab=${tab}`, { scroll: false });
+  };
 
   // Hàm xử lý khi trang đơn hàng thay đổi
   const handleOrderPageChange = (page: number) => {
@@ -184,6 +197,58 @@ export default function AccountPage() {
     }
   }, [isLoggedIn]);
 
+  // Cập nhật breadcrumb khi activeTab thay đổi
+  useEffect(() => {
+    // Base breadcrumb luôn có hai mục đầu tiên
+    const baseBreadcrumbs: BreadcrumbItem[] = [
+      { label: "Trang chủ", href: "/" },
+      { label: "Tài khoản của tôi", href: "/account" },
+    ];
+
+    // Thêm mục thứ ba dựa trên tab active
+    switch (activeTab) {
+      case "account":
+        // Trường hợp trang chính tài khoản - không thêm breadcrumb
+        setBreadcrumbs(baseBreadcrumbs);
+        break;
+      case "orders":
+        setBreadcrumbs([
+          ...baseBreadcrumbs,
+          { label: "Đơn hàng của tôi", href: "/account?tab=orders" },
+        ]);
+        break;
+      case "addresses":
+        setBreadcrumbs([
+          ...baseBreadcrumbs,
+          { label: "Địa chỉ của tôi", href: "/account?tab=addresses" },
+        ]);
+        break;
+      case "wishlist":
+        setBreadcrumbs([
+          ...baseBreadcrumbs,
+          { label: "Sản phẩm yêu thích", href: "/account?tab=wishlist" },
+        ]);
+        break;
+      case "promotions":
+        setBreadcrumbs([
+          ...baseBreadcrumbs,
+          { label: "Ưu đãi của tôi", href: "/account?tab=promotions" },
+        ]);
+        break;
+      case "faq":
+        setBreadcrumbs([
+          ...baseBreadcrumbs,
+          {
+            label: "Chính sách & Câu hỏi thường gặp",
+            href: "/account?tab=faq",
+          },
+        ]);
+        break;
+      default:
+        setBreadcrumbs(baseBreadcrumbs);
+    }
+  }, [activeTab]);
+
   // Load data based on active tab
   useEffect(() => {
     if (isLoggedIn && !isLoading) {
@@ -230,6 +295,8 @@ export default function AccountPage() {
     <>
       <Header />
       <main className="container mx-auto px-4 py-12">
+        <BreadcrumbTrail items={breadcrumbs} />
+
         <div className="flex gap-4 items-center mb-8">
           <h1 className="text-3xl font-bold">Tài khoản của tôi</h1>
           {isAdmin && (
@@ -257,7 +324,7 @@ export default function AccountPage() {
           <div className="md:w-1/4">
             <UserLeft
               activeTab={activeTab}
-              setActiveTab={setActiveTab}
+              setActiveTab={handleTabChange}
               onLogout={logout}
             />
           </div>

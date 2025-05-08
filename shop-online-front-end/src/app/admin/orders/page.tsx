@@ -6,6 +6,7 @@ import Breadcrumb from "@/components/admin/shared/Breadcrumb";
 import { OrderService } from "@/services/OrderService";
 import { useToast } from "@/utils/useToast";
 import { formatCurrency } from "@/utils/currencyUtils";
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 // Định nghĩa kiểu dữ liệu cho order
 interface OrderDetail {
@@ -24,11 +25,19 @@ interface OrderDetail {
   };
 }
 
+interface User {
+  id?: number;
+  username?: string;
+  email?: string;
+}
+
 interface Order {
   id: number | string;
   userId: number;
+  user?: User;
   customer?: string;
   phone?: string;
+  phoneNumber?: string;
   shippingPhone?: string;
   status: string;
   statusLabel?: string;
@@ -43,6 +52,7 @@ interface Order {
   items?: number;
   date?: string;
   formattedDate?: string;
+  formattedTotal?: string;
   createdAt: string;
   updatedAt: string;
   orderDetails?: OrderDetail[];
@@ -62,6 +72,7 @@ export default function OrdersPage() {
   useEffect(() => {
     showToastRef.current = showToast;
   }, [showToast]);
+
   // States
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -95,14 +106,15 @@ export default function OrdersPage() {
       setLoading(true);
       setError(null);
 
-      const response = await OrderService.getAdminOrders(
-        currentPage,
-        10,
-        statusFilter,
-        searchTerm,
-        dateRange.from,
-        dateRange.to
-      );
+      const response: { orders: Order[]; pagination: Pagination } =
+        await OrderService.getAdminOrders(
+          currentPage,
+          10,
+          statusFilter,
+          searchTerm,
+          dateRange.from,
+          dateRange.to
+        );
       console.log("Fetched orders:", response);
 
       // Định dạng dữ liệu order trả về
@@ -134,19 +146,10 @@ export default function OrdersPage() {
           year: "numeric",
         }).format(date);
 
-        // Tổng hợp thông tin người dùng - Xử lý các trường hợp khác nhau của cấu trúc dữ liệu
+        // Tổng hợp thông tin người dùng
         let customerName = "Khách hàng";
         if (order.user) {
-          // Xử lý cả hai trường hợp: firstName+lastName hoặc trường name
-          if (order.user.firstName && order.user.lastName) {
-            customerName = `${order.user.firstName || ""} ${
-              order.user.lastName || ""
-            }`.trim();
-          } else if (order.user.name) {
-            customerName = order.user.name;
-          } else {
-            customerName = order.user.email || "Khách hàng";
-          }
+          customerName = order.user.email || "Khách hàng";
         }
 
         return {
@@ -155,7 +158,7 @@ export default function OrdersPage() {
           phone: order.phoneNumber || "Chưa có SĐT",
           statusLabel: statusInfo.label,
           statusClass: statusInfo.cssClass,
-          total: formatCurrency(order.total || 0),
+          formattedTotal: formatCurrency(order.total || 0),
           items: order.orderDetails?.length || 0,
           date: order.createdAt,
           formattedDate,
@@ -386,10 +389,7 @@ export default function OrdersPage() {
             <div className="card-body table-responsive p-0">
               {loading ? (
                 <div className="text-center py-5">
-                  <div className="spinner-border text-primary" role="status">
-                    <span className="sr-only">Loading...</span>
-                  </div>
-                  <p className="mt-2">Đang tải dữ liệu...</p>
+                  <LoadingSpinner size="lg" text="Đang tải đơn hàng..." />
                 </div>
               ) : error ? (
                 <div className="text-center py-5 text-danger">
@@ -422,7 +422,7 @@ export default function OrdersPage() {
                               {order.statusLabel}
                             </span>
                           </td>
-                          <td>{order.total}</td>
+                          <td>{order.formattedTotal}</td>
                           <td>{order.items} sản phẩm</td>
                           <td>{order.formattedDate}</td>
                           <td>

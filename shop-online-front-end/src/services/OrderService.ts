@@ -40,6 +40,8 @@ export const OrderService = {
         `${API_BASE_URL}/orders/${orderId}`
       );
 
+      const responseJson = await response.json();
+
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(
@@ -47,7 +49,7 @@ export const OrderService = {
         );
       }
 
-      return await response.json();
+      return await responseJson;
     } catch (error) {
       console.error(`Error fetching order ${orderId}:`, error);
       throw error;

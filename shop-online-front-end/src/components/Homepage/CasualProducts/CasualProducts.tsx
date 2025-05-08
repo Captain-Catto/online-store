@@ -7,6 +7,7 @@ import { PrevArrow, NextArrow } from "@/utils/CustomArrowSlick";
 import ProductCard from "@/components/ProductCard/ProductCard";
 import { ProductService } from "@/services/ProductService";
 import { Product, SimpleProduct } from "@/types/product";
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 const CasualProducts: React.FC = () => {
   const sliderRef = useRef<Slider>(null);
@@ -149,73 +150,72 @@ const CasualProducts: React.FC = () => {
     ],
   };
 
-  // Loading state
-  if (loading) {
-    return (
-      <div className="w-full py-8 flex justify-center items-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
-      </div>
-    );
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <div className="w-full text-center py-8 text-red-500">
-        <p>{error}</p>
-        <button
-          className="mt-4 px-4 py-2 bg-black text-white rounded"
-          onClick={() => window.location.reload()}
-        >
-          Thử lại
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div className="w-full xl:px-20 lg:px-10 md:px-4 px-2 mt-4">
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-semibold text-left">
           SẢN PHẨM MẶC HẰNG NGÀY
         </h2>
-        <Link
-          href="/categories?suitability=casual"
-          className="text-right text-lg text-gray-500 hover:underline hover:text-gray-700"
-        >
-          Xem thêm
-        </Link>
+        {!loading && !error && (
+          <Link
+            href="/categories?suitability=casual"
+            className="text-right text-lg text-gray-500 hover:underline hover:text-gray-700"
+          >
+            Xem thêm
+          </Link>
+        )}
       </div>
 
-      <div className="relative mt-6">
-        <Slider ref={sliderRef} {...settings}>
-          {products.map((product) => {
-            const color = selectedColors[product.id] || product.colors[0];
+      {loading ? (
+        <div className="py-16 flex justify-center items-center">
+          <LoadingSpinner size="lg" text="Đang tải sản phẩm..." />
+        </div>
+      ) : error ? (
+        <div className="w-full text-center py-8">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 inline-block">
+            <div className="text-red-600 mb-2 text-xl">
+              <i className="fas fa-exclamation-circle"></i>
+            </div>
+            <p className="text-red-600 mb-4">{error}</p>
+            <button
+              className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition"
+              onClick={() => window.location.reload()}
+            >
+              Thử lại
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="relative mt-6">
+          <Slider ref={sliderRef} {...settings}>
+            {products.map((product) => {
+              const color = selectedColors[product.id] || product.colors[0];
 
-            // Sử dụng SimpleProduct cho ProductCard
-            const simpleProduct: SimpleProduct = {
-              id: product.id,
-              name: product.name,
-              featured: product.featured,
-              colors: product.colors,
-              variants: product.variants,
-              price: product.variants[color]?.price || 0,
-            };
+              // Sử dụng SimpleProduct cho ProductCard
+              const simpleProduct: SimpleProduct = {
+                id: product.id,
+                name: product.name,
+                featured: product.featured,
+                colors: product.colors,
+                variants: product.variants,
+                price: product.variants[color]?.price || 0,
+              };
 
-            return (
-              <div key={product.id} className="p-2">
-                <ProductCard
-                  product={simpleProduct}
-                  selectedColor={color}
-                  productImage={productImages[product.id] || ""}
-                  secondaryImage={secondaryImages[product.id] || ""}
-                  onColorSelect={handleColorSelect}
-                />
-              </div>
-            );
-          })}
-        </Slider>
-      </div>
+              return (
+                <div key={product.id} className="p-2">
+                  <ProductCard
+                    product={simpleProduct}
+                    selectedColor={color}
+                    productImage={productImages[product.id] || ""}
+                    secondaryImage={secondaryImages[product.id] || ""}
+                    onColorSelect={handleColorSelect}
+                  />
+                </div>
+              );
+            })}
+          </Slider>
+        </div>
+      )}
     </div>
   );
 };

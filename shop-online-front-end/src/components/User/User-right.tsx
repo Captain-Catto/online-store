@@ -1887,8 +1887,8 @@ const Wishlist: React.FC<{
           Bạn chưa thêm sản phẩm nào vào danh sách yêu thích.
         </p>
         <button
-          onClick={() => router.push("/products")}
-          className="mt-4 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+          onClick={() => router.push("/")}
+          className="mt-4 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
           Khám phá sản phẩm
         </button>
@@ -1912,7 +1912,7 @@ const Wishlist: React.FC<{
           return (
             <div
               key={item.id}
-              className="border rounded-md overflow-hidden hover:shadow-md transition-shadow flex"
+              className="flex-col sm:flex-row border rounded-md overflow-hidden hover:shadow-md transition-shadow flex"
             >
               <div className="flex-shrink-0 w-24 h-24 bg-gray-200 relative">
                 <Link href={`/products/${item.product.id}`}>

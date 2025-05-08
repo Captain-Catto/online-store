@@ -3,12 +3,11 @@ import { usePathname } from "next/navigation";
 import Image from "next/image";
 import logo from "@/assets/imgs/logo-coolmate-new-mobile-v2.svg";
 import { useAdminMenu, HierarchicalMenuItem } from "@/hooks/useAdminMenu"; // Import hook và interface mới
-
-// Interface MenuItem gốc không cần nữa nếu dùng HierarchicalMenuItem
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 interface AdminSidebarProps {
-  openMenuIds: number[]; // Thay đổi từ strings sang numbers
-  toggleMenu: (id: number) => void; // Thay đổi từ path sang id
+  openMenuIds: number[];
+  toggleMenu: (id: number) => void;
 }
 
 export default function AdminSidebar({
@@ -18,7 +17,7 @@ export default function AdminSidebar({
   const pathname = usePathname();
   const { hierarchicalMenu, loading, error } = useAdminMenu(); // Sử dụng hook
 
-  // Hàm render menu item (có thể tách ra component riêng nếu phức tạp)
+  // Hàm render menu item
   const renderMenuItem = (item: HierarchicalMenuItem) => {
     const isActive =
       pathname === item.path ||
@@ -59,8 +58,7 @@ export default function AdminSidebar({
 
         {item.children.length > 0 && (
           <ul className="nav nav-treeview">
-            {item.children.map((child) => renderMenuItem(child))}{" "}
-            {/* Đệ quy để render children */}
+            {item.children.map((child) => renderMenuItem(child))}
           </ul>
         )}
       </li>
@@ -76,7 +74,7 @@ export default function AdminSidebar({
 
       {/* Sidebar */}
       <div className="sidebar">
-        {/* Sidebar user panel (giữ nguyên hoặc cập nhật động) */}
+        {/* Sidebar user panel */}
         <div className="user-panel mt-3 pb-3 mb-3 d-flex">
           <div className="image">
             <Image
@@ -88,26 +86,35 @@ export default function AdminSidebar({
             />
           </div>
           <div className="info">
-            <a href="#" className="d-block">
-              Admin Name {/* Có thể lấy tên user động */}
+            <a href="/admin/profile" className="d-block">
+              Admin
             </a>
           </div>
         </div>
 
         {/* Sidebar Menu */}
         <nav className="mt-2">
-          {loading && <p className="text-light p-3">Đang tải menu...</p>}
-          {error && <p className="text-danger p-3">{error}</p>}
-          {!loading && !error && (
-            <ul
-              className="nav nav-pills nav-sidebar flex-column"
-              data-widget="treeview"
-              role="menu"
-              data-accordion="false" // Quan trọng: để quản lý đóng/mở bằng state React
-            >
-              {hierarchicalMenu.map((item) => renderMenuItem(item))}
-            </ul>
-          )}
+          <ul
+            className="nav nav-pills nav-sidebar flex-column"
+            data-widget="treeview"
+            role="menu"
+            data-accordion="false"
+          >
+            {loading ? (
+              <li className="nav-item p-3 text-center">
+                <LoadingSpinner size="lg" color="white" className="mt-2" />
+              </li>
+            ) : error ? (
+              <li className="nav-item">
+                <div className="nav-link">
+                  <i className="nav-icon fas fa-exclamation-triangle text-danger"></i>
+                  <p className="text-danger">{error}</p>
+                </div>
+              </li>
+            ) : (
+              hierarchicalMenu.map((item) => renderMenuItem(item))
+            )}
+          </ul>
         </nav>
       </div>
     </aside>
