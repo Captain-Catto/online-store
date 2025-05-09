@@ -70,11 +70,27 @@ Order.init(
       allowNull: false,
       references: { model: PaymentStatus, key: "id" },
     },
-    shippingAddress: {
-      type: DataTypes.TEXT,
+    shippingFullName: {
+      type: DataTypes.STRING,
       allowNull: false,
     },
-    phoneNumber: {
+    shippingPhoneNumber: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    shippingStreetAddress: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    shippingWard: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    shippingDistrict: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    shippingCity: {
       type: DataTypes.STRING,
       allowNull: false,
     },

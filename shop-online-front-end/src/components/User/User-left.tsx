@@ -11,6 +11,11 @@ export const UserLeft: React.FC<UserLeftProps> = ({
   setActiveTab,
   onLogout,
 }) => {
+  // Xử lý khi nhấn vào tab (không cần dùng event)
+  const handleTabClick = (tabName: string) => {
+    setActiveTab(tabName); // Gọi hàm callback được truyền từ AccountLayout
+  };
+
   return (
     <div className="bg-gray-100 p-4 rounded-lg">
       <ul className="space-y-2">
@@ -20,7 +25,7 @@ export const UserLeft: React.FC<UserLeftProps> = ({
               ? "bg-black text-white"
               : "hover:bg-gray-200"
           }`}
-          onClick={() => setActiveTab("account")}
+          onClick={() => handleTabClick("account")}
         >
           Thông tin tài khoản
         </li>
@@ -28,7 +33,7 @@ export const UserLeft: React.FC<UserLeftProps> = ({
           className={`p-3 rounded-md cursor-pointer transition-all ${
             activeTab === "orders" ? "bg-black text-white" : "hover:bg-gray-200"
           }`}
-          onClick={() => setActiveTab("orders")}
+          onClick={() => handleTabClick("orders")}
         >
           Đơn hàng của tôi
         </li>
@@ -38,7 +43,7 @@ export const UserLeft: React.FC<UserLeftProps> = ({
               ? "bg-black text-white"
               : "hover:bg-gray-200"
           }`}
-          onClick={() => setActiveTab("addresses")}
+          onClick={() => handleTabClick("addresses")}
         >
           Địa chỉ của tôi
         </li>
@@ -48,7 +53,7 @@ export const UserLeft: React.FC<UserLeftProps> = ({
               ? "bg-black text-white"
               : "hover:bg-gray-200"
           }`}
-          onClick={() => setActiveTab("wishlist")}
+          onClick={() => handleTabClick("wishlist")}
         >
           Yêu thích
         </li>
@@ -58,7 +63,7 @@ export const UserLeft: React.FC<UserLeftProps> = ({
               ? "bg-black text-white"
               : "hover:bg-gray-200"
           }`}
-          onClick={() => setActiveTab("promotions")}
+          onClick={() => handleTabClick("promotions")}
         >
           Ưu đãi của tôi
         </li>
@@ -66,7 +71,7 @@ export const UserLeft: React.FC<UserLeftProps> = ({
           className={`p-3 rounded-md cursor-pointer transition-all ${
             activeTab === "faq" ? "bg-black text-white" : "hover:bg-gray-200"
           }`}
-          onClick={() => setActiveTab("faq")}
+          onClick={() => handleTabClick("faq")}
         >
           Chính sách & câu hỏi thường gặp
         </li>

@@ -6,24 +6,28 @@ import Image from "next/image";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
 import { ProductService } from "@/services/ProductService";
-import { Product } from "@/types/product";
+import { ProductAdminResponse } from "@/types/product";
 import { useToast } from "@/utils/useToast";
 import { CategoryService } from "@/services/CategoryService";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 export default function ProductsPage() {
+  const [role, setRole] = useState<number | null>(null);
   const [search, setSearchTerm] = useState("");
   const [category, setCategoryFilter] = useState("");
   const [status, setStatusFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [productToDelete, setProductToDelete] = useState<{
+    id: number;
+    name: string;
+  } | null>(null);
   const { showToast, Toast } = useToast();
   const productsPerPage = 10;
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProductAdminResponse[]>([]);
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -42,6 +46,18 @@ export default function ProductsPage() {
     { value: "outofstock", label: "Hết hàng", class: "bg-danger" },
     { value: "draft", label: "Sản phẩm ảo", class: "bg-secondary" },
   ];
+  // hàm lấy role ở localstorage
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const user = localStorage.getItem("user");
+      if (user) {
+        const parsedUser = JSON.parse(user);
+        setRole(parsedUser.role);
+      }
+    }
+  }, []);
+
   // lấy data về
   const fetchProducts = useCallback(async () => {
     try {
@@ -56,18 +72,10 @@ export default function ProductsPage() {
         }
       );
 
-      const formattedProducts = (response.products || []).map(
-        (product: Product) => {
-          const categoryLabel =
-            product.categories?.map((cat) => cat.name).join(", ") || "";
-          return {
-            ...product,
-            categoryLabel,
-          };
-        }
-      );
+      console.log("Response:", response);
 
-      setProducts(formattedProducts || []);
+      setProducts(response.products || []);
+
       setPagination({
         currentPage: response.pagination.currentPage,
         totalPages: response.pagination.totalPages,
@@ -129,26 +137,30 @@ export default function ProductsPage() {
   const totalPages = pagination.totalPages;
 
   // Thêm sau hàm fetchProducts
-  const handleDeleteProduct = (product: any) => {
-    setProductToDelete(product);
+  const handleDeleteProduct = (id: number, name: string) => {
+    setProductToDelete({ id, name });
     setShowDeleteModal(true);
   };
 
+  // xác nhận xóa sản phẩm
   const confirmDelete = async () => {
     if (!productToDelete) return;
 
     try {
       await ProductService.deleteProduct(String(productToDelete.id));
       setShowDeleteModal(false);
-
-      // Hiển thị thông báo thành công
       showToast("Đã xóa sản phẩm thành công!", { type: "success" });
-
-      // Cập nhật lại danh sách sản phẩm
       fetchProducts();
     } catch (error) {
       console.error("Error deleting product:", error);
-      showToast("Không thể xóa sản phẩm này.", { type: "error" });
+      showToast(
+        error instanceof Error
+          ? error.message
+          : "Có lỗi xảy ra khi xóa sản phẩm.",
+        { type: "error" }
+      );
+    } finally {
+      setShowDeleteModal(false);
     }
   };
 
@@ -180,6 +192,7 @@ export default function ProductsPage() {
       "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/products/269ea64b-55b9b941_9b8e_4c6a_a35b_ee9806f43c5e.jpg"
     );
   };
+
   return (
     <AdminLayout title="Quản lý sản phẩm">
       {/* Content Header */}
@@ -200,18 +213,20 @@ export default function ProductsPage() {
       <section className="content">
         <div className="container-fluid">
           {/* Top action buttons */}
-          <div className="mb-3">
-            <Link href="/admin/products/add" className="btn btn-primary">
-              <i className="fas fa-plus mr-1"></i> Thêm sản phẩm mới
-            </Link>
-            <Link
-              href="/admin/categories"
-              className="btn btn-outline-secondary ml-2"
-            >
-              <i className="fas fa-tags mr-1"></i> Quản lý danh mục
-            </Link>
-          </div>
+          {role == 1 && (
+            <div className="mb-3">
+              <Link href="/admin/products/add" className="btn btn-primary">
+                <i className="fas fa-plus mr-1"></i> Thêm sản phẩm mới
+              </Link>
 
+              <Link
+                href="/admin/categories"
+                className="btn btn-outline-secondary ml-2"
+              >
+                <i className="fas fa-tags mr-1"></i> Quản lý danh mục
+              </Link>
+            </div>
+          )}
           {/* Filters */}
           <div className="card">
             <div className="card-header">
@@ -347,7 +362,11 @@ export default function ProductsPage() {
                         </td>
                         <td>{product.sku}</td>
                         <td>{product.name}</td>
-                        <td>{product.categoryLabel}</td>
+                        <td>
+                          {product.categories
+                            ?.map((cat) => cat.name)
+                            .join(", ")}
+                        </td>
                         <td>
                           <span
                             className={
@@ -377,7 +396,9 @@ export default function ProductsPage() {
                             <button
                               className="btn btn-sm btn-danger"
                               title="Xóa"
-                              onClick={() => handleDeleteProduct(product)}
+                              onClick={() =>
+                                handleDeleteProduct(product.id, product.name)
+                              }
                             >
                               <i className="fas fa-trash"></i>
                             </button>

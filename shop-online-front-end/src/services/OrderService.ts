@@ -154,6 +154,62 @@ export const OrderService = {
     }
   },
 
+  getEmployeeOrders: async (
+    page = 1,
+    limit = 10,
+    status = "all",
+    search = "",
+    fromDate = "",
+    toDate = ""
+  ): Promise<PaginatedOrders> => {
+    try {
+      // Tạo query parameters
+      const params = new URLSearchParams();
+      params.append("page", page.toString());
+      params.append("limit", limit.toString());
+
+      if (status !== "all") {
+        params.append("status", status);
+      }
+
+      if (search) {
+        params.append("search", search);
+      }
+
+      if (fromDate) {
+        params.append("fromDate", fromDate);
+      }
+
+      if (toDate) {
+        params.append("toDate", toDate);
+      }
+
+      const response = await AuthClient.fetchWithAuth(
+        `${API_BASE_URL}/orders/employee/all?${params.toString()}`
+      );
+
+      if (!response.ok) {
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.message ||
+              `Error ${response.status}: ${response.statusText}`
+          );
+        } else {
+          const errorText = await response.text();
+          throw new Error(
+            `Error ${response.status}: ${errorText || response.statusText}`
+          );
+        }
+      }
+      return await response.json();
+    } catch (error) {
+      console.error("Error fetching employee orders:", error);
+      throw error;
+    }
+  },
+
   // Thêm phương thức để in hóa đơn
   printOrderInvoice: async (orderId: string | number): Promise<void> => {
     try {
@@ -226,9 +282,14 @@ export const OrderService = {
             <div>
               <h3>Thông tin khách hàng</h3>
               <p><strong>ID khách hàng:</strong> ${order.userId}</p>
-              <p><strong>Điện thoại:</strong> ${order.phoneNumber || "N/A"}</p>
+              <p><strong>Điện thoại:</strong> ${
+                order.shippingPhoneNumber || "N/A"
+              }</p>
               <p><strong>Địa chỉ giao hàng:</strong> ${
-                order.shippingAddress || "N/A"
+                (order.shippingStreetAddress,
+                order.shippingWard,
+                order.shippingDistrict,
+                order.shippingCity || "N/A")
               }</p>
             </div>
             <div>

@@ -19,8 +19,17 @@ export const createOrder = async (
   const t = await sequelize.transaction();
 
   try {
-    const { items, paymentMethodId, voucherId, shippingAddress, phoneNumber } =
-      req.body;
+    const {
+      items,
+      paymentMethodId,
+      voucherId,
+      shippingFullName,
+      shippingPhoneNumber,
+      shippingStreetAddress,
+      shippingWard,
+      shippingDistrict,
+      shippingCity,
+    } = req.body;
 
     if (!req.user) {
       res.status(401).json({ message: "Unauthorized" });
@@ -159,7 +168,7 @@ export const createOrder = async (
     }
 
     // Tính phí vận chuyển
-    const shippingCalculation = calculateShippingFee(total, shippingAddress);
+    const shippingCalculation = calculateShippingFee(total, shippingCity);
     const shippingFee = shippingCalculation.finalFee;
 
     // Tính tổng tiền sau khi áp dụng voucher
@@ -173,8 +182,12 @@ export const createOrder = async (
         status: "pending",
         paymentMethodId,
         paymentStatusId: 1, // pending
-        shippingAddress,
-        phoneNumber,
+        shippingFullName,
+        shippingPhoneNumber,
+        shippingStreetAddress,
+        shippingWard,
+        shippingDistrict,
+        shippingCity,
         voucherDiscount: voucherDiscount,
         subtotal: total,
         shippingFee: shippingFee,
@@ -421,7 +434,11 @@ export const getOrderById = async (
 
     // Kiểm tra quyền truy cập
     // Nếu không phải admin và không phải đơn hàng của người dùng đó
-    if (req.user.role !== 1 && req.user.role !== 2 && order.userId !== req.user.id) {
+    if (
+      req.user.role !== 1 &&
+      req.user.role !== 2 &&
+      order.userId !== req.user.id
+    ) {
       res.status(403).json({ message: "Bạn không có quyền xem đơn hàng này" });
       return;
     }
@@ -774,7 +791,7 @@ export const calculateShippingFeeForCart = async (
 // Lấy đơn hàng của một user cụ thể (chỉ dành cho admin)
 export const getUserOrdersByAdmin = async (req: Request, res: Response) => {
   try {
-    // Kiểm tra quyền admin
+    // Kiểm tra quyền admin và employee
     if (!req.user || (req.user.role !== 1 && req.user.role !== 2)) {
       res.status(403).json({ message: "Không có quyền truy cập" });
       return;
@@ -824,7 +841,7 @@ export const getUserOrdersByAdmin = async (req: Request, res: Response) => {
         where.createdAt[Op.lte] = endDate;
       }
     }
-    // Nếu chỉ có orderDate (xử lý tương thích ngược)
+    // Nếu chỉ có orderDate
     else if (req.query.orderDate) {
       const orderDate = new Date(req.query.orderDate as string);
       where.createdAt = {
@@ -869,6 +886,119 @@ export const getUserOrdersByAdmin = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error("Error in getUserOrdersByAdmin:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * get all order by employee
+ */
+// employee chỉ xem được 4 chữ đầu email và 4 chữ cuối email trước @
+// xem được 4 số đầu và 3 số cuối của sdt
+export const getAllOrdersByEmployee = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+
+    // Định nghĩa include
+    const includeOptions = [
+      {
+        model: OrderDetail,
+        as: "orderDetails",
+        required: false,
+        include: [
+          {
+            model: Product,
+            as: "product",
+            attributes: ["id", "name"],
+            required: false,
+          },
+        ],
+      },
+      {
+        model: Users,
+        as: "user",
+        attributes: ["id", "email", "username"],
+        required: false,
+      },
+    ];
+
+    // Đếm tổng số đơn hàng
+    let count = await Order.count({
+      distinct: true,
+      include: includeOptions,
+    });
+
+    // Lấy danh sách đơn hàng
+    const orders = await Order.findAll({
+      include: [
+        {
+          model: OrderDetail,
+          as: "orderDetails",
+          include: [
+            {
+              model: ProductDetail,
+              as: "productDetail",
+              attributes: ["id", "color"],
+            },
+            {
+              model: Product,
+              as: "product",
+              attributes: ["id", "name"],
+            },
+          ],
+        },
+        {
+          model: Users,
+          as: "user",
+          attributes: ["id", "email", "username"],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+      limit: Number(limit),
+      offset,
+    });
+
+    // Chỉ lấy 4 chữ đầu và 4 chữ cuối của email và 4 số đầu và 3 số cuối của sdt
+    const modifiedOrders = orders.map((order) => {
+      const user = (order as any).user || {};
+      const userEmail = user.email || "";
+      const userPhoneNumber = order.phoneNumber || "";
+
+      return {
+        ...order.get(),
+        user: {
+          id: user.id,
+          username: user.username,
+          // KHÔNG trả về email đầy đủ!
+          email:
+            userEmail.length > 8
+              ? `${userEmail.slice(0, 4)}...${userEmail.slice(
+                  userEmail.indexOf("@") - 4
+                )}`
+              : userEmail,
+        },
+        // Nếu muốn, có thể bỏ luôn trường userEmail ở ngoài
+        phoneNumber:
+          userPhoneNumber.length > 7
+            ? `${userPhoneNumber.slice(0, 4)}...${userPhoneNumber.slice(-3)}`
+            : userPhoneNumber,
+      };
+    });
+    res.status(200).json({
+      orders: modifiedOrders,
+      pagination: {
+        total: count,
+        currentPage: Number(page),
+        totalPages: Math.ceil(count / Number(limit)),
+        perPage: Number(limit),
+      },
+    });
+  } catch (error: any) {
+    console.error("Error in getAllOrdersByEmployee:", error);
     res.status(500).json({ message: error.message });
   }
 };

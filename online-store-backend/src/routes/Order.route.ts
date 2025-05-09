@@ -5,6 +5,7 @@ import {
   getOrderById,
   calculateShippingFeeForCart,
   getUserOrdersByAdmin,
+  getAllOrdersByEmployee,
 } from "../controllers/Order.Controller";
 import {
   updateOrderStatus,
@@ -26,12 +27,20 @@ const router = Router();
 // Tạo đơn hàng mới (cần đăng nhập)
 router.post("/", authMiddleware, createOrder);
 // ADMIN ROUTES (Tất cả đều yêu cầu quyền admin)
-// Lấy tất cả đơn hàng (Admin) - employee chỉ có thể xem 1 phần thông tin user
+// Lấy tất cả đơn hàng (Admin)
 router.get(
   "/admin/all",
   authMiddleware,
   permissionMiddleware([Permission.VIEW_FULL_ORDERS]),
   getAllOrders
+);
+
+// lấy tất cả đơn hàng (employee) - chỉ xem được 1 phần thông tin đơn hàng
+router.get(
+  "/employee/all",
+  authMiddleware,
+  permissionMiddleware([Permission.VIEW_ORDERS]),
+  getAllOrdersByEmployee
 );
 
 // Lấy danh sách đơn hàng của người dùng (chỉ người dùng đã đăng nhập)

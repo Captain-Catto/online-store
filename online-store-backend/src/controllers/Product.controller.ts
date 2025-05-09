@@ -243,7 +243,6 @@ export const getProductsWithVariants = async (
     const category = req.query.category as string;
     const status = req.query.status as string;
     const brand = req.query.brand as string;
-    const subtype = req.query.subtype as string;
     const featured =
       req.query.featured === "true"
         ? true
@@ -256,7 +255,13 @@ export const getProductsWithVariants = async (
     const sizes = sizeParam ? sizeParam.split(",") : [];
     const suitabilityParam = req.query.suitability as string;
     const suitabilities = suitabilityParam ? suitabilityParam.split(",") : [];
-
+    console.log("Suitabilities:", suitabilities);
+    console.log("Comparing suitabilities:", {
+      input: suitabilities,
+      dbValues: await Suitability.findAll({
+        attributes: ["id", "name", "slug"],
+      }).then((records) => records.map((r) => r.get({ plain: true }))),
+    });
     // thêm tham số để sort
     const sort = req.query.sort as string;
 
@@ -309,13 +314,24 @@ export const getProductsWithVariants = async (
     if (brand) {
       where.brand = brand;
     }
+
+    // so sánh với slug trong db
     if (suitabilities.length > 0) {
       include.push({
         model: Suitability,
         as: "suitabilities",
-        where: { name: { [Op.in]: suitabilities } },
+        // so sánh bằng slug luôn thay vì phải mapping id
+        where: { slug: { [Op.in]: suitabilities } },
         through: { attributes: [] }, // Không lấy thông tin bảng trung gian
         required: true, // Bắt buộc phải có
+      });
+    } else {
+      include.push({
+        model: Suitability,
+        as: "suitabilities",
+        attributes: ["id", "name"],
+        through: { attributes: [] },
+        required: false, // Không bắt buộc có
       });
     }
 
@@ -336,15 +352,6 @@ export const getProductsWithVariants = async (
     }
 
     include.push(categoryInclude);
-
-    // Thêm Suitability include vào đây, ngay cả khi không dùng để filter
-    include.push({
-      model: Suitability,
-      as: "suitabilities",
-      attributes: ["id", "name"],
-      through: { attributes: [] },
-      required: false, // Không bắt buộc có
-    });
 
     // ProductDetail include với lọc
     const detailsInclude: any = {
@@ -476,6 +483,8 @@ export const getProductsWithVariants = async (
           break;
       }
 
+      console.log("Suitabilities in product:", product.suitabilities);
+
       // Return formatted product
       return {
         id: product.id,
@@ -527,19 +536,7 @@ export const getProductsWithVariants = async (
         size: sizeParam || null,
         featured: req.query.featured === "true" ? true : null,
         sort: sort || null,
-        suitability: products
-          .flatMap((product: any) => {
-            try {
-              return Array.isArray(product.suitability)
-                ? product.suitability
-                : typeof product.suitability === "string"
-                ? JSON.parse(product.suitability)
-                : [];
-            } catch (e) {
-              return [];
-            }
-          })
-          .filter((value, index, self) => self.indexOf(value) === index), // loại bỏ trùng lặp
+        suitability: suitabilityParam ? suitabilityParam.split(",") : [],
       },
       pagination: {
         total: count,
@@ -550,6 +547,11 @@ export const getProductsWithVariants = async (
     });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
+    console.error("GET PRODUCTS ERROR:", {
+      message: error.message,
+      stack: error.stack,
+      query: req.query,
+    });
   }
 };
 /**
@@ -946,7 +948,8 @@ export const getProductsByCategory = async (
     } as ExtendedFindOptions);
 
     // Format sản phẩm (giữ nguyên phần này)
-    const formattedProducts = products.map((product: any) => {
+    const formattedProducts = products.map((product: any, index: number) => {
+      console.log(`Processing product ${index}:`, product.toJSON());
       const details = product.details || [];
 
       // Get all unique colors
@@ -1272,10 +1275,10 @@ export const updateProductBasicInfo = async (
       featured,
       status,
       tags,
-      suitability,
+      suitabilities,
       categories,
     } = req.body;
-
+    console.log("suitabilities nhặn vào", suitabilities);
     // Check if product exists
     const product = await Product.findByPk(id, { transaction: t });
     if (!product) {
@@ -1295,13 +1298,32 @@ export const updateProductBasicInfo = async (
         featured: featured === "true" || featured === true,
         status: status || "draft",
         tags: typeof tags === "string" ? JSON.parse(tags) : tags,
-        suitability:
-          typeof suitability === "string"
-            ? JSON.parse(suitability)
-            : suitability,
       },
       { transaction: t }
     );
+
+    // Update suitabilities if provided
+    if (
+      suitabilities &&
+      Array.isArray(suitabilities)
+      // kể cả = 0 thì cũng xóa vì có thể xóa hết suitabilities
+    ) {
+      // Delete existing suitability relationships
+      await ProductSuitability.destroy({
+        where: { productId: id },
+        transaction: t,
+      });
+
+      // Add new suitability relationships
+      const suitabilityEntries = suitabilities.map((suitabilityId: number) => ({
+        productId: Number(id),
+        suitabilityId,
+      }));
+
+      await ProductSuitability.bulkCreate(suitabilityEntries, {
+        transaction: t,
+      });
+    }
 
     // Update categories if provided
     if (categories && categories.length > 0) {
@@ -1344,7 +1366,7 @@ export const updateProductBasicInfo = async (
                 transaction: t,
               }
             );
-            return; // Không thực hiện code dưới đây
+            return;
           }
         }
       }

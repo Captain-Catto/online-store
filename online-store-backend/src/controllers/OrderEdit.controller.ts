@@ -477,7 +477,7 @@ export const getAllOrders = async (
                 where: {
                   [Op.or]: [
                     { name: { [Op.like]: searchTerm } },
-                    { slug: { [Op.like]: searchTerm } },
+                    { sku: { [Op.like]: searchTerm } },
                   ],
                 },
                 required: true,

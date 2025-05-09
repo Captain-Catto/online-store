@@ -72,7 +72,6 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
 
           // Then fetch the cart from database
           const cartData = await CartService.getCart();
-          console.log("Fetched cart data:", cartData); // Log the fetched cart data
           setCartItems(cartData.items);
           setCartCount(cartData.totalItems);
         } catch (error) {

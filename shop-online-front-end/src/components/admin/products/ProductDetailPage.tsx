@@ -76,7 +76,7 @@ export interface FormattedProduct {
   statusClass: string;
   featured: boolean;
   tags: string[];
-  suitability: string[];
+  suitabilities: Array<number>;
   images: ProductImage[];
   createdAt: string;
   updatedAt: string;
@@ -118,7 +118,6 @@ interface ProductApiResponse {
   featured: boolean;
   status: string;
   tags: string[] | string;
-  suitability: string[] | string;
   suitabilities?: Array<{ id: number; name: string }>;
   createdAt: string;
   updatedAt: string;
@@ -227,11 +226,6 @@ const ProductDetailPage: FC = () => {
       typeof productData.tags === "string"
         ? JSON.parse(productData.tags)
         : productData.tags;
-    const suitability = Array.isArray(productData.suitabilities)
-      ? productData.suitabilities.map((item) => item.name)
-      : typeof productData.suitability === "string"
-      ? JSON.parse(productData.suitability)
-      : productData.suitability || [];
 
     const totalStock = productData.details.reduce(
       (total, detail) =>
@@ -315,7 +309,7 @@ const ProductDetailPage: FC = () => {
           : "bg-secondary",
       featured: productData.featured,
       tags,
-      suitability,
+      suitabilities: productData.suitabilities?.map((suit) => suit.id) || [],
       images,
       createdAt: new Date(productData.createdAt).toLocaleDateString("vi-VN"),
       updatedAt: new Date(productData.updatedAt).toLocaleDateString("vi-VN"),
@@ -337,36 +331,39 @@ const ProductDetailPage: FC = () => {
       categories: productData.categories,
     };
   };
+  // Tách logic fetch sản phẩm thành một hàm riêng
+  const fetchProductData = async () => {
+    try {
+      setLoading(true);
+      const productData = await ProductService.getProductVariants(id);
+      console.log("Product data:", productData);
+      const formattedProduct = formatProductData(productData);
+      setProduct(formattedProduct);
+      console.log("Formatted product:", formattedProduct);
+      setProductVariants(
+        productData.details.map((detail: ProductDetailApiResponse) => ({
+          id: detail.id,
+          color: detail.color,
+          price: detail.price,
+          originalPrice: detail.originalPrice,
+          sizes: detail.inventories.map((inv) => ({
+            size: inv.size,
+            stock: inv.stock,
+          })),
+        }))
+      );
+      setSelectedImageColor(formattedProduct.colors[0] || "");
+    } catch (err) {
+      console.error("Error fetching product:", err);
+      setError("Không thể tải thông tin sản phẩm");
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  // Sửa useEffect ban đầu để sử dụng hàm này
   useEffect(() => {
-    const fetchProduct = async () => {
-      try {
-        setLoading(true);
-        const productData = await ProductService.getProductVariants(id);
-        const formattedProduct = formatProductData(productData);
-        setProduct(formattedProduct);
-        setProductVariants(
-          productData.details.map((detail: ProductDetailApiResponse) => ({
-            id: detail.id,
-            color: detail.color,
-            price: detail.price,
-            originalPrice: detail.originalPrice,
-            sizes: detail.inventories.map((inv) => ({
-              size: inv.size,
-              stock: inv.stock,
-            })),
-          }))
-        );
-        setSelectedImageColor(formattedProduct.colors[0] || "");
-      } catch (err) {
-        console.error("Error fetching product:", err);
-        setError("Không thể tải thông tin sản phẩm");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProduct();
+    fetchProductData();
   }, [id]);
 
   useEffect(() => {
@@ -686,6 +683,14 @@ const ProductDetailPage: FC = () => {
       return false;
     }
 
+    if (product.suitabilities.length === 0) {
+      showToast("Vui lòng chọn ít nhất một loại phù hợp (suitability)", {
+        type: "error",
+      });
+      setActiveTab("info");
+      return false;
+    }
+
     const colorsWithoutImages = product.colors.filter(
       (color) => !product.images.some((img) => img.color === color)
     );
@@ -827,7 +832,12 @@ const ProductDetailPage: FC = () => {
       return true;
     } catch (err) {
       console.error("Failed to update variants:", err);
-      showToast("Lỗi cập nhật biến thể", { type: "error" });
+      showToast(
+        err instanceof Error ? err.message : "An unknown error occurred",
+        {
+          type: "error",
+        }
+      );
       return false;
     } finally {
       setIsSubmitting(false);
@@ -849,7 +859,7 @@ const ProductDetailPage: FC = () => {
         featured: product.featured,
         status: product.status,
         tags: product.tags,
-        suitability: product.suitability,
+        suitabilities: product.suitabilities,
         categories: [
           { id: parseInt(String(product.category), 10), isParent: true },
           ...(product.subtype
@@ -863,7 +873,7 @@ const ProductDetailPage: FC = () => {
             : []),
         ].map((category) => category.id),
       };
-
+      console.log("basicinfodata suitability", basicInfoData.suitabilities);
       const duplicateColors = checkDuplicateColorVariants(productVariants);
       if (duplicateColors.length > 0) {
         showToast(`Phát hiện màu trùng lặp: ${duplicateColors.join(", ")}`, {
@@ -885,9 +895,7 @@ const ProductDetailPage: FC = () => {
       await ProductService.updateProductBasicInfo(product.id, {
         ...basicInfoData,
         tags: Array.isArray(basicInfoData.tags) ? basicInfoData.tags : [],
-        suitability: Array.isArray(basicInfoData.suitability)
-          ? basicInfoData.suitability
-          : [],
+        suitabilities: basicInfoData.suitabilities,
       });
 
       const inventoryData = product.colors.map((color) => {
@@ -925,28 +933,13 @@ const ProductDetailPage: FC = () => {
         await new Promise((resolve) => setTimeout(resolve, 5000));
       }
 
+      // 3. Cập nhật lại hình ảnh
       if (removedDetailIds.length > 0) {
         await ProductService.removeProductDetails(removedDetailIds);
       }
 
-      const newHistoryItem: ModificationHistoryItem = {
-        date: new Date().toLocaleString("vi-VN"),
-        user: "Admin",
-        action: "Cập nhật sản phẩm",
-        detail: "Cập nhật thông tin cơ bản, tồn kho, biến thể và hình ảnh",
-      };
+      await fetchProductData();
 
-      setProduct((prev) =>
-        prev
-          ? {
-              ...prev,
-              modificationHistory: [
-                newHistoryItem,
-                ...prev.modificationHistory,
-              ],
-            }
-          : prev
-      );
       setRemovedImageIds([]);
       setRemovedDetailIds([]);
       setNewImages([]);
@@ -954,8 +947,12 @@ const ProductDetailPage: FC = () => {
 
       showToast("Cập nhật sản phẩm thành công!", { type: "success" });
     } catch (err) {
-      console.error("Error updating product:", err);
-      showToast("Có lỗi xảy ra", { type: "error" });
+      showToast(
+        err instanceof Error
+          ? err.message
+          : "Có lỗi xảy ra khi cập nhật sản phẩm.",
+        { type: "error" }
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -1553,16 +1550,21 @@ const ProductDetailPage: FC = () => {
                                   hợp cho
                                 </label>
                                 <div>
-                                  {product.suitability.length > 0 ? (
-                                    product.suitability.map((item, index) => (
-                                      <span
-                                        key={index}
-                                        className="badge badge-info mr-2 mb-2 p-2"
-                                        style={{ fontSize: "90%" }}
-                                      >
-                                        <i className="fas fa-tag mr-1" /> {item}
-                                      </span>
-                                    ))
+                                  {product.suitabilities.length > 0 ? (
+                                    suitabilities
+                                      .filter((suit) =>
+                                        product.suitabilities.includes(suit.id)
+                                      )
+                                      .map((suit) => (
+                                        <span
+                                          key={suit.id}
+                                          className="badge badge-info mr-2 mb-2 p-2"
+                                          style={{ fontSize: "90%" }}
+                                        >
+                                          <i className="fas fa-tag mr-1" />{" "}
+                                          {suit.name}
+                                        </span>
+                                      ))
                                   ) : (
                                     <span className="text-muted">
                                       Chưa có thông tin phù hợp
@@ -2096,9 +2098,13 @@ const ProductDetailPage: FC = () => {
                       }, 2000);
                     } catch (err) {
                       console.error("Error deleting product:", err);
-                      showToast("Không thể xóa sản phẩm này", {
-                        type: "error",
-                      });
+                      showToast(
+                        err instanceof Error
+                          ? err.message
+                          : "Có lỗi xảy ra khi xóa sản phẩm.",
+                        { type: "error" }
+                      );
+                      setShowDeleteModal(false);
                     }
                   }}
                 >

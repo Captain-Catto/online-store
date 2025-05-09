@@ -40,6 +40,58 @@ export interface Product {
   material: string[];
 }
 
+export interface ProductAdminResponse {
+  id: number;
+  name: string;
+  sku: string;
+  description: string;
+  categories: Array<{
+    id: number;
+    name: string;
+    slug?: string;
+  }>;
+  brand: string;
+  material: string;
+  featured: boolean;
+  status: string;
+  statusLabel: string;
+  statusClass: string;
+  tags: string[];
+  suitability: string[];
+  colors: string[];
+  sizes: string[];
+  createdAt: string;
+  updatedAt: string;
+  stock: {
+    total: number;
+    variants: Array<{
+      color: string;
+      size: string;
+      stock: number;
+    }>;
+  };
+  variants: Record<
+    string,
+    {
+      detailId: number;
+      price: number;
+      originalPrice: number;
+      images: Array<{
+        id: number;
+        url: string;
+        isMain: boolean;
+      }>;
+      availableSizes: string[];
+      inventory: Record<string, number>;
+      variants: Array<{
+        color: string;
+        size: string;
+        stock: number;
+      }>;
+    }
+  >;
+}
+
 export interface SimpleProduct
   extends Pick<Product, "id" | "name" | "featured" | "colors" | "price"> {
   variants: Record<string, VariantDetail>;

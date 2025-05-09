@@ -19,7 +19,7 @@ interface SizeOption {
   label: string;
 }
 
-interface ColorImage {
+export interface ColorImage {
   id: number;
   file: File;
   url: string;

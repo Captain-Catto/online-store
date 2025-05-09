@@ -57,7 +57,7 @@ router.delete("/sizes/:id", authMiddleware, roleMiddleware([1]), deleteSize);
 router.patch(
   "/:id/basic-info",
   authMiddleware,
-  roleMiddleware([1]),
+  roleMiddleware([1, 2]),
   updateProductBasicInfo
 );
 
@@ -65,7 +65,7 @@ router.patch(
 router.patch(
   "/:id/inventory",
   authMiddleware,
-  roleMiddleware([1]),
+  roleMiddleware([1, 2]),
   updateProductInventory
 );
 
@@ -94,10 +94,11 @@ router.patch(
   setMainProductImage
 );
 
+// cập nhật các thuộc tính của sản phẩm (size, color, ...)
 router.patch(
   "/:id/variants",
   authMiddleware,
-  roleMiddleware([1]),
+  roleMiddleware([1, 2]),
   updateProductVariants
 );
 router.delete("/:id", authMiddleware, roleMiddleware([1]), deleteProduct);

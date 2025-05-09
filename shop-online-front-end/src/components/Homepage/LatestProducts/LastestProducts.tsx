@@ -137,8 +137,8 @@ const LatestProducts: React.FC = () => {
     ],
   };
 
-  // Lọc sản phẩm (tạm thời bỏ category rỗng để tránh lỗi logic)
-  const displayProducts = products; // Có thể thêm logic lọc sau
+  // Lọc sản phẩm nếu có featured thì hiển thị
+  const displayProducts = products.filter((p) => p.featured);
   return (
     <div className="w-full xl:px-20 lg:px-10 md:px-4 px-2 mt-4">
       <div className="flex justify-between items-center">

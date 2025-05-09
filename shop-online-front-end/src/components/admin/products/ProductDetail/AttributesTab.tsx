@@ -27,12 +27,11 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
   tagInput,
   setTagInput,
 }) => {
-  console.log("AttributesTab availablesizes", availableSizes);
   // Hàm xử lý khi người dùng chọn/bỏ chọn size
   const handleSizeChange = useCallback(
     (size: string, checked: boolean) => {
       setProduct((prev) => {
-        if (!prev) return prev; // Kiểm tra null
+        if (!prev) return prev;
 
         if (checked) {
           if (!prev.sizes.includes(size)) {
@@ -175,23 +174,25 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
 
   // Hàm xử lý khi người dùng chọn/bỏ chọn suitability
   const handleSuitabilityChange = useCallback(
-    (suitability: string, checked: boolean) => {
+    (suitabilityId: number, checked: boolean) => {
       setProduct((prev) => {
         if (!prev) return prev;
 
         if (checked) {
-          // Add new suitability if not already present
-          if (!prev.suitability.includes(suitability)) {
+          // Thêm ID vào mảng nếu chưa có
+          if (!prev.suitabilities.includes(suitabilityId)) {
             return {
               ...prev,
-              suitability: [...prev.suitability, suitability],
+              suitabilities: [...prev.suitabilities, suitabilityId],
             } as FormattedProduct;
           }
         } else {
-          // Remove suitability
+          // Xóa ID khỏi mảng
           return {
             ...prev,
-            suitability: prev.suitability.filter((s) => s !== suitability),
+            suitabilities: prev.suitabilities.filter(
+              (id) => id !== suitabilityId
+            ),
           } as FormattedProduct;
         }
         return prev;
@@ -206,7 +207,7 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
       if (!prev) return prev;
       return {
         ...prev,
-        suitability: suitabilities.map((item) => item.name),
+        suitabilities: suitabilities.map((item) => item.id),
       } as FormattedProduct;
     });
   };
@@ -217,7 +218,7 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
       if (!prev) return prev;
       return {
         ...prev,
-        suitability: [],
+        suitabilities: [],
       } as FormattedProduct;
     });
   };
@@ -295,11 +296,13 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
       <div className="col-md-6">
         <div className="form-group">
           <label className="form-label">Kích thước:</label>
+
           <div className="mb-2">
             <button
               type="button"
               className="btn btn-xs btn-outline-primary mr-2"
               onClick={handleSelectAllSizes}
+              disabled
             >
               Chọn tất cả
             </button>
@@ -307,6 +310,7 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
               type="button"
               className="btn btn-xs btn-outline-secondary"
               onClick={handleDeselectAllSizes}
+              disabled
             >
               Bỏ chọn tất cả
             </button>
@@ -332,6 +336,7 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
                     onChange={(e) =>
                       handleSizeChange(size.value, e.target.checked)
                     }
+                    disabled
                   />
                   <label
                     className="form-check-label"
@@ -341,6 +346,11 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
                   </label>
                 </div>
               ))}
+              {/* thêm dòng chữ xám */}
+              <small className="form-text text-muted">
+                Nếu thêm biến thể mới, hay qua tab &quot;Biến thể&quot; để thêm
+                kích thước và số lượng sản phẩm
+              </small>
             </div>
           )}
         </div>
@@ -384,9 +394,11 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
                     type="checkbox"
                     className="form-check-input"
                     id={`suitability-${item.id}`}
-                    checked={product.suitability?.includes(item.name) ?? false}
-                    onChange={(e) =>
-                      handleSuitabilityChange(item.name, e.target.checked)
+                    checked={product.suitabilities.includes(item.id)}
+                    // Sử dụng ID trực tiếp
+                    onChange={
+                      (e: React.ChangeEvent<HTMLInputElement>) =>
+                        handleSuitabilityChange(item.id, e.target.checked) // Truyền ID
                     }
                   />
                   <label

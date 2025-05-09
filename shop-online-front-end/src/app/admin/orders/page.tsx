@@ -100,14 +100,33 @@ export default function OrdersPage() {
     { value: "cancelled", label: "Đã hủy", color: "bg-danger" },
   ];
 
+  const getUserRole = () => {
+    if (typeof window !== "undefined") {
+      const user = localStorage.getItem("user");
+      if (user) {
+        try {
+          return JSON.parse(user).role;
+        } catch {
+          return null;
+        }
+      }
+    }
+    return null;
+  };
+
   // Hàm xử lý việc lấy đơn hàng từ API
   const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const response: { orders: Order[]; pagination: Pagination } =
-        await OrderService.getAdminOrders(
+      const role = getUserRole();
+
+      let response: { orders: Order[]; pagination: Pagination };
+
+      if (role === 1) {
+        // Admin: gọi API lấy full đơn hàng
+        response = await OrderService.getAdminOrders(
           currentPage,
           10,
           statusFilter,
@@ -115,7 +134,22 @@ export default function OrdersPage() {
           dateRange.from,
           dateRange.to
         );
-      console.log("Fetched orders:", response);
+      } else if (role === 2) {
+        // Employee: gọi API chỉ lấy đơn hàng cơ bản
+        response = await OrderService.getEmployeeOrders(
+          currentPage,
+          10,
+          statusFilter,
+          searchTerm,
+          dateRange.from,
+          dateRange.to
+        );
+      } else {
+        setError("Bạn không có quyền truy cập trang này.");
+        setOrders([]);
+        setLoading(false);
+        return;
+      }
 
       // Định dạng dữ liệu order trả về
       const formattedOrders = response.orders.map((order: Order) => {
@@ -173,8 +207,6 @@ export default function OrdersPage() {
         perPage: response.pagination.perPage,
       });
     } catch (error) {
-      console.error("Error fetching orders:", error);
-      console.error("Error fetching orders:", error);
       if (error instanceof Error && error.message.includes("Unknown column")) {
         setError("Lỗi cấu trúc dữ liệu: " + error.message);
         // Sử dụng ref thay vì trực tiếp

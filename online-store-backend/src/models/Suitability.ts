@@ -4,6 +4,7 @@ import sequelize from "../config/db";
 class Suitability extends Model {
   public id!: number;
   public name!: string;
+  public slug!: string;
   public description?: string;
   public sortOrder?: number;
 }
@@ -16,6 +17,11 @@ Suitability.init(
       primaryKey: true,
     },
     name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    slug: {
       type: DataTypes.STRING,
       allowNull: false,
       unique: true,

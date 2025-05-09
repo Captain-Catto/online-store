@@ -13,7 +13,7 @@ import { roleMiddleware } from "../middlewares/roleMiddleware";
 
 const router = express.Router();
 
-// Route để lấy menu cho sidebar (có thể giữ nguyên hoặc dùng route mới nếu cần)
+// Route để lấy menu cho sidebar (dùng cho tất cả các user)
 router.get("/", authMiddleware, getAdminMenu);
 
 // Routes cho trang quản lý CRUD

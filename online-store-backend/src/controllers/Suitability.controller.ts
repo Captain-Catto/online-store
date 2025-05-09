@@ -9,8 +9,12 @@ export const createSuitability = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { name, description } = req.body;
-    const newSuitability = await Suitability.create({ name, description });
+    const { name, description, slug } = req.body;
+    const newSuitability = await Suitability.create({
+      name,
+      description,
+      slug,
+    });
     res.status(201).json(newSuitability);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -77,7 +81,7 @@ export const updateSuitability = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const { name, description } = req.body;
+    const { name, description, slug } = req.body;
     const suitability = await Suitability.findByPk(id);
 
     if (!suitability) {
@@ -85,7 +89,7 @@ export const updateSuitability = async (
       return;
     }
 
-    await suitability.update({ name, description });
+    await suitability.update({ name, description, slug });
     res.json({ message: "Cập nhật thành công", suitability });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

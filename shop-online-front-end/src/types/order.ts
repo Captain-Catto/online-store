@@ -17,7 +17,12 @@ export interface Order {
   paymentMethodId: number;
   paymentStatusId: number;
   shippingAddress: string;
-  phoneNumber: string;
+  shippingPhoneNumber: string;
+  shippingStreetAddress: string;
+  shippingWard: string;
+  shippingDistrict: string;
+  shippingCity: string;
+  shippingFullName: string;
   cancelNote: string | null;
   refundAmount: number | null;
   refundReason: string | null;
@@ -29,7 +34,7 @@ export interface Order {
   orderDetails?: OrderDetail[];
   user?: {
     id: number;
-    name: string;
+    username: string;
     email: string;
   };
 }
@@ -105,7 +110,12 @@ export interface OrderCreate {
   paymentMethodId: number;
   voucherId?: number | null;
   shippingAddress: string;
-  phoneNumber: string;
+  shippingFullName: string;
+  shippingPhoneNumber: string;
+  shippingStreetAddress: string;
+  shippingWard: string;
+  shippingDistrict: string;
+  shippingCity: string;
 }
 
 export interface OrderItem {

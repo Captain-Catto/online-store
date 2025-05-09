@@ -2,59 +2,29 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-
-export const navItems = [
-  { label: "Trang chủ", href: "/" },
-  {
-    label: "ÁO",
-    href: "/category/1",
-    dropdown: [
-      { label: "Áo Tanktop", href: "/category/1?subtype=6" },
-      { label: "Áo Thun", href: "/category/1?subtype=1" },
-      { label: "Áo Thể Thao", href: "/category/1?subtype=7" },
-      { label: "Áo Polo", href: "/category/1?subtype=3" },
-      { label: "Áo Sơ Mi", href: "/category/1?subtype=5" },
-      { label: "Áo Dài Tay", href: "/category/1?subtype=2" },
-      { label: "Áo Khoác", href: "/category/1?subtype=4" },
-    ],
-  },
-  {
-    label: "QUẦN",
-    href: "/category/2",
-    dropdown: [
-      { label: "Quần Short", href: "/category/2?subtype=12" },
-      { label: "Quần Jogger", href: "/category/2?subtype=9" },
-      { label: "Quần Thể Thao", href: "/category/2?subtype=11" },
-      { label: "Quần Dài", href: "/category/2?subtype=14" },
-      { label: "Quần Jean", href: "/category/2?subtype=8" },
-      { label: "Quần Bơi", href: "/category/2?subtype=10" },
-    ],
-  },
-  { label: "CHÍNH SÁCH", href: "/policy" },
-  { label: "GIỚI THIỆU", href: "/about" },
-];
+import { useNavigation } from "@/contexts/NavigationContext";
+import { NavigationMenuItem } from "@/services/NaviagationService";
+import logo from "@/assets/imgs/logo-coolmate-new-mobile-v2.svg";
+import Image from "next/image";
 
 const MenuToggle: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const { menuItems, loading } = useNavigation();
 
   const toggleMenu = () => {
     setIsOpen(!isOpen);
-    // Khi đóng menu, reset các mục đã mở
-    if (isOpen) {
-      setExpandedItems([]);
-    }
-    // Vô hiệu hóa cuộn trang khi modal mở
+    if (isOpen) setExpanded(null);
     document.body.style.overflow = isOpen ? "auto" : "hidden";
   };
 
-  const toggleDropdown = (href: string) => {
-    setExpandedItems((prev) =>
-      prev.includes(href)
-        ? prev.filter((item) => item !== href)
-        : [...prev, href]
-    );
+  const handleDropdown = (id: number) => {
+    setExpanded(expanded === id ? null : id);
   };
+
+  // Helper: kiểm tra có dropdown không
+  const hasDropdown = (item: NavigationMenuItem) =>
+    item.children && item.children.length > 0;
 
   return (
     <>
@@ -81,9 +51,11 @@ const MenuToggle: React.FC = () => {
 
       {/* Modal Menu */}
       <div
-        className={`fixed inset-0 backdrop-blur-sm bg-black/30 z-50 md:hidden transition-opacity duration-300 ${
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
+        className={`fixed inset-0 z-50 md:hidden transition-opacity duration-300 ${
+          isOpen
+            ? "opacity-100 pointer-events-auto"
+            : "opacity-0 pointer-events-none"
+        } bg-black/30`}
         onClick={toggleMenu}
       >
         <div
@@ -94,7 +66,14 @@ const MenuToggle: React.FC = () => {
         >
           {/* Menu Header */}
           <div className="flex justify-between items-center p-4 border-b">
-            <h2 className="text-lg font-semibold">Menu</h2>
+            <div style={{ position: "relative", width: 80, height: 40 }}>
+              <Image
+                src={logo}
+                alt="Logo"
+                fill
+                style={{ objectFit: "contain" }}
+              />
+            </div>
             <button
               onClick={toggleMenu}
               className="p-2"
@@ -118,23 +97,23 @@ const MenuToggle: React.FC = () => {
           </div>
 
           {/* Menu Items */}
-          <div className="overflow-y-auto h-[calc(100%-60px)]">
-            <ul className="py-2">
-              {navItems.map((item) => (
-                <li key={item.href} className="border-b border-gray-100">
-                  {item.dropdown ? (
+          <ul className="py-2">
+            {loading ? (
+              <li className="px-4 py-3">Đang tải menu...</li>
+            ) : (
+              menuItems.map((item) => (
+                <li key={item.id} className="border-b border-gray-100">
+                  {hasDropdown(item) ? (
                     <>
-                      <div
-                        className="flex justify-between items-center px-4 py-3 hover:bg-gray-50 cursor-pointer"
-                        onClick={() => toggleDropdown(item.href)}
+                      <button
+                        className="flex justify-between items-center w-full px-4 py-3 hover:bg-gray-50 font-medium"
+                        onClick={() => handleDropdown(item.id)}
                       >
-                        <span className="font-medium">{item.label}</span>
+                        <span>{item.name}</span>
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           className={`h-4 w-4 transition-transform duration-200 ${
-                            expandedItems.includes(item.href)
-                              ? "rotate-180"
-                              : ""
+                            expanded === item.id ? "rotate-180" : ""
                           }`}
                           fill="none"
                           viewBox="0 0 24 24"
@@ -147,42 +126,37 @@ const MenuToggle: React.FC = () => {
                             d="M19 9l-7 7-7-7"
                           />
                         </svg>
-                      </div>
-
-                      {/* Dropdown Items */}
+                      </button>
                       <div
                         className={`bg-gray-50 overflow-hidden transition-all duration-300 ease-in-out ${
-                          expandedItems.includes(item.href)
-                            ? "max-h-96"
-                            : "max-h-0"
+                          expanded === item.id ? "max-h-96" : "max-h-0"
                         }`}
                       >
-                        {item.dropdown.map((dropdownItem) => (
+                        {item.children?.map((child) => (
                           <Link
-                            key={dropdownItem.href}
-                            href={dropdownItem.href}
+                            key={child.id}
+                            href={child.link || "#"}
                             className="block px-8 py-2 text-gray-600 hover:text-black"
                             onClick={toggleMenu}
                           >
-                            {dropdownItem.label}
+                            {child.name}
                           </Link>
                         ))}
                       </div>
                     </>
                   ) : (
-                    // menu k dropdown
                     <Link
-                      href={item.href}
+                      href={item.link || "#"}
                       className="block px-4 py-3 hover:bg-gray-50 font-medium"
                       onClick={toggleMenu}
                     >
-                      {item.label}
+                      {item.name}
                     </Link>
                   )}
                 </li>
-              ))}
-            </ul>
-          </div>
+              ))
+            )}
+          </ul>
         </div>
       </div>
     </>

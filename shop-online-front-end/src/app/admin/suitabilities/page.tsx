@@ -30,6 +30,8 @@ interface Suitability {
   id: number;
   name: string;
   description: string;
+  slug: string;
+  sortOrder: number;
 }
 
 export default function SuitabilitiesManagement() {
@@ -39,9 +41,11 @@ export default function SuitabilitiesManagement() {
   const [formData, setFormData] = useState<{
     name: string;
     description: string;
+    slug: string;
   }>({
     name: "",
     description: "",
+    slug: "",
   });
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -56,6 +60,27 @@ export default function SuitabilitiesManagement() {
     itemId: null as number | null,
     itemName: "",
   });
+
+  const slugify = (text: string): string => {
+    // Chuyển thành chữ thường
+    let slug = text.toLowerCase();
+
+    // Chuyển đổi Unicode tiếng Việt thành ASCII
+    slug = slug
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/đ/g, "d")
+      .replace(/Đ/g, "d");
+
+    // Xóa ký tự đặc biệt và thay thế khoảng trắng bằng dấu gạch ngang
+    slug = slug
+      .replace(/[^\w\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .trim();
+
+    return slug;
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -78,11 +103,6 @@ export default function SuitabilitiesManagement() {
     { label: "Quản lý phù hợp sản phẩm", active: true },
   ];
 
-  // Load suitabilities
-  useEffect(() => {
-    fetchSuitabilities();
-  }, []);
-
   const fetchSuitabilities = async () => {
     try {
       setLoading(true);
@@ -98,6 +118,20 @@ export default function SuitabilitiesManagement() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Sử dụng fetchSuitabilities trong useEffect
+  useEffect(() => {
+    fetchSuitabilities();
+  }, [showToast]);
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const name = e.target.value;
+    setFormData({
+      ...formData,
+      name,
+      slug: slugify(name), // Tự động tạo slug khi tên thay đổi
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -146,8 +180,8 @@ export default function SuitabilitiesManagement() {
       }
 
       // Làm mới dữ liệu và reset form
-      fetchSuitabilities();
       resetForm();
+      fetchSuitabilities();
     } catch (error) {
       console.error("Error submitting form:", error);
       showToast(error instanceof Error ? error.message : "Có lỗi xảy ra", {
@@ -162,6 +196,7 @@ export default function SuitabilitiesManagement() {
     setFormData({
       name: suitability.name,
       description: suitability.description || "",
+      slug: suitability.slug,
     });
     setIsEditing(true);
     setEditingId(suitability.id);
@@ -214,11 +249,13 @@ export default function SuitabilitiesManagement() {
     } finally {
       // Đóng modal sau khi hoàn tất
       handleCancelDelete();
+      // Làm mới danh sách sau khi xóa
+      fetchSuitabilities();
     }
   };
 
   const resetForm = () => {
-    setFormData({ name: "", description: "" });
+    setFormData({ name: "", description: "", slug: "" });
     setIsEditing(false);
     setEditingId(null);
   };
@@ -267,6 +304,7 @@ export default function SuitabilitiesManagement() {
       }
 
       showToast("Cập nhật thứ tự thành công", { type: "success" });
+      fetchSuitabilities();
     } catch (error) {
       console.error("Error reordering:", error);
       showToast(
@@ -311,16 +349,14 @@ export default function SuitabilitiesManagement() {
                 <form onSubmit={handleSubmit}>
                   <div className="card-body">
                     <div className="form-group">
-                      <label htmlFor="name">Tên Phù Hợp</label>
+                      <label htmlFor="name">Tên</label>
                       <input
                         type="text"
                         className="form-control"
                         id="name"
                         placeholder="VD: Thể thao, Đi chơi, ..."
                         value={formData.name}
-                        onChange={(e) =>
-                          setFormData({ ...formData, name: e.target.value })
-                        }
+                        onChange={(e) => handleNameChange(e)}
                         required
                       />
                     </div>
@@ -339,6 +375,17 @@ export default function SuitabilitiesManagement() {
                           })
                         }
                       ></textarea>
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="slug">Slug (tự tạo)</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        id="slug"
+                        placeholder="VD: the-thao, di-choi, ..."
+                        value={formData.slug}
+                        disabled
+                      />
                     </div>
                   </div>
                   <div className="card-footer">
@@ -377,7 +424,6 @@ export default function SuitabilitiesManagement() {
             </div>
 
             {/* List */}
-            {/* List */}
             <div className="col-md-8">
               <div className="card">
                 <div className="card-header">
@@ -410,6 +456,7 @@ export default function SuitabilitiesManagement() {
                             <th style={{ width: "10%" }}>#</th>
                             <th>Tên</th>
                             <th>Mô tả</th>
+                            <th>Slug</th>
                             <th style={{ width: "20%" }}>Thao tác</th>
                           </tr>
                         </thead>
@@ -422,7 +469,7 @@ export default function SuitabilitiesManagement() {
                           <tbody>
                             {suitabilities.length === 0 ? (
                               <tr>
-                                <td colSpan={5} className="text-center py-4">
+                                <td colSpan={6} className="text-center py-4">
                                   Không có dữ liệu
                                 </td>
                               </tr>

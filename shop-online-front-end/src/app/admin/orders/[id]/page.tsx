@@ -71,8 +71,15 @@ export default function OrderDetailPage() {
 
       try {
         setLoading(true);
+        // Fetch order details
         const response = await AuthClient.fetchWithAuth(
-          `${API_BASE_URL}/orders/${id}`
+          `${API_BASE_URL}/orders/${id}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
         );
 
         if (!response.ok) {
@@ -257,7 +264,7 @@ export default function OrderDetailPage() {
     } finally {
       setUpdating(false);
     }
-  }, [id, selectedCancelReason, customCancelReason]);
+  }, [id, selectedCancelReason, customCancelReason, showToast]);
 
   const handleConfirm = useCallback(() => {
     confirmCancelOrder();
@@ -419,7 +426,7 @@ export default function OrderDetailPage() {
                 <div className="bg-white rounded-lg shadow-sm overflow-hidden">
                   <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
                     <h3 className="font-medium text-gray-700">
-                      Thông tin khách hàng
+                      Thông tin người nhận hàng
                     </h3>
                   </div>
                   <div className="p-4">
@@ -427,10 +434,10 @@ export default function OrderDetailPage() {
                       <tbody className="divide-y divide-gray-200">
                         <tr>
                           <th className="text-left py-2 w-2/5 text-gray-600 font-medium">
-                            Tên khách hàng
+                            Người nhận:
                           </th>
                           <td className="py-2 text-gray-800">
-                            {order.user?.name || "Chưa cung cấp"}
+                            {order.shippingFullName || "Chưa cung cấp"}
                           </td>
                         </tr>
                         <tr>
@@ -438,7 +445,7 @@ export default function OrderDetailPage() {
                             Số điện thoại
                           </th>
                           <td className="py-2 text-gray-800">
-                            {order.phoneNumber}
+                            {order.shippingPhoneNumber}
                           </td>
                         </tr>
                         <tr>
@@ -446,12 +453,13 @@ export default function OrderDetailPage() {
                             Địa chỉ giao hàng
                           </th>
                           <td className="py-2 text-gray-800">
-                            {order.shippingAddress}
+                            {order.shippingStreetAddress}, {order.shippingWard},{" "}
+                            {order.shippingDistrict}, {order.shippingCity}
                           </td>
                         </tr>
                         <tr>
                           <th className="text-left py-2 w-2/5 text-gray-600 font-medium">
-                            Xem chi tiết thông tin khách hàng
+                            Xem thông tin người đặt
                           </th>
                           <td className="py-2 text-gray-800">
                             <Link

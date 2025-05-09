@@ -6,6 +6,8 @@ interface Suitability {
   id: number;
   name: string;
   description: string;
+  slug: string;
+  sortOrder: number;
 }
 
 interface SortableSuitabilityRowProps {
@@ -38,6 +40,8 @@ const SortableSuitabilityRow = ({
       <td>{item.id}</td>
       <td>{item.name}</td>
       <td>{item.description || "Không có mô tả"}</td>
+      <td>{item.slug}</td>
+      <td>{item.sortOrder}</td>
       <td>
         <button
           className="btn btn-sm btn-info mr-1"

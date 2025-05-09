@@ -36,7 +36,6 @@ export class AuthClient {
     }
 
     isRefreshing = true;
-    console.log("Đang thử làm mới token...");
 
     try {
       // Kiểm tra token hiện tại
@@ -50,11 +49,9 @@ export class AuthClient {
 
           // Nếu token còn hạn và không gần hết hạn (còn hơn 5 phút)
           if (decodedToken.exp > currentTime + 300) {
-            console.log("Token vẫn còn hạn, không cần refresh");
             isRefreshing = false;
             return token;
           }
-          console.log("Token gần hết hạn, tiến hành refresh");
         } catch {
           // Token không hợp lệ, tiếp tục để refresh
           console.log(
@@ -134,7 +131,6 @@ export class AuthClient {
 
   static async fetchWithAuth(url: string, options: RequestInit = {}) {
     try {
-      console.log("Gọi API với token xác thực:", url, options);
       // Lấy token từ sessionStorage
       let token = sessionStorage.getItem("authToken");
 
@@ -146,8 +142,7 @@ export class AuthClient {
 
           // Nếu token gần hết hạn hoặc đã hết hạn, thử refresh
           if (decoded.exp <= currentTime + 300) {
-            // 5 phút
-            console.log("Token gần hết hạn, thử refresh");
+            // Token gần hết hạn, thử refresh
             const newToken = await this.refreshToken();
             if (newToken) {
               token = newToken;

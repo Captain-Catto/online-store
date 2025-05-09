@@ -1,12 +1,6 @@
 import React from "react";
 import Image from "next/image";
-
-interface ColorImage {
-  id: number | string;
-  file?: File;
-  url: string;
-  isMain: boolean;
-}
+import { ColorImage } from "./AddProductPage";
 
 interface ImagesTabProps {
   productColors: string[];
@@ -18,8 +12,8 @@ interface ImagesTabProps {
   >;
   availableColors: { key: string; label: string }[];
   handleImageChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  handleSetMainImage: (imageId: number | string) => void;
-  handleRemoveImage: (imageId: number | string) => void;
+  handleSetMainImage: (imageId: number) => void;
+  handleRemoveImage: (imageId: number) => void;
   viewMode?: boolean; // Thêm prop viewMode
 }
 

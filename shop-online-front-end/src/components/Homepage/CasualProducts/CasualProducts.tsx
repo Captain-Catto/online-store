@@ -55,8 +55,13 @@ const CasualProducts: React.FC = () => {
     const fetchCasualProducts = async () => {
       try {
         setLoading(true);
-        // Gọi API lấy sản phẩm casual (category ID 3)
-        const response = await ProductService.getProductsByCategory(1);
+        // Gọi API lấy sản phẩm có suitability là thường ngày
+        const filters = { suitability: "hang-ngay" };
+        const page = 1;
+        const limit = 10;
+        // Gọi API lấy sản phẩm
+        const response = await ProductService.getProducts(page, limit, filters);
+        console.log("response", response);
 
         const initialColors: { [key: number]: string } = {};
         const initialImages: { [key: number]: string } = {};
@@ -149,7 +154,6 @@ const CasualProducts: React.FC = () => {
       { breakpoint: 768, settings: { slidesToShow: 2 } },
     ],
   };
-
   return (
     <div className="w-full xl:px-20 lg:px-10 md:px-4 px-2 mt-4">
       <div className="flex justify-between items-center">

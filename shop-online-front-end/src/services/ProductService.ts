@@ -22,7 +22,7 @@ export interface ProductCreate {
   featured: boolean;
   status: string;
   tags: string[];
-  suitability: string[];
+  suitabilities: Array<number>;
   categories: number[];
   details: ProductDetail[];
   subtypeId?: number | null;
@@ -32,7 +32,6 @@ export const ProductService = {
   // Lấy danh sách sản phẩm có phân trang và filter
   getProducts: async (page = 1, limit = 10, filters = {}) => {
     try {
-      console.log("Fetching products with filters:", filters);
       // Tạo đối tượng URLSearchParams cho query parameters
       const params = new URLSearchParams();
       params.append("page", page.toString());
@@ -153,23 +152,26 @@ export const ProductService = {
   // Xóa sản phẩm
   deleteProduct: async (id: string) => {
     try {
-      // lấy token từ sessionStorage
       const token = sessionStorage.getItem("authToken");
-      if (!token) {
-        throw new Error("Token không hợp lệ hoặc đã hết hạn.");
-      }
+      if (!token) throw new Error("Token không hợp lệ hoặc đã hết hạn.");
       const response = await fetch(`${API_BASE_URL}/products/${id}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-
-      if (!response.ok) throw new Error("Network response was not ok");
+      if (!response.ok) {
+        let errorMsg = "Có lỗi khi xóa sản phẩm.";
+        try {
+          const errorData = await response.json();
+          if (errorData && errorData.message) errorMsg = errorData.message;
+        } catch {}
+        throw new Error(errorMsg);
+      }
       return await response.json();
     } catch (error) {
-      console.error("Error deleting product:", error);
-      throw error;
+      if (error instanceof Error) throw error;
+      throw new Error("An unknown error occurred");
     }
   },
 
@@ -248,7 +250,7 @@ export const ProductService = {
       formData.append("featured", product.featured.toString());
       formData.append("status", product.status);
       formData.append("tags", JSON.stringify(product.tags));
-      formData.append("suitability", JSON.stringify(product.suitability));
+      formData.append("suitability", JSON.stringify(product.suitabilities));
       formData.append("categories", JSON.stringify(product.categories));
       // Thêm chi tiết sản phẩm (details - các biến thể màu sắc)
       formData.append("details", JSON.stringify(product.details));
@@ -287,7 +289,7 @@ export const ProductService = {
     }
   },
 
-  // Thêm vào ProductService
+  // Cập nhật thông tin cơ bản của sản phẩm
   updateProductBasicInfo: async (
     productId: string | number,
     data: Partial<ProductCreate>
@@ -295,51 +297,66 @@ export const ProductService = {
     const token = sessionStorage.getItem("authToken");
     if (!token) throw new Error("Token không hợp lệ");
 
-    const response = await fetch(
-      `${API_BASE_URL}/products/${productId}/basic-info`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(data),
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/products/${productId}/basic-info`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(data),
+        }
+      );
+
+      if (!response.ok) {
+        let errorMsg = "Có lỗi xảy ra khi cập nhật sản phẩm.";
+        try {
+          const errorData = await response.json();
+          if (errorData && errorData.message) errorMsg = errorData.message;
+        } catch {}
+        throw new Error(errorMsg);
       }
-    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Lỗi cập nhật thông tin sản phẩm: ${errorText}`);
+      return await response.json();
+    } catch (error) {
+      if (error instanceof Error) throw error;
+      throw new Error("An unknown error occurred");
     }
-
-    return await response.json();
   },
-
+  // Cập nhật tồn kho sản phẩm
   updateProductInventory: async (
     productId: string | number,
     details: ProductDetail[]
   ) => {
     const token = sessionStorage.getItem("authToken");
     if (!token) throw new Error("Token không hợp lệ");
-
-    const response = await fetch(
-      `${API_BASE_URL}/products/${productId}/inventory`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ details }),
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/products/${productId}/inventory`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ details }),
+        }
+      );
+      if (!response.ok) {
+        let errorMsg = "Có lỗi khi cập nhật tồn kho.";
+        try {
+          const errorData = await response.json();
+          if (errorData && errorData.message) errorMsg = errorData.message;
+        } catch {}
+        throw new Error(errorMsg);
       }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Lỗi cập nhật tồn kho: ${errorText}`);
+      return await response.json();
+    } catch (error) {
+      if (error instanceof Error) throw error;
+      throw new Error("An unknown error occurred");
     }
-
-    return await response.json();
   },
 
   addProductImages: async (
@@ -436,36 +453,41 @@ export const ProductService = {
     return await response.json();
   },
 
-  // Thêm vào ProductService.ts
+  // Cập nhật biến thể sản phẩm
   updateProductVariants: async (
     productId: string | number,
     variants: ProductDetail[]
   ) => {
     const token = sessionStorage.getItem("authToken");
     if (!token) throw new Error("Token không hợp lệ");
-
-    const response = await fetch(
-      `${API_BASE_URL}/products/${productId}/variants`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ variants }),
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/products/${productId}/variants`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ variants }),
+        }
+      );
+      if (!response.ok) {
+        let errorMsg = "Có lỗi khi cập nhật biến thể.";
+        try {
+          const errorData = await response.json();
+          if (errorData && errorData.message) errorMsg = errorData.message;
+        } catch {}
+        throw new Error(errorMsg);
       }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Lỗi cập nhật biến thể: ${errorText}`);
+      return await response.json();
+    } catch (error) {
+      if (error instanceof Error) throw error;
+      throw new Error("An unknown error occurred");
     }
-
-    return await response.json();
   },
 
   // Thêm phương thức mới để lấy sản phẩm theo slug
-  // Trong src/services/CategoryService.ts
   getProductsByCategorySlug: async (
     categorySlug: string,
     page: number = 1,
@@ -639,7 +661,7 @@ export const ProductService = {
     }
   },
 
-  // Trong file ProductService.ts
+  // Xóa biến thể sản phẩm
   removeProductDetails: async (
     detailIds: number[]
   ): Promise<{ success: boolean; detailId: number }[]> => {
@@ -648,26 +670,32 @@ export const ProductService = {
 
     const results = [];
 
-    // Xử lý từng ID một
     for (const detailId of detailIds) {
-      const response = await fetch(
-        `${API_BASE_URL}/product-details/${detailId}`,
-        {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/product-details/${detailId}`,
+          {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        if (!response.ok) {
+          let errorMsg = `Lỗi khi xóa biến thể ${detailId}.`;
+          try {
+            const errorData = await response.json();
+            if (errorData && errorData.message) errorMsg = errorData.message;
+          } catch {}
+          throw new Error(errorMsg);
         }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Lỗi khi xóa biến thể ${detailId}: ${errorText}`);
+        const result = await response.json();
+        results.push(result);
+      } catch (error) {
+        if (error instanceof Error) throw error;
+        throw new Error("An unknown error occurred");
       }
-
-      const result = await response.json();
-      results.push(result);
     }
 
     return results;

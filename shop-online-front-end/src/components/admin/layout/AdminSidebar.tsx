@@ -2,7 +2,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import logo from "@/assets/imgs/logo-coolmate-new-mobile-v2.svg";
-import { useAdminMenu, HierarchicalMenuItem } from "@/hooks/useAdminMenu"; // Import hook và interface mới
+import { useAdminMenu, HierarchicalMenuItem } from "@/hooks/useAdminMenu";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 interface AdminSidebarProps {
@@ -83,6 +83,7 @@ export default function AdminSidebar({
               width={50}
               height={50}
               priority
+              loading="eager"
             />
           </div>
           <div className="info">
