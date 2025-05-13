@@ -1,0 +1,26 @@
+# Nodejs
+node_modules/
+npm-debug.log
+.env
+.env.local
+.env.development
+.env.production
+.DS_Store
+
+# Build folders
+dist/
+build/
+.next/
+
+# Logs
+logs
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Uploads
+uploads/
