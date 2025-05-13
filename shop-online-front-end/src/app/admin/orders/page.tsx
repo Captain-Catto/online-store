@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
 import { OrderService } from "@/services/OrderService";
@@ -68,6 +69,7 @@ interface Pagination {
 export default function OrdersPage() {
   // Toast notifications
   const { showToast, Toast } = useToast();
+  const router = useRouter();
   const showToastRef = useRef<typeof showToast | null>(null);
   useEffect(() => {
     showToastRef.current = showToast;
@@ -257,8 +259,8 @@ export default function OrdersPage() {
   // Update order status
   const handleUpdateOrderStatus = async (orderId: string | number) => {
     try {
-      // Redirect to order detail page
-      window.location.href = `/admin/orders/${orderId}`;
+      // Redirect to order detail page using link
+      router.push(`/admin/orders/${orderId}`);
     } catch (error) {
       console.error("Error updating order status:", error);
       showToast("Không thể cập nhật trạng thái đơn hàng", { type: "error" });

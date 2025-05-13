@@ -6,6 +6,27 @@ import AdminLayout from "@/components/admin/layout/AdminLayout";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
 import Link from "next/link";
 import { formatCurrency } from "@/utils/currencyUtils";
+import { ReportsService } from "@/services/ReportsService";
+import { colorToVietnamese } from "@/utils/colorUtils";
+
+interface ProductVariant {
+  detailId: number;
+  size: string;
+  color: string;
+  stock: number;
+  needsRestock: boolean;
+}
+
+interface LowStockProduct {
+  id: number;
+  sku: string;
+  name: string;
+  category: string;
+  stock: number;
+  threshold: number;
+  variants: ProductVariant[];
+  totalVariants: number;
+}
 
 export default function ReportsPage() {
   const [dateRange, setDateRange] = useState("week");
@@ -13,20 +34,21 @@ export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  // Add new states for order analysis time periods
+  // States for order analysis time periods
   const [orderTimeRange, setOrderTimeRange] = useState("week");
   const [orderTimeLabel, setOrderTimeLabel] = useState({
-    current: "7 ngày gần nhất (26/03 - 02/04/2025)",
-    previous: "kỳ trước (19/03 - 25/03/2025)",
+    current: "",
+    previous: "",
   });
 
   // Chart refs
-  const mainChartRef = useRef(null);
-  const categoryChartRef = useRef(null);
-  const productPerformanceChartRef = useRef(null);
+  const mainChartRef = useRef<HTMLCanvasElement | null>(null);
+  const categoryChartRef = useRef<HTMLCanvasElement | null>(null);
+  const productPerformanceChartRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Summary data
+  // State for summary data
   const [summaryData, setSummaryData] = useState({
     totalRevenue: 0,
     totalOrders: 0,
@@ -36,191 +58,80 @@ export default function ReportsPage() {
     topCategory: "",
   });
 
-  // Mock data for reports
-  const revenueData = {
-    labels: ["T2", "T3", "T4", "T5", "T6", "T7", "CN"],
-    datasets: [
-      {
-        label: "Doanh thu (triệu VNĐ)",
-        data: [12, 19, 15, 17, 22, 30, 25],
-        backgroundColor: "rgba(60, 141, 188, 0.2)",
-        borderColor: "rgba(60, 141, 188, 1)",
-        borderWidth: 2,
-        tension: 0.3,
-        fill: true,
-      },
-      {
-        label: "Đơn hàng",
-        data: [15, 25, 20, 30, 35, 45, 40],
-        backgroundColor: "rgba(210, 214, 222, 0.2)",
-        borderColor: "rgba(210, 214, 222, 1)",
-        borderWidth: 2,
-        tension: 0.3,
-        fill: true,
-      },
+  // State for revenue and orders chart
+  const [revenueData, setRevenueData] = useState<{
+    labels: string[];
+    datasets: Array<{
+      label: string;
+      data: number[];
+      backgroundColor: string;
+      borderColor: string;
+      borderWidth: number;
+      tension: number;
+      fill: boolean;
+    }>;
+  }>({
+    labels: [],
+    datasets: [],
+  });
+
+  // State for category revenue chart
+  const [categoryData, setCategoryData] = useState({
+    labels: [],
+    datasets: [],
+  });
+
+  // State for product performance chart
+  const [productPerformanceData, setProductPerformanceData] = useState({
+    labels: [],
+    datasets: [],
+  });
+
+  // State for top selling products
+  const [topProducts, setTopProducts] = useState([]);
+
+  // State for low stock products
+  const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>(
+    []
+  );
+
+  // State for category performance
+  const [categoryPerformance, setCategoryPerformance] = useState([]);
+
+  // State for order analysis
+  const [orderAnalysis, setOrderAnalysis] = useState({
+    current: {
+      totalOrders: 0,
+      completionRate: 0,
+      averageOrderValue: 0,
+    },
+    previous: {
+      orderGrowth: 0,
+      completionRateGrowth: 0,
+      averageOrderValueGrowth: 0,
+      totalOrders: 0,
+      completedOrders: 0,
+      avgOrderValue: 0,
+    },
+    statuses: [
+      { name: "Đã giao hàng", count: 0, percentage: 0, growth: 0 },
+      { name: "Đang xử lý", count: 0, percentage: 0, growth: 0 },
+      { name: "Đang giao hàng", count: 0, percentage: 0, growth: 0 },
+      { name: "Đã hủy", count: 0, percentage: 0, growth: 0 },
     ],
-  };
-
-  const categoryData = {
-    labels: ["Áo thun", "Áo sơ mi", "Quần jean", "Váy", "Phụ kiện"],
-    datasets: [
-      {
-        label: "Doanh số theo danh mục (triệu VNĐ)",
-        data: [35, 25, 22, 18, 15],
-        backgroundColor: [
-          "#f56954",
-          "#00a65a",
-          "#f39c12",
-          "#00c0ef",
-          "#3c8dbc",
-        ],
-        borderWidth: 1,
-      },
+    paymentMethods: [
+      { name: "Thẻ tín dụng", count: 0, percentage: 0, growth: 0 },
+      { name: "Ví điện tử", count: 0, percentage: 0, growth: 0 },
+      { name: "Chuyển khoản", count: 0, percentage: 0, growth: 0 },
+      { name: "COD", count: 0, percentage: 0, growth: 0 },
     ],
-  };
-
-  const productPerformanceData = {
-    labels: ["T2", "T3", "T4", "T5", "T6", "T7", "CN"],
-    datasets: [
-      {
-        label: "Áo thun nam cotton",
-        data: [5, 7, 6, 8, 10, 12, 9],
-        borderColor: "#f56954",
-        backgroundColor: "rgba(245, 105, 84, 0.2)",
-        tension: 0.3,
-        fill: true,
-      },
-      {
-        label: "Quần jean nam slim fit",
-        data: [4, 6, 5, 7, 6, 8, 7],
-        borderColor: "#00a65a",
-        backgroundColor: "rgba(0, 166, 90, 0.2)",
-        tension: 0.3,
-        fill: true,
-      },
-      {
-        label: "Áo sơ mi nữ",
-        data: [3, 5, 4, 4, 7, 6, 5],
-        borderColor: "#f39c12",
-        backgroundColor: "rgba(243, 156, 18, 0.2)",
-        tension: 0.3,
-        fill: true,
-      },
-    ],
-  };
-
-  // Top selling products data
-  const topProducts = [
-    {
-      id: "SP001",
-      name: "Áo thun nam cotton",
-      category: "Áo thun",
-      sales: 145,
-      revenue: 21750000,
-      stock: 50,
+    timelines: {
+      averageProcessingTime: 0,
+      averageDeliveryTime: 0,
+      averageTotalTime: 0,
+      onTimeDeliveryRate: 0,
     },
-    {
-      id: "SP002",
-      name: "Quần jean nam slim fit",
-      category: "Quần jean",
-      sales: 120,
-      revenue: 24000000,
-      stock: 35,
-    },
-    {
-      id: "SP003",
-      name: "Áo sơ mi nữ",
-      category: "Áo sơ mi",
-      sales: 98,
-      revenue: 14700000,
-      stock: 42,
-    },
-    {
-      id: "SP004",
-      name: "Váy liền thân",
-      category: "Váy",
-      sales: 87,
-      revenue: 13050000,
-      stock: 28,
-    },
-    {
-      id: "SP005",
-      name: "Áo khoác jean",
-      category: "Áo khoác",
-      sales: 75,
-      revenue: 18750000,
-      stock: 20,
-    },
-  ];
-
-  // Low stock products
-  const lowStockProducts = [
-    {
-      id: "SP006",
-      name: "Áo len nam",
-      category: "Áo len",
-      stock: 5,
-      threshold: 10,
-    },
-    {
-      id: "SP007",
-      name: "Quần tây nam",
-      category: "Quần tây",
-      stock: 3,
-      threshold: 10,
-    },
-    {
-      id: "SP008",
-      name: "Áo vest nam",
-      category: "Áo vest",
-      stock: 7,
-      threshold: 10,
-    },
-  ];
-
-  // Category performance data
-  const categoryPerformance = [
-    {
-      id: 1,
-      name: "Áo thun",
-      sales: 280,
-      revenue: 42000000,
-      products: 25,
-      growth: 15,
-    },
-    {
-      id: 2,
-      name: "Quần jean",
-      sales: 215,
-      revenue: 43000000,
-      products: 18,
-      growth: 8,
-    },
-    {
-      id: 3,
-      name: "Áo sơ mi",
-      sales: 190,
-      revenue: 28500000,
-      products: 22,
-      growth: 5,
-    },
-    {
-      id: 4,
-      name: "Váy",
-      sales: 150,
-      revenue: 22500000,
-      products: 20,
-      growth: 12,
-    },
-    {
-      id: 5,
-      name: "Phụ kiện",
-      sales: 145,
-      revenue: 14500000,
-      products: 35,
-      growth: -3,
-    },
-  ];
+  });
 
   // Breadcrumb items
   const breadcrumbItems = [
@@ -228,12 +139,242 @@ export default function ReportsPage() {
     { label: "Báo cáo & Thống kê", active: true },
   ];
 
-  // Update time labels when orderTimeRange changes
-  useEffect(() => {
-    setOrderTimeLabel(generateDateLabels(orderTimeRange));
-  }, [orderTimeRange]);
+  // Helper function to generate date labels
+  const generateDateLabels = (timeRange: string) => {
+    const today = new Date();
+    const currentPeriodEnd = new Date(today);
+    const currentPeriodStart = new Date(today);
+    let previousPeriodEnd = new Date(today);
+    let previousPeriodStart = new Date(today);
 
-  // Set date range based on selection
+    const formatDate = (date: Date) => {
+      return `${date.getDate().toString().padStart(2, "0")}/${(
+        date.getMonth() + 1
+      )
+        .toString()
+        .padStart(2, "0")}/${date.getFullYear()}`;
+    };
+
+    switch (timeRange) {
+      case "week":
+        currentPeriodStart.setDate(today.getDate() - 6);
+        previousPeriodEnd.setDate(today.getDate() - 7);
+        previousPeriodStart.setDate(today.getDate() - 13);
+        break;
+      case "month":
+        currentPeriodStart.setDate(today.getDate() - 29);
+        previousPeriodEnd.setDate(today.getDate() - 30);
+        previousPeriodStart.setDate(today.getDate() - 59);
+        break;
+      case "quarter":
+        currentPeriodStart.setMonth(today.getMonth() - 2);
+        currentPeriodStart.setDate(1);
+        previousPeriodEnd.setDate(currentPeriodStart.getDate() - 1);
+        previousPeriodStart = new Date(previousPeriodEnd);
+        previousPeriodStart.setMonth(previousPeriodStart.getMonth() - 2);
+        previousPeriodStart.setDate(1);
+        break;
+      case "year":
+        currentPeriodStart.setFullYear(today.getFullYear() - 1);
+        currentPeriodStart.setDate(today.getDate() + 1);
+        previousPeriodEnd = new Date(currentPeriodStart);
+        previousPeriodEnd.setDate(previousPeriodEnd.getDate() - 1);
+        previousPeriodStart = new Date(previousPeriodEnd);
+        previousPeriodStart.setFullYear(previousPeriodStart.getFullYear() - 1);
+        previousPeriodStart.setDate(previousPeriodStart.getDate() + 1);
+        break;
+      default:
+        currentPeriodStart.setDate(today.getDate() - 6);
+        previousPeriodEnd.setDate(today.getDate() - 7);
+        previousPeriodStart.setDate(today.getDate() - 13);
+    }
+
+    return {
+      current: `${
+        timeRange === "week"
+          ? "7 ngày"
+          : timeRange === "month"
+          ? "30 ngày"
+          : timeRange === "quarter"
+          ? "3 tháng"
+          : "12 tháng"
+      } gần nhất (${formatDate(currentPeriodStart)} - ${formatDate(
+        currentPeriodEnd
+      )})`,
+      previous: `kỳ trước (${formatDate(previousPeriodStart)} - ${formatDate(
+        previousPeriodEnd
+      )})`,
+    };
+  };
+
+  // Fetch all report data
+  const fetchReports = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    const params = {
+      dateRange,
+      ...(dateRange === "custom" && { fromDate: dateFrom, toDate: dateTo }),
+    };
+
+    try {
+      // Fetch summary report
+      const summaryResponse = await ReportsService.getSummaryReport(params);
+      console.log("Summary Report Response:", summaryResponse);
+      setSummaryData({
+        totalRevenue: summaryResponse.totalRevenue || 0,
+        totalOrders: summaryResponse.totalOrders || 0,
+        averageOrderValue: summaryResponse.averageOrderValue || 0,
+        totalProducts: summaryResponse.totalProducts || 0,
+        lowStockProducts: summaryResponse.lowStockProducts || 0,
+        topCategory: summaryResponse.topCategory || "",
+      });
+
+      // Fetch revenue report
+      const revenueResponse = await ReportsService.getRevenueReport(params);
+      setRevenueData(revenueResponse);
+
+      // Fetch category revenue report
+      const categoryResponse = await ReportsService.getCategoryRevenueReport(
+        params
+      );
+
+      setCategoryData(categoryResponse);
+
+      // Fetch top products report
+      const topProductsResponse = await ReportsService.getTopProductsReport(
+        params
+      );
+      setTopProducts(topProductsResponse?.products || []);
+      // Fetch product performance report
+      const productPerformanceResponse =
+        await ReportsService.getProductPerformanceReport(params);
+      setProductPerformanceData(productPerformanceResponse);
+
+      // Fetch category performance report
+      const categoryPerformanceResponse =
+        await ReportsService.getCategoryPerformanceReport(params);
+      setCategoryPerformance(categoryPerformanceResponse || []);
+
+      // Fetch low stock products report
+      const lowStockResponse = await ReportsService.getLowStockProductsReport(
+        params
+      );
+      setLowStockProducts(lowStockResponse || []);
+    } catch (err: any) {
+      setError(err.message || "Lỗi khi lấy dữ liệu báo cáo");
+      console.error("Error fetching reports:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch order analysis data
+  const handleUpdateOrderAnalysis = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    const params = {
+      dateRange: orderTimeRange,
+      ...(orderTimeRange === "custom" && {
+        fromDate: dateFrom,
+        toDate: dateTo,
+      }),
+    };
+
+    try {
+      const response = await ReportsService.getOrderAnalysisReport(params);
+      console.log("Order Analysis Response:", response);
+      setOrderAnalysis({
+        current: {
+          totalOrders: response.current.totalOrders || 0,
+          completionRate: parseFloat(response.current.completionRate || "0"),
+          averageOrderValue: response.current.avgOrderValue || 0,
+        },
+        previous: {
+          orderGrowth: parseFloat(response.growth.orders || "0"),
+          completionRateGrowth: parseFloat(
+            response.growth.completionRate || "0"
+          ),
+          averageOrderValueGrowth: parseFloat(response.growth.avgValue || "0"),
+          totalOrders: response.growth.totalOrders || 0,
+          completedOrders: response.growth.completedOrders || 0,
+          avgOrderValue: response.growth.avgOrderValue || 0,
+        },
+        statuses: [
+          {
+            name: "Đã giao hàng",
+            count: response.current.statuses?.delivered || 0,
+            percentage: response.current.statuses?.delivered
+              ? Math.round(
+                  (response.current.statuses.delivered /
+                    response.current.totalOrders) *
+                    100
+                )
+              : 0,
+            growth: 0, // You may need to calculate this if available
+          },
+          {
+            name: "Đang xử lý",
+            count: response.current.statuses?.processing || 0,
+            percentage: response.current.statuses?.processing
+              ? Math.round(
+                  (response.current.statuses.processing /
+                    response.current.totalOrders) *
+                    100
+                )
+              : 0,
+            growth: 0,
+          },
+          {
+            name: "Đang giao hàng",
+            count: response.current.statuses?.shipping || 0,
+            percentage: response.current.statuses?.shipping
+              ? Math.round(
+                  (response.current.statuses.shipping /
+                    response.current.totalOrders) *
+                    100
+                )
+              : 0,
+            growth: 0,
+          },
+          {
+            name: "Đã hủy",
+            count: response.current.statuses?.cancelled || 0,
+            percentage: response.current.statuses?.cancelled
+              ? Math.round(
+                  (response.current.statuses.cancelled /
+                    response.current.totalOrders) *
+                    100
+                )
+              : 0,
+            growth: 0,
+          },
+        ],
+        paymentMethods: Object.entries(
+          response.current.paymentMethods || {}
+        ).map(([name, data]: [string, any]) => ({
+          name,
+          count: data.count || 0,
+          percentage: data.percentage || 0,
+          growth: 0, // Set default value or calculate if available
+        })),
+        timelines: {
+          averageProcessingTime: 0,
+          averageDeliveryTime: 0,
+          averageTotalTime: 0,
+          onTimeDeliveryRate: 0,
+        },
+      });
+    } catch (err: any) {
+      setError(err.message || "Lỗi khi lấy dữ liệu phân tích đơn hàng");
+      console.error("Error fetching order analysis:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch initial data when dateRange, dateFrom, or dateTo changes
   useEffect(() => {
     const today = new Date();
     const from = new Date();
@@ -258,26 +399,22 @@ export default function ReportsPage() {
     setDateFrom(from.toISOString().split("T")[0]);
     setDateTo(today.toISOString().split("T")[0]);
 
-    // Calculate summary data (in real app, would fetch from API based on date range)
-    setSummaryData({
-      totalRevenue: 125500000,
-      totalOrders: 550,
-      averageOrderValue: 228182,
-      totalProducts: 120,
-      lowStockProducts: 8,
-      topCategory: "Áo thun",
-    });
+    fetchReports();
+  }, [dateRange, dateFrom, dateTo, reportType]);
 
-    setIsLoading(false);
-  }, [dateRange]);
+  // Update time labels when orderTimeRange changes
+  useEffect(() => {
+    setOrderTimeLabel(generateDateLabels(orderTimeRange));
+    handleUpdateOrderAnalysis();
+  }, [orderTimeRange]);
 
   // Initialize charts when data is ready
   useEffect(() => {
     if (isLoading) return;
 
-    let mainChartInstance,
-      categoryChartInstance,
-      productPerformanceChartInstance;
+    let mainChartInstance: Chart | null = null;
+    let categoryChartInstance: Chart | null = null;
+    let productPerformanceChartInstance: Chart | null = null;
 
     // Create main chart
     if (mainChartRef.current) {
@@ -294,19 +431,11 @@ export default function ReportsPage() {
                 reportType === "revenue"
                   ? "Báo cáo doanh thu"
                   : "Báo cáo đơn hàng",
-              font: {
-                size: 16,
-              },
+              font: { size: 16 },
             },
-            legend: {
-              position: "top",
-            },
+            legend: { position: "top" },
           },
-          scales: {
-            y: {
-              beginAtZero: true,
-            },
-          },
+          scales: { y: { beginAtZero: true } },
         },
       });
     }
@@ -319,11 +448,7 @@ export default function ReportsPage() {
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: "right",
-            },
-          },
+          plugins: { legend: { position: "right" } },
         },
       });
     }
@@ -342,19 +467,11 @@ export default function ReportsPage() {
               title: {
                 display: true,
                 text: "Hiệu suất top 3 sản phẩm bán chạy",
-                font: {
-                  size: 16,
-                },
+                font: { size: 16 },
               },
-              legend: {
-                position: "top",
-              },
+              legend: { position: "top" },
             },
-            scales: {
-              y: {
-                beginAtZero: true,
-              },
-            },
+            scales: { y: { beginAtZero: true } },
           },
         }
       );
@@ -367,92 +484,13 @@ export default function ReportsPage() {
       if (productPerformanceChartInstance)
         productPerformanceChartInstance.destroy();
     };
-  }, [isLoading, reportType]);
-
-  // Helper function to generate date labels
-  const generateDateLabels = (timeRange) => {
-    const today = new Date();
-    const currentPeriodEnd = new Date(today);
-    const currentPeriodStart = new Date(today);
-    let previousPeriodEnd = new Date(today);
-    let previousPeriodStart = new Date(today);
-
-    // Format date function
-    const formatDate = (date) => {
-      return `${date.getDate().toString().padStart(2, "0")}/${(
-        date.getMonth() + 1
-      )
-        .toString()
-        .padStart(2, "0")}/${date.getFullYear()}`;
-    };
-
-    switch (timeRange) {
-      case "week":
-        // Current: Last 7 days
-        currentPeriodStart.setDate(today.getDate() - 6);
-        // Previous: 7 days before current period
-        previousPeriodEnd.setDate(today.getDate() - 7);
-        previousPeriodStart.setDate(today.getDate() - 13);
-        break;
-      case "month":
-        // Current: Last 30 days
-        currentPeriodStart.setDate(today.getDate() - 29);
-        // Previous: 30 days before current period
-        previousPeriodEnd.setDate(today.getDate() - 30);
-        previousPeriodStart.setDate(today.getDate() - 59);
-        break;
-      case "quarter":
-        // Current: Last 3 months
-        currentPeriodStart.setMonth(today.getMonth() - 2);
-        currentPeriodStart.setDate(1);
-        // Previous: 3 months before current period
-        previousPeriodEnd.setDate(currentPeriodStart.getDate() - 1);
-        previousPeriodStart = new Date(previousPeriodEnd);
-        previousPeriodStart.setMonth(previousPeriodStart.getMonth() - 2);
-        previousPeriodStart.setDate(1);
-        break;
-      case "year":
-        // Current: Last 12 months
-        currentPeriodStart.setFullYear(today.getFullYear() - 1);
-        currentPeriodStart.setDate(today.getDate() + 1);
-        // Previous: 12 months before current period
-        previousPeriodEnd = new Date(currentPeriodStart);
-        previousPeriodEnd.setDate(previousPeriodEnd.getDate() - 1);
-        previousPeriodStart = new Date(previousPeriodEnd);
-        previousPeriodStart.setFullYear(previousPeriodStart.getFullYear() - 1);
-        previousPeriodStart.setDate(previousPeriodStart.getDate() + 1);
-        break;
-      default:
-        // Default to week
-        currentPeriodStart.setDate(today.getDate() - 6);
-        previousPeriodEnd.setDate(today.getDate() - 7);
-        previousPeriodStart.setDate(today.getDate() - 13);
-    }
-
-    return {
-      current: `${
-        timeRange === "week"
-          ? "7 ngày"
-          : timeRange === "month"
-          ? "30 ngày"
-          : timeRange === "quarter"
-          ? "3 tháng"
-          : "12 tháng"
-      } gần nhất (${formatDate(currentPeriodStart)} - ${formatDate(
-        currentPeriodEnd
-      )})`,
-      previous: `kỳ trước (${formatDate(previousPeriodStart)} - ${formatDate(
-        previousPeriodEnd
-      )})`,
-    };
-  };
-
-  const handleUpdateOrderAnalysis = () => {
-    // logic
-    // gọi api để lấy dữ liệu mới cho phân tích đơn hàng
-    // api khi gửi sẽ kèm theo orderTimeRange, dateFrom, dateTo
-    // khi nhận đc data thì cập nhật state để hiển thị trong phần so với kỳ trước
-  };
+  }, [
+    isLoading,
+    reportType,
+    revenueData,
+    categoryData,
+    productPerformanceData,
+  ]);
 
   return (
     <AdminLayout title="Báo cáo và Thống kê">
@@ -473,6 +511,29 @@ export default function ReportsPage() {
       {/* Main content */}
       <section className="content">
         <div className="container-fluid">
+          {/* Error Message */}
+          {error && (
+            <div className="alert alert-danger">
+              {error}
+              <button
+                type="button"
+                className="close"
+                onClick={() => setError(null)}
+              >
+                &times;
+              </button>
+            </div>
+          )}
+
+          {/* Loading Indicator */}
+          {isLoading && (
+            <div className="d-flex justify-content-center my-4">
+              <div className="spinner-border text-primary" role="status">
+                <span className="sr-only">Loading...</span>
+              </div>
+            </div>
+          )}
+
           {/* Filters */}
           <div className="card mb-4">
             <div className="card-header">
@@ -538,10 +599,17 @@ export default function ReportsPage() {
                 )}
               </div>
               <div className="mt-2">
-                <button className="btn btn-primary">
+                <button
+                  className="btn btn-primary"
+                  onClick={fetchReports}
+                  disabled={isLoading}
+                >
                   <i className="fas fa-sync-alt mr-1"></i> Cập nhật báo cáo
                 </button>
-                <button className="btn btn-outline-secondary ml-2">
+                <button
+                  className="btn btn-outline-secondary ml-2"
+                  disabled={isLoading}
+                >
                   <i className="fas fa-download mr-1"></i> Xuất báo cáo
                 </button>
               </div>
@@ -678,7 +746,8 @@ export default function ReportsPage() {
               <table className="table table-striped">
                 <thead>
                   <tr>
-                    <th>Mã SP</th>
+                    <th>STT</th>
+                    <th>Slug</th>
                     <th>Tên sản phẩm</th>
                     <th>Danh mục</th>
                     <th>Đã bán</th>
@@ -687,24 +756,40 @@ export default function ReportsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {topProducts.map((product) => (
-                    <tr key={product.id}>
-                      <td>{product.id}</td>
-                      <td>{product.name}</td>
-                      <td>{product.category}</td>
-                      <td>{product.sales}</td>
-                      <td>{formatCurrency(product.revenue)}</td>
-                      <td>
-                        <span
-                          className={`badge ${
-                            product.stock < 20 ? "bg-warning" : "bg-success"
-                          }`}
-                        >
-                          {product.stock}
-                        </span>
+                  {topProducts.length > 0 ? (
+                    topProducts.map((product: any, index) => (
+                      <tr key={product.id}>
+                        <td>{index + 1}</td>
+                        <td>{product.sku}</td>
+                        <td>
+                          <Link
+                            href={`/admin/products/${product.id}`}
+                            className="text-primary"
+                          >
+                            {product.name}
+                          </Link>
+                        </td>
+                        <td>{product.category}</td>
+                        <td>{product.sales}</td>
+                        <td>{formatCurrency(product.revenue)}</td>
+                        <td>
+                          <span
+                            className={`badge ${
+                              product.stock < 10 ? "bg-warning" : "bg-success"
+                            }`}
+                          >
+                            {product.stock}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={7} className="text-center">
+                        Không có dữ liệu sản phẩm bán chạy
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
@@ -760,25 +845,33 @@ export default function ReportsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {categoryPerformance.map((category) => (
-                    <tr key={category.id}>
-                      <td>{category.name}</td>
-                      <td>{category.sales}</td>
-                      <td>{formatCurrency(category.revenue)}</td>
-                      <td>{category.products}</td>
-                      <td>
-                        <span
-                          className={`badge ${
-                            category.growth >= 0 ? "bg-success" : "bg-danger"
-                          }`}
-                        >
-                          {category.growth >= 0
-                            ? `+${category.growth}%`
-                            : `${category.growth}%`}
-                        </span>
+                  {categoryPerformance.length > 0 ? (
+                    categoryPerformance.map((category: any) => (
+                      <tr key={category.id}>
+                        <td>{category.name}</td>
+                        <td>{category.sales}</td>
+                        <td>{formatCurrency(category.revenue)}</td>
+                        <td>{category.products}</td>
+                        <td>
+                          <span
+                            className={`badge ${
+                              category.growth >= 0 ? "bg-success" : "bg-danger"
+                            }`}
+                          >
+                            {category.growth >= 0
+                              ? `+${category.growth}%`
+                              : `${category.growth}%`}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="text-center">
+                        Không có dữ liệu hiệu suất danh mục
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
@@ -807,35 +900,82 @@ export default function ReportsPage() {
                     <th>Danh mục</th>
                     <th>Tồn kho</th>
                     <th>Ngưỡng cảnh báo</th>
+                    <th>Biến thể</th>
                     <th>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {lowStockProducts.map((product) => (
-                    <tr key={product.id}>
-                      <td>{product.id}</td>
-                      <td>{product.name}</td>
-                      <td>{product.category}</td>
-                      <td>
-                        <span
-                          className={`badge ${
-                            product.stock <= 5 ? "bg-danger" : "bg-warning"
-                          }`}
-                        >
-                          {product.stock}
-                        </span>
-                      </td>
-                      <td>{product.threshold}</td>
-                      <td>
-                        <Link
-                          href={`/admin/products/${product.id}`}
-                          className="btn btn-sm btn-info"
-                        >
-                          <i className="fas fa-edit mr-1"></i> Cập nhật
-                        </Link>
+                  {lowStockProducts.length > 0 ? (
+                    lowStockProducts.map((product: LowStockProduct) => (
+                      <tr key={product.id}>
+                        <td>{product.sku}</td>
+                        <td>{product.name}</td>
+                        <td>{product.category}</td>
+                        <td>
+                          <span
+                            className={`badge ${
+                              product.stock <= 5 ? "bg-danger" : "bg-warning"
+                            }`}
+                          >
+                            {product.stock}
+                          </span>
+                        </td>
+                        <td>{product.threshold}</td>
+                        <td>
+                          {product.variants && product.variants.length > 0 ? (
+                            <div>
+                              {product.variants.map(
+                                (
+                                  variant: {
+                                    color: string;
+                                    size: string;
+                                    needsRestock: boolean;
+                                    stock: number;
+                                  },
+                                  idx: number
+                                ) => (
+                                  <div key={idx} className="mb-1">
+                                    <small>
+                                      {colorToVietnamese[variant.color]},{" "}
+                                      {variant.size}:{" "}
+                                      <span
+                                        className={
+                                          variant.needsRestock
+                                            ? "text-danger font-weight-bold"
+                                            : ""
+                                        }
+                                      >
+                                        {variant.stock} sản phẩm
+                                      </span>
+                                    </small>
+                                  </div>
+                                )
+                              )}
+                              <small className="text-muted">
+                                ({product.totalVariants} biến thể)
+                              </small>
+                            </div>
+                          ) : (
+                            "Không có biến thể"
+                          )}
+                        </td>
+                        <td>
+                          <Link
+                            href={`/admin/products/${product.id}`}
+                            className="btn btn-sm btn-info"
+                          >
+                            <i className="fas fa-edit mr-1"></i> Cập nhật
+                          </Link>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={7} className="text-center">
+                        Không có sản phẩm sắp hết hàng
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
@@ -915,7 +1055,8 @@ export default function ReportsPage() {
                       </span>
                       <button
                         className="btn btn-sm btn-outline-primary ml-2"
-                        onClick={() => handleUpdateOrderAnalysis()}
+                        onClick={handleUpdateOrderAnalysis}
+                        disabled={isLoading}
                       >
                         <i className="fas fa-sync-alt"></i> Cập nhật
                       </button>
@@ -930,9 +1071,16 @@ export default function ReportsPage() {
                         {orderTimeLabel.current}
                       </h5>
                       <p className="mb-0">
-                        Tổng đơn hàng: <strong>550</strong> | Tỷ lệ hoàn thành:{" "}
-                        <strong>88.5%</strong> | Giá trị TB:{" "}
-                        <strong>{formatCurrency(228182)}</strong>
+                        Tổng đơn hàng:{" "}
+                        <strong>{orderAnalysis.current.totalOrders}</strong> |
+                        Tỷ lệ hoàn thành:{" "}
+                        <strong>{orderAnalysis.current.completionRate}%</strong>{" "}
+                        | Giá trị TB:{" "}
+                        <strong>
+                          {formatCurrency(
+                            orderAnalysis.current.averageOrderValue
+                          )}
+                        </strong>
                       </p>
                     </div>
                   </div>
@@ -941,17 +1089,73 @@ export default function ReportsPage() {
                       <h5>So với {orderTimeLabel.previous}</h5>
                       <p className="mb-0">
                         Đơn hàng:{" "}
-                        <span className="text-success">
-                          +12.2% <i className="fas fa-arrow-up"></i>
-                        </span>{" "}
-                        | Tỷ lệ hoàn thành:{" "}
-                        <span className="text-success">
-                          +3.5% <i className="fas fa-arrow-up"></i>
-                        </span>{" "}
-                        | Giá trị TB:{" "}
-                        <span className="text-success">
-                          +5.8% <i className="fas fa-arrow-up"></i>
+                        <strong>{orderAnalysis.previous.totalOrders}</strong> (
+                        <span
+                          className={
+                            orderAnalysis.previous.orderGrowth >= 0
+                              ? "text-success"
+                              : "text-danger"
+                          }
+                        >
+                          {orderAnalysis.previous.orderGrowth >= 0
+                            ? `+${orderAnalysis.previous.orderGrowth}%`
+                            : `${orderAnalysis.previous.orderGrowth}%`}{" "}
+                          <i
+                            className={`fas fa-arrow-${
+                              orderAnalysis.previous.orderGrowth >= 0
+                                ? "up"
+                                : "down"
+                            }`}
+                          ></i>
                         </span>
+                        ) | Tỷ lệ hoàn thành:{" "}
+                        <strong>
+                          {orderAnalysis.previous.completedOrders}
+                        </strong>{" "}
+                        (
+                        <span
+                          className={
+                            orderAnalysis.previous.completionRateGrowth >= 0
+                              ? "text-success"
+                              : "text-danger"
+                          }
+                        >
+                          {orderAnalysis.previous.completionRateGrowth >= 0
+                            ? `+${orderAnalysis.previous.completionRateGrowth}%`
+                            : `${orderAnalysis.previous.completionRateGrowth}%`}{" "}
+                          <i
+                            className={`fas fa-arrow-${
+                              orderAnalysis.previous.completionRateGrowth >= 0
+                                ? "up"
+                                : "down"
+                            }`}
+                          ></i>
+                        </span>
+                        ) | Giá trị TB:{" "}
+                        <strong>
+                          {formatCurrency(orderAnalysis.previous.avgOrderValue)}
+                        </strong>{" "}
+                        (
+                        <span
+                          className={
+                            orderAnalysis.previous.averageOrderValueGrowth >= 0
+                              ? "text-success"
+                              : "text-danger"
+                          }
+                        >
+                          {orderAnalysis.previous.averageOrderValueGrowth >= 0
+                            ? `+${orderAnalysis.previous.averageOrderValueGrowth}%`
+                            : `${orderAnalysis.previous.averageOrderValueGrowth}%`}{" "}
+                          <i
+                            className={`fas fa-arrow-${
+                              orderAnalysis.previous.averageOrderValueGrowth >=
+                              0
+                                ? "up"
+                                : "down"
+                            }`}
+                          ></i>
+                        </span>
+                        )
                       </p>
                     </div>
                   </div>
@@ -966,62 +1170,38 @@ export default function ReportsPage() {
                       <h3 className="card-title">Trạng thái đơn hàng</h3>
                     </div>
                     <div className="card-body">
-                      <div className="d-flex justify-content-between align-items-center border-bottom mb-3">
-                        <p className="d-flex flex-column">
-                          <span className="text-success font-weight-bold">
-                            315 đơn
-                          </span>
-                          <span className="text-muted">Đã giao hàng</span>
-                        </p>
-                        <p className="d-flex flex-column text-right">
-                          <span className="font-weight-bold">57.3%</span>
-                          <span className="text-success">
-                            <i className="fas fa-arrow-up"></i> 8.2%
-                          </span>
-                        </p>
-                      </div>
-                      <div className="d-flex justify-content-between align-items-center border-bottom mb-3">
-                        <p className="d-flex flex-column">
-                          <span className="text-info font-weight-bold">
-                            95 đơn
-                          </span>
-                          <span className="text-muted">Đang xử lý</span>
-                        </p>
-                        <p className="d-flex flex-column text-right">
-                          <span className="font-weight-bold">17.3%</span>
-                          <span className="text-muted">
-                            <i className="fas fa-equals"></i> 0.3%
-                          </span>
-                        </p>
-                      </div>
-                      <div className="d-flex justify-content-between align-items-center border-bottom mb-3">
-                        <p className="d-flex flex-column">
-                          <span className="text-warning font-weight-bold">
-                            75 đơn
-                          </span>
-                          <span className="text-muted">Đang giao hàng</span>
-                        </p>
-                        <p className="d-flex flex-column text-right">
-                          <span className="font-weight-bold">13.6%</span>
-                          <span className="text-success">
-                            <i className="fas fa-arrow-up"></i> 2.1%
-                          </span>
-                        </p>
-                      </div>
-                      <div className="d-flex justify-content-between align-items-center mb-0">
-                        <p className="d-flex flex-column">
-                          <span className="text-danger font-weight-bold">
-                            65 đơn
-                          </span>
-                          <span className="text-muted">Đã hủy</span>
-                        </p>
-                        <p className="d-flex flex-column text-right">
-                          <span className="font-weight-bold">11.8%</span>
-                          <span className="text-danger">
-                            <i className="fas fa-arrow-down"></i> 1.4%
-                          </span>
-                        </p>
-                      </div>
+                      {orderAnalysis.statuses.map((status, index) => (
+                        <div
+                          key={index}
+                          className={`d-flex justify-content-between  ${
+                            index < orderAnalysis.statuses.length - 1
+                              ? "border-bottom mb-3"
+                              : "mb-0"
+                          }`}
+                        >
+                          <p className="d-flex flex-column">
+                            <span
+                              className={`font-weight-bold ${
+                                status.name === "Đã giao hàng"
+                                  ? "text-success"
+                                  : status.name === "Đang xử lý"
+                                  ? "text-info"
+                                  : status.name === "Đang giao hàng"
+                                  ? "text-warning"
+                                  : "text-danger"
+                              }`}
+                            >
+                              {status.count} đơn
+                            </span>
+                            <span className="text-muted">{status.name}</span>
+                          </p>
+                          <p className="d-flex flex-column text-right">
+                            <span className="font-weight-bold">
+                              {status.percentage}%
+                            </span>
+                          </p>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -1039,7 +1219,7 @@ export default function ReportsPage() {
                             Thời gian xử lý trung bình
                           </span>
                           <span className="info-box-number text-center text-muted mb-0">
-                            1.2 ngày
+                            {orderAnalysis.timelines.averageProcessingTime} ngày
                           </span>
                         </div>
                       </div>
@@ -1049,7 +1229,7 @@ export default function ReportsPage() {
                             Thời gian giao hàng trung bình
                           </span>
                           <span className="info-box-number text-center text-muted mb-0">
-                            2.5 ngày
+                            {orderAnalysis.timelines.averageDeliveryTime} ngày
                           </span>
                         </div>
                       </div>
@@ -1059,19 +1239,22 @@ export default function ReportsPage() {
                             Tổng thời gian trung bình
                           </span>
                           <span className="info-box-number text-center text-muted mb-0">
-                            3.7 ngày
+                            {orderAnalysis.timelines.averageTotalTime} ngày
                           </span>
                         </div>
                       </div>
                       <div className="progress-group">
                         Tỷ lệ giao hàng đúng hạn
                         <span className="float-right">
-                          <b>87</b>/100
+                          <b>{orderAnalysis.timelines.onTimeDeliveryRate}</b>
+                          /100
                         </span>
                         <div className="progress">
                           <div
                             className="progress-bar bg-success"
-                            style={{ width: "87%" }}
+                            style={{
+                              width: `${orderAnalysis.timelines.onTimeDeliveryRate}%`,
+                            }}
                           ></div>
                         </div>
                       </div>
@@ -1086,354 +1269,30 @@ export default function ReportsPage() {
                       <h3 className="card-title">Phương thức thanh toán</h3>
                     </div>
                     <div className="card-body">
-                      <div className="d-flex justify-content-between align-items-center border-bottom mb-3">
-                        <p className="d-flex flex-column">
-                          <span className="font-weight-bold">Thẻ tín dụng</span>
-                          <span className="text-muted">148 đơn</span>
-                        </p>
-                        <p className="d-flex flex-column text-right">
-                          <span className="font-weight-bold">26.9%</span>
-                          <span className="text-success">
-                            <i className="fas fa-arrow-up"></i> 5.3%
-                          </span>
-                        </p>
-                      </div>
-                      <div className="d-flex justify-content-between align-items-center border-bottom mb-3">
-                        <p className="d-flex flex-column">
-                          <span className="font-weight-bold">Ví điện tử</span>
-                          <span className="text-muted">195 đơn</span>
-                        </p>
-                        <p className="d-flex flex-column text-right">
-                          <span className="font-weight-bold">35.5%</span>
-                          <span className="text-success">
-                            <i className="fas fa-arrow-up"></i> 6.8%
-                          </span>
-                        </p>
-                      </div>
-                      <div className="d-flex justify-content-between align-items-center border-bottom mb-3">
-                        <p className="d-flex flex-column">
-                          <span className="font-weight-bold">Chuyển khoản</span>
-                          <span className="text-muted">120 đơn</span>
-                        </p>
-                        <p className="d-flex flex-column text-right">
-                          <span className="font-weight-bold">21.8%</span>
-                          <span className="text-muted">
-                            <i className="fas fa-equals"></i> 0.2%
-                          </span>
-                        </p>
-                      </div>
-                      <div className="d-flex justify-content-between align-items-center mb-0">
-                        <p className="d-flex flex-column">
-                          <span className="font-weight-bold">COD</span>
-                          <span className="text-muted">87 đơn</span>
-                        </p>
-                        <p className="d-flex flex-column text-right">
-                          <span className="font-weight-bold">15.8%</span>
-                          <span className="text-danger">
-                            <i className="fas fa-arrow-down"></i> 4.5%
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Geographic Distribution (Expanded) */}
-              <div className="row mt-4" id="geographic-distribution">
-                <div className="col-12">
-                  <div className="card">
-                    <div className="card-header">
-                      <h3 className="card-title">
-                        Phân bố đơn hàng theo khu vực địa lý
-                      </h3>
-                      <div className="card-tools">
-                        <button
-                          type="button"
-                          className="btn btn-tool"
-                          data-card-widget="collapse"
+                      {orderAnalysis.paymentMethods.map((method, index) => (
+                        <div
+                          key={index}
+                          className={`d-flex justify-content-between ${
+                            index < orderAnalysis.paymentMethods.length - 1
+                              ? "border-bottom mb-3"
+                              : "mb-0"
+                          }`}
                         >
-                          <i className="fas fa-minus"></i>
-                        </button>
-                      </div>
-                    </div>
-                    <div className="card-body">
-                      <div className="row">
-                        <div className="col-md-7">
-                          <div className="table-responsive">
-                            <table className="table table-striped">
-                              <thead>
-                                <tr>
-                                  <th>Khu vực</th>
-                                  <th>Đơn hàng</th>
-                                  <th>Doanh thu</th>
-                                  <th>Tỷ lệ</th>
-                                  <th>Tăng trưởng</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                <tr>
-                                  <td>TP Hồ Chí Minh</td>
-                                  <td>210</td>
-                                  <td>{formatCurrency(52500000)}</td>
-                                  <td>
-                                    <div className="progress progress-xs">
-                                      <div
-                                        className="progress-bar bg-primary"
-                                        style={{ width: "38.2%" }}
-                                      ></div>
-                                    </div>
-                                    <span className="text-muted">38.2%</span>
-                                  </td>
-                                  <td>
-                                    <span className="badge bg-success">
-                                      +12.5%
-                                    </span>
-                                  </td>
-                                </tr>
-                                <tr>
-                                  <td>Hà Nội</td>
-                                  <td>175</td>
-                                  <td>{formatCurrency(43750000)}</td>
-                                  <td>
-                                    <div className="progress progress-xs">
-                                      <div
-                                        className="progress-bar bg-primary"
-                                        style={{ width: "31.8%" }}
-                                      ></div>
-                                    </div>
-                                    <span className="text-muted">31.8%</span>
-                                  </td>
-                                  <td>
-                                    <span className="badge bg-success">
-                                      +8.3%
-                                    </span>
-                                  </td>
-                                </tr>
-                                <tr>
-                                  <td>Đà Nẵng</td>
-                                  <td>65</td>
-                                  <td>{formatCurrency(16250000)}</td>
-                                  <td>
-                                    <div className="progress progress-xs">
-                                      <div
-                                        className="progress-bar bg-primary"
-                                        style={{ width: "11.8%" }}
-                                      ></div>
-                                    </div>
-                                    <span className="text-muted">11.8%</span>
-                                  </td>
-                                  <td>
-                                    <span className="badge bg-success">
-                                      +5.2%
-                                    </span>
-                                  </td>
-                                </tr>
-                                <tr>
-                                  <td>Hải Phòng</td>
-                                  <td>35</td>
-                                  <td>{formatCurrency(8750000)}</td>
-                                  <td>
-                                    <div className="progress progress-xs">
-                                      <div
-                                        className="progress-bar bg-primary"
-                                        style={{ width: "6.4%" }}
-                                      ></div>
-                                    </div>
-                                    <span className="text-muted">6.4%</span>
-                                  </td>
-                                  <td>
-                                    <span className="badge bg-warning">
-                                      +0.8%
-                                    </span>
-                                  </td>
-                                </tr>
-                                <tr>
-                                  <td>Cần Thơ</td>
-                                  <td>30</td>
-                                  <td>{formatCurrency(7500000)}</td>
-                                  <td>
-                                    <div className="progress progress-xs">
-                                      <div
-                                        className="progress-bar bg-primary"
-                                        style={{ width: "5.5%" }}
-                                      ></div>
-                                    </div>
-                                    <span className="text-muted">5.5%</span>
-                                  </td>
-                                  <td>
-                                    <span className="badge bg-success">
-                                      +3.7%
-                                    </span>
-                                  </td>
-                                </tr>
-                                <tr>
-                                  <td>Nha Trang</td>
-                                  <td>20</td>
-                                  <td>{formatCurrency(5000000)}</td>
-                                  <td>
-                                    <div className="progress progress-xs">
-                                      <div
-                                        className="progress-bar bg-primary"
-                                        style={{ width: "3.6%" }}
-                                      ></div>
-                                    </div>
-                                    <span className="text-muted">3.6%</span>
-                                  </td>
-                                  <td>
-                                    <span className="badge bg-success">
-                                      +2.1%
-                                    </span>
-                                  </td>
-                                </tr>
-                                <tr>
-                                  <td>Huế</td>
-                                  <td>15</td>
-                                  <td>{formatCurrency(3750000)}</td>
-                                  <td>
-                                    <div className="progress progress-xs">
-                                      <div
-                                        className="progress-bar bg-primary"
-                                        style={{ width: "2.7%" }}
-                                      ></div>
-                                    </div>
-                                    <span className="text-muted">2.7%</span>
-                                  </td>
-                                  <td>
-                                    <span className="badge bg-danger">
-                                      -1.2%
-                                    </span>
-                                  </td>
-                                </tr>
-                                <tr>
-                                  <td>Khác</td>
-                                  <td>0</td>
-                                  <td>{formatCurrency(0)}</td>
-                                  <td>
-                                    <div className="progress progress-xs">
-                                      <div
-                                        className="progress-bar bg-primary"
-                                        style={{ width: "0%" }}
-                                      ></div>
-                                    </div>
-                                    <span className="text-muted">0%</span>
-                                  </td>
-                                  <td>
-                                    <span className="badge bg-secondary">
-                                      0%
-                                    </span>
-                                  </td>
-                                </tr>
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                        <div className="col-md-5">
-                          <div className="card bg-gradient-primary">
-                            <div className="card-header border-0">
-                              <h3 className="card-title">
-                                <i className="fas fa-map-marker-alt mr-1"></i>
-                                Top khu vực theo tỷ lệ chuyển đổi
-                              </h3>
-                            </div>
-                            <div className="card-body">
-                              <div className="column">
-                                <div className="">
-                                  <div className="info-box mb-3 bg-white">
-                                    <span className="info-box-icon">
-                                      <i className="fas fa-star text-warning"></i>
-                                    </span>
-                                    <div className="info-box-content">
-                                      <span className="info-box-text text-muted">
-                                        TP Hồ Chí Minh
-                                      </span>
-                                      <span className="info-box-number">
-                                        Tỷ lệ: 8.7%
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="">
-                                  <div className="info-box mb-3 bg-white">
-                                    <span className="info-box-icon">
-                                      <i className="fas fa-star text-warning"></i>
-                                    </span>
-                                    <div className="info-box-content">
-                                      <span className="info-box-text text-muted">
-                                        Hà Nội
-                                      </span>
-                                      <span className="info-box-number">
-                                        Tỷ lệ: 7.9%
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <h5 className="mt-3 text-white">
-                                Giá trị đơn hàng trung bình theo khu vực
-                              </h5>
-                              <ul className="list-group mt-2">
-                                <li className="list-group-item d-flex justify-content-between align-items-center text-black">
-                                  TP Hồ Chí Minh
-                                  <span className="badge bg-white text-primary rounded-pill">
-                                    {formatCurrency(250000)}
-                                  </span>
-                                </li>
-                                <li className="list-group-item d-flex justify-content-between align-items-center text-black">
-                                  Hà Nội
-                                  <span className="badge bg-white text-primary rounded-pill">
-                                    {formatCurrency(230000)}
-                                  </span>
-                                </li>
-                                <li className="list-group-item d-flex justify-content-between align-items-center text-black">
-                                  Đà Nẵng
-                                  <span className="badge bg-white text-primary rounded-pill">
-                                    {formatCurrency(210000)}
-                                  </span>
-                                </li>
-                                <li className="list-group-item d-flex justify-content-between align-items-center text-black">
-                                  Hải Phòng
-                                  <span className="badge bg-white text-primary rounded-pill">
-                                    {formatCurrency(195000)}
-                                  </span>
-                                </li>
-                              </ul>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="card-footer bg-light">
-                      <div className="row">
-                        <div className="col-md-4">
-                          <div className="d-flex align-items-center">
-                            <i className="fas fa-info-circle text-primary mr-2"></i>
-                            <span className="text-muted">
-                              Thị trường trọng điểm:{" "}
-                              <strong>TP Hồ Chí Minh, Hà Nội, Đà Nẵng</strong>
+                          <p className="d-flex flex-column">
+                            <span className="font-weight-bold">
+                              {method.name}
                             </span>
-                          </div>
-                        </div>
-                        <div className="col-md-4">
-                          <div className="d-flex align-items-center">
-                            <i className="fas fa-chart-line text-success mr-2"></i>
                             <span className="text-muted">
-                              Tăng trưởng cao nhất:{" "}
-                              <strong>TP Hồ Chí Minh (+12.5%)</strong>
+                              {method.count} đơn
                             </span>
-                          </div>
-                        </div>
-                        <div className="col-md-4">
-                          <div className="d-flex align-items-center">
-                            <i className="fas fa-bullseye text-danger mr-2"></i>
-                            <span className="text-muted">
-                              Tiềm năng phát triển:{" "}
-                              <strong>Cần Thơ, Nha Trang</strong>
+                          </p>
+                          <p className="d-flex flex-column text-right">
+                            <span className="font-weight-bold">
+                              {method.percentage.toFixed(2)}%
                             </span>
-                          </div>
+                          </p>
                         </div>
-                      </div>
+                      ))}
                     </div>
                   </div>
                 </div>

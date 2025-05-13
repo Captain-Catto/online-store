@@ -8,9 +8,24 @@ import ProductCard from "@/components/ProductCard/ProductCard";
 import { ProductService } from "@/services/ProductService";
 import { Product, VariantDetail } from "@/types/product";
 import { useCallback } from "react";
-import LoadingSpinner from "@/components/UI/LoadingSpinner";
+import { useRouter } from "next/navigation";
+
+// ProductSkeleton component for loading state
+const ProductSkeleton = () => (
+  <div className="rounded-lg p-4 h-full">
+    <div className="w-full aspect-[2/3] bg-gray-200 animate-pulse rounded-md"></div>
+    <div className="h-4 bg-gray-200 animate-pulse rounded mt-4 w-3/4"></div>
+    <div className="h-4 bg-gray-200 animate-pulse rounded mt-2 w-1/2"></div>
+    <div className="flex gap-2 mt-4">
+      <div className="w-6 h-6 rounded-full bg-gray-200 animate-pulse"></div>
+      <div className="w-6 h-6 rounded-full bg-gray-200 animate-pulse"></div>
+      <div className="w-6 h-6 rounded-full bg-gray-200 animate-pulse"></div>
+    </div>
+  </div>
+);
 
 const LatestProducts: React.FC = () => {
+  const router = useRouter();
   const sliderRef = useRef<Slider>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +39,7 @@ const LatestProducts: React.FC = () => {
   const [secondaryImages, setSecondaryImages] = useState<{
     [productId: number]: string;
   }>({});
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
   // Hàm lấy hình ảnh
   const extractImages = useCallback(
@@ -78,14 +94,21 @@ const LatestProducts: React.FC = () => {
           }
         });
 
+        // Set all states in one batch to reduce re-renders
         setProducts(response.products);
         setSelectedColors(initialColors);
         setProductImages(initialImages);
         setSecondaryImages(initialSecondaryImages);
+
+        // Create a small delay before marking loading as complete
+        // to ensure images have time to start loading
+        setTimeout(() => {
+          setLoading(false);
+          setInitialLoadComplete(true);
+        }, 100);
       } catch (error) {
         console.error("Failed to fetch products:", error);
         setError("Không thể tải sản phẩm. Vui lòng thử lại sau.");
-      } finally {
         setLoading(false);
       }
     };
@@ -96,7 +119,6 @@ const LatestProducts: React.FC = () => {
   const handleColorSelect = useCallback(
     (productId: number, color: string) => {
       setSelectedColors((prev) => ({ ...prev, [productId]: color }));
-
       const product = products.find((p) => p.id === productId);
       if (product?.variants[color]) {
         const { mainImage, secondaryImage } = extractImages(
@@ -139,11 +161,21 @@ const LatestProducts: React.FC = () => {
 
   // Lọc sản phẩm nếu có featured thì hiển thị
   const displayProducts = products.filter((p) => p.featured);
+
+  // Pre-render skeleton layout with proper dimensions to prevent layout shift
+  const skeletonItems = Array(5)
+    .fill(0)
+    .map((_, i) => (
+      <div key={`skeleton-${i}`} className="px-2">
+        <ProductSkeleton />
+      </div>
+    ));
+
   return (
     <div className="w-full xl:px-20 lg:px-10 md:px-4 px-2 mt-4">
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-semibold text-left">SẢN PHẨM NỔI BẬT</h2>
-        {!loading && !error && (
+        {initialLoadComplete && !error && (
           <Link
             href={`/category/ao`}
             className="text-right text-lg text-gray-500 hover:underline hover:text-gray-700"
@@ -154,8 +186,10 @@ const LatestProducts: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="py-16 flex justify-center items-center">
-          <LoadingSpinner size="lg" text="Đang tải sản phẩm nổi bật..." />
+        <div className="relative mt-6">
+          <Slider ref={sliderRef} {...settings}>
+            {skeletonItems}
+          </Slider>
         </div>
       ) : error ? (
         <div className="w-full text-center py-8">
@@ -166,7 +200,7 @@ const LatestProducts: React.FC = () => {
             <p className="text-red-600 mb-4">{error}</p>
             <button
               className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition"
-              onClick={() => window.location.reload()}
+              onClick={() => router.refresh()}
             >
               Thử lại
             </button>
@@ -176,7 +210,7 @@ const LatestProducts: React.FC = () => {
         <div className="relative mt-6">
           <Slider ref={sliderRef} {...settings}>
             {displayProducts.map((product) => (
-              <div key={product.id}>
+              <div key={product.id} className="px-2">
                 <ProductCard
                   product={{
                     id: product.id,

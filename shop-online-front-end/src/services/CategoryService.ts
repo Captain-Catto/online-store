@@ -204,7 +204,7 @@ export const CategoryService = {
 
       // Tạo URL hoàn chỉnh
       const url = `${API_BASE_URL}/categories/slug/${categorySlug}/products?${queryParams.toString()}`;
-
+      console.log("URL:", url);
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);

@@ -7,6 +7,7 @@ import Header from "@/components/Header/Header";
 import Footer from "@/components/Footer/Footer";
 import { OrderService } from "@/services/OrderService";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
+import { colorToVietnamese } from "@/utils/colorUtils";
 
 // Define interfaces for the order data
 interface OrderDetail {
@@ -77,6 +78,7 @@ export default function OrderConfirmationPage() {
         console.log("Order data:", order);
         setOrderData({
           ...order,
+          phoneNumber: order.shippingPhoneNumber || "", // Ensure phoneNumber is included
           orderDetails: (order.orderDetails || []).map((detail) => ({
             ...detail,
             product: {
@@ -277,7 +279,8 @@ export default function OrderConfirmationPage() {
                           </Link>
                         </h4>
                         <p className="text-gray-600 text-sm">
-                          Màu: {item.color}, Kích thước: {item.size}
+                          Màu: {colorToVietnamese[item.color]}, Kích thước:{" "}
+                          {item.size}
                         </p>
                         <p className="text-gray-600 text-sm">
                           Số lượng: {item.quantity}

@@ -46,11 +46,5 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function CategoryPage({ params }: Props) {
   const { slug } = await params;
 
-  // Cách 1: Truyền chỉ slug xuống client component
   return <CategoryPageClient slug={slug} />;
-
-  // HOẶC
-  // Cách 2: Fetch dữ liệu danh mục tại server và truyền xuống
-  // const category = await CategoryService.getCategoryBySlug(categorySlug);
-  // return <CategoryPageClient categorySlug={categorySlug} initialCategory={category} />;
 }

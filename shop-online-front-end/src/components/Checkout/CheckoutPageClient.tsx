@@ -225,25 +225,19 @@ export default function CheckoutPage() {
       };
 
       // Gọi API để tính phí vận chuyển
-      const response = await fetch(
-        "http://localhost:3000/api/orders/shipping-fee",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(requestData),
-        }
-      );
+      const response = await OrderService.getShippingFee(requestData);
 
-      if (!response.ok) {
+      // Kiểm tra nếu response không có trường shipping hoặc finalFee
+      if (
+        !response ||
+        !response.shipping ||
+        typeof response.shipping.finalFee !== "number"
+      ) {
         throw new Error("Không thể tính phí vận chuyển");
       }
 
-      const data = await response.json();
-
       // Lấy finalFee từ đối tượng shipping trong response
-      const shippingFee = data.shipping.finalFee;
+      const shippingFee = response.shipping.finalFee;
 
       // Cập nhật order summary với phí vận chuyển mới
       setOrderSummary((prev) => ({
@@ -280,7 +274,7 @@ export default function CheckoutPage() {
     }
   }, [shippingInfo.city, isLoggedIn, loading, calculateShippingFee]);
 
-  // Hàm áp dụng voucher
+  // hàm handleApplyVoucher
   const handleApplyVoucher = async () => {
     if (!voucherCode.trim()) {
       setVoucherError("Vui lòng nhập mã giảm giá");
@@ -291,46 +285,14 @@ export default function CheckoutPage() {
     setVoucherError(null);
 
     try {
-      const response = await fetch(
-        `http://localhost:3000/api/vouchers/${voucherCode.trim()}`
+      // Sử dụng API validate để kiểm tra voucher với giá trị đơn hàng
+      const response = await OrderService.validateVoucher(
+        voucherCode,
+        orderSummary.subtotal
       );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Mã giảm giá không hợp lệ");
-      }
-
-      const voucherData = await response.json();
-      console.log("Voucher data:", voucherData);
-
-      // Kiểm tra ngày hết hạn
-      const expirationDate = new Date(voucherData.expirationDate);
-      if (expirationDate < new Date()) {
-        throw new Error("Mã giảm giá đã hết hạn");
-      }
-
-      // Kiểm tra điều kiện áp dụng voucher (minOrderValue có thể không có trong response)
-      if (
-        voucherData.minOrderValue &&
-        orderSummary.subtotal < voucherData.minOrderValue
-      ) {
-        throw new Error(
-          `Đơn hàng tối thiểu ${voucherData.minOrderValue.toLocaleString(
-            "vi-VN"
-          )}đ để áp dụng mã này`
-        );
-      }
-
-      // Tính số tiền được giảm giá
-      // Sử dụng type và value thay vì discountType và discount
-      let discountAmount = 0;
-      if (voucherData.type === "percentage") {
-        discountAmount = Math.floor(
-          (orderSummary.subtotal * voucherData.value) / 100
-        );
-      } else {
-        discountAmount = voucherData.value;
-      }
+      // Tính số tiền được giảm giá (từ API trả về)
+      const discountAmount = response.discountAmount;
 
       // Cập nhật order summary với số tiền giảm giá
       setOrderSummary((prev) => ({
@@ -339,13 +301,13 @@ export default function CheckoutPage() {
         total: prev.subtotal + prev.deliveryFee - discountAmount,
       }));
 
-      // Lưu voucher đã áp dụng (map lại theo interface Voucher)
+      // Lưu voucher đã áp dụng
       setAppliedVoucher({
-        id: voucherData.id,
-        code: voucherData.code,
-        discount: voucherData.value, // Sử dụng value thay cho discount
-        discountType: voucherData.type, // Sử dụng type thay cho discountType
-        minOrderValue: voucherData.minOrderValue || 0, // Đặt giá trị mặc định nếu không có
+        id: response.id,
+        code: response.code,
+        discount: response.value,
+        discountType: response.type,
+        minOrderValue: response.minOrderValue || 0,
       });
 
       // Cập nhật session storage với số tiền mới
@@ -357,7 +319,7 @@ export default function CheckoutPage() {
           orderData.summary.subtotal +
           orderData.summary.deliveryFee -
           discountAmount;
-        orderData.summary.voucherId = voucherData.id;
+        orderData.summary.voucherId = response.id;
         sessionStorage.setItem("pendingOrder", JSON.stringify(orderData));
       }
     } catch (error) {
@@ -374,16 +336,13 @@ export default function CheckoutPage() {
     e.preventDefault();
 
     if (!validateForm()) {
-      return; // If there are errors, don't process
+      return;
     }
 
-    // Reset any previous errors
     setOrderError(null);
+    setSubmitting(true);
 
     try {
-      // Show loading state
-      setSubmitting(true);
-
       // Get cart items from session storage
       const orderDataString = sessionStorage.getItem("pendingOrder");
 
@@ -403,10 +362,10 @@ export default function CheckoutPage() {
 
       // Map payment method to paymentMethodId
       const paymentMethodIdMap: Record<string, number> = {
-        cod: 1, // COD
-        creditCard: 2, // Credit/Debit Card
-        banking: 3, // Internet Banking
-        momo: 4, // MoMo
+        cod: 1,
+        creditCard: 2,
+        banking: 3,
+        momo: 4,
       };
 
       // Create full address string
@@ -428,42 +387,42 @@ export default function CheckoutPage() {
 
       // Gọi API để đặt hàng
       const response = await OrderService.placeOrder(orderPayload);
+      console.log("Order placed successfully:", response);
 
-      // Lưu ID đơn hàng vào sessionStorage
       // Kiểm tra orderId
       if (!response.orderId) {
-      } else {
-        sessionStorage.setItem("recentOrderId", String(response.orderId));
+        throw new Error("Không nhận được ID đơn hàng");
       }
 
-      // Sử dụng clearCart từ context
-      clearCart();
+      // Lưu ID đơn hàng vào sessionStorage và xóa pendingOrder
+      sessionStorage.setItem("recentOrderId", String(response.orderId));
+      sessionStorage.removeItem("pendingOrder");
 
-      // Chuyển hướng đến trang confirmation
-      window.location.href = "/order-confirmation";
+      // Sử dụng clearCart từ context - đợi nó hoàn thành
+      await clearCart();
+
+      // setTimout để chắc chắn clearCart trước và sau đó chuyển trang
+      setTimeout(() => {
+        router.push("/order-confirmation");
+      }, 100);
     } catch (error) {
       console.error("Error placing order:", error);
 
-      // Hiển thị lỗi cho người dùng
+      // Xử lý hiển thị lỗi - giữ nguyên code của bạn
       if (error instanceof Error) {
-        // Nếu là lỗi từ API với định dạng JSON
         try {
-          // Kiểm tra nếu message lỗi là chuỗi JSON
           if (error.message.includes('{"message":')) {
             const errorJson = JSON.parse(
               error.message.substring(error.message.indexOf("{"))
             );
             setOrderError(errorJson.message);
           } else {
-            // Nếu không phải JSON, dùng message của lỗi
             setOrderError(error.message);
           }
         } catch {
-          // Nếu không thể parse JSON, hiển thị message gốc
           setOrderError(error.message);
         }
       } else {
-        // Fallback cho các loại lỗi khác
         setOrderError("Đã xảy ra lỗi khi đặt hàng. Vui lòng thử lại sau.");
       }
     } finally {

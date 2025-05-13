@@ -3,9 +3,11 @@
 import React, { useState, useEffect } from "react";
 import { UserLeft } from "./User-left";
 import { UserRight } from "./User-right";
+import { useRouter } from "next/navigation";
 
 // Thêm state cho dữ liệu và loading state
 const User: React.FC = () => {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("account");
 
   // State lưu trữ dữ liệu cho từng tab
@@ -17,21 +19,28 @@ const User: React.FC = () => {
   // State theo dõi trạng thái loading
   const [isLoading, setIsLoading] = useState(false);
 
-  // Kiểm tra URL fragment khi tải trang
   useEffect(() => {
-    const hash = window.location.hash.replace("#", "");
+    const tabFromUrl = new URLSearchParams(window.location.search).get("tab");
     if (
-      hash &&
-      ["account", "orders", "addresses", "promotions", "faq"].includes(hash)
+      tabFromUrl &&
+      [
+        "account",
+        "orders",
+        "addresses",
+        "promotions",
+        "faq",
+        "wishlist",
+      ].includes(tabFromUrl)
     ) {
-      setActiveTab(hash);
+      setActiveTab(tabFromUrl);
     }
   }, []);
 
-  // Cập nhật URL khi tab thay đổi
-  useEffect(() => {
-    window.location.hash = activeTab;
-  }, [activeTab]);
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    // Cập nhật URL không reload trang
+    router.replace(`/account?tab=${tab}`);
+  };
 
   // Fetch dữ liệu dựa vào tab đang active
   useEffect(() => {
@@ -93,7 +102,7 @@ const User: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="md:col-span-1">
-          <UserLeft activeTab={activeTab} setActiveTab={setActiveTab} />
+          <UserLeft activeTab={activeTab} setActiveTab={handleTabChange} />
         </div>
 
         <div className="md:col-span-3">

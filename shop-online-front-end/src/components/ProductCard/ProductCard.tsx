@@ -26,6 +26,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
   onColorSelect,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [secondaryImageLoaded, setSecondaryImageLoaded] = useState(false);
 
   const currentVariant: VariantDetail | null =
     product.variants && selectedColor in product.variants
@@ -76,6 +78,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
     }
   };
 
+  const showPlaceholder =
+    !imageLoaded || (isHovered && secondaryImage && !secondaryImageLoaded);
+
   return (
     <div className="product-container w-full rounded-lg flex-shrink-0 mx-auto flex flex-col relative p-2">
       {/* Hình ảnh sản phẩm */}
@@ -85,38 +90,53 @@ const ProductCard: React.FC<ProductCardProps> = ({
         onMouseLeave={() => setIsHovered(false)}
       >
         {product.featured && (
-          <div className="absolute top-2 right-2 z-10 bg-blue-600 text-white px-3 py-1 text-xs font-semibold rounded-md">
+          <div className="absolute top-2 right-2 z-5 bg-blue-600 text-white px-3 py-1 text-xs font-semibold rounded-md">
             Đáng mua
           </div>
         )}
         <Link href={`/products/${product.id}`}>
-          {productImage ? (
+          {/* Placeholder khi ảnh chưa load xong */}
+          {showPlaceholder && (
+            <div className="w-full aspect-[2/3] bg-gray-200 rounded-md animate-pulse"></div>
+          )}
+
+          {productImage && (
             <div className="relative w-full aspect-[2/3]">
               <Image
                 src={productImage}
                 alt={product.name}
                 className={`w-full h-full object-cover md:object-top rounded-md transition-opacity duration-300 ${
-                  isHovered && secondaryImage ? "opacity-0" : "opacity-100"
+                  !imageLoaded
+                    ? "opacity-0"
+                    : isHovered && secondaryImage && secondaryImageLoaded
+                    ? "opacity-0"
+                    : "opacity-100"
                 }`}
                 width={672}
                 height={990}
                 priority
                 style={{ position: "absolute", top: 0, left: 0 }}
+                onLoad={() => setImageLoaded(true)}
               />
               {secondaryImage && (
                 <Image
                   src={secondaryImage}
                   alt={`${product.name} - second view`}
                   className={`w-full h-full object-cover md:object-top rounded-md transition-opacity duration-300 ${
-                    isHovered ? "opacity-100" : "opacity-0"
+                    isHovered && secondaryImageLoaded
+                      ? "opacity-100"
+                      : "opacity-0"
                   }`}
                   width={672}
                   height={990}
                   style={{ position: "absolute", top: 0, left: 0 }}
+                  onLoad={() => setSecondaryImageLoaded(true)}
                 />
               )}
             </div>
-          ) : (
+          )}
+
+          {!productImage && (
             <div className="w-full aspect-[2/3] bg-gray-200 rounded-md flex items-center justify-center">
               <span className="text-gray-400">Không có hình ảnh</span>
             </div>
@@ -124,8 +144,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
         </Link>
         {/* Size selector hiển thị đè lên hình ảnh */}
         <div
-          className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[80%] max-w-[90%] backdrop-blur-2xl bg-white/40 rounded-lg text-white text-center p-3 opacity-0 transition-all duration-500 ease-in-out z-[10] ${
-            isHovered ? "opacity-100 bottom-[30px]" : ""
+          className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[80%] max-w-[90%] backdrop-blur-2xl bg-white/40 rounded-lg text-white text-center p-3 opacity-0 transition-all duration-500 ease-in-out z-[9] ${
+            isHovered && imageLoaded ? "opacity-100 bottom-[30px]" : ""
           }`}
         >
           <SizeSelector

@@ -5,31 +5,33 @@ import Link from "next/link";
 import Image from "next/image";
 import { CategoryService } from "@/services/CategoryService";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
+import { useRouter } from "next/navigation";
 
 // Định nghĩa interface cho danh mục con
 interface Category {
-  id: number;
+  id: number | string;
   name: string;
   slug: string;
-  description: string;
+  description?: string;
   image: string | null;
-  parentId: number | null;
+  parentId: number | string | null;
   isActive: boolean;
 }
 
 // Định nghĩa interface cho danh mục cha (từ API)
 interface CategoryGroup {
-  id: number;
+  id: number | string;
   name: string;
   slug: string;
   description: string;
   image: string | null;
-  parentId: number | null;
+  parentId: number | string | null;
   isActive: boolean;
   children: Category[];
 }
 
 const Categories: React.FC = () => {
+  const router = useRouter();
   // State để lưu danh sách danh mục con
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -40,8 +42,9 @@ const Categories: React.FC = () => {
     const fetchCategories = async () => {
       try {
         setLoading(true);
-        const categoryGroups: CategoryGroup[] =
-          await CategoryService.getAllCategories();
+
+        const response = await CategoryService.getAllCategories();
+        const categoryGroups = response as CategoryGroup[];
 
         // Lấy tất cả danh mục con từ các danh mục cha
         const childCategories = categoryGroups.flatMap(
@@ -77,7 +80,7 @@ const Categories: React.FC = () => {
           </div>
           <p className="text-red-600 mb-4">{error}</p>
           <button
-            onClick={() => window.location.reload()}
+            onClick={() => router.refresh()}
             className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition"
           >
             Thử lại

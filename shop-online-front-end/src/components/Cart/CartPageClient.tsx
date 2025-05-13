@@ -78,7 +78,6 @@ export default function CartPageClient() {
     }
 
     if (!isLoggedIn) {
-      alert("Vui lòng đăng nhập để tiếp tục thanh toán!");
       router.push("/login");
       return;
     }
@@ -154,7 +153,7 @@ export default function CartPageClient() {
               Bạn chưa có sản phẩm nào trong giỏ hàng.
             </p>
             <Link
-              href="/categories"
+              href="/"
               className="inline-block bg-black text-white px-6 py-3 rounded hover:bg-gray-800 transition"
             >
               Tiếp tục mua sắm

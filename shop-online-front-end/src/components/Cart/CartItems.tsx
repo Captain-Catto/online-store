@@ -1,4 +1,5 @@
 import CartItem from "./CartItem";
+import { useRouter } from "next/navigation";
 
 interface CartItemsProps {
   items: Array<{
@@ -24,13 +25,14 @@ export default function CartItems({
   onQuantityChange,
   onRemove,
 }: CartItemsProps) {
+  const router = useRouter();
   if (items.length === 0) {
     return (
       <div className="flex-2 text-center py-8">
         <p className="text-gray-500">Giỏ hàng đang trống</p>
         <button
           className="mt-4 px-6 py-2 bg-black text-white rounded-full"
-          onClick={() => (window.location.href = "/categories")}
+          onClick={() => router.push(`/`)}
         >
           Đi chọn hàng thôi
         </button>

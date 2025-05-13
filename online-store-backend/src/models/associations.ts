@@ -81,14 +81,16 @@ export default function initAssociations() {
   // User - RefreshToken relationship
   Users.hasMany(RefreshToken, { foreignKey: "userId", as: "refreshTokens" });
   RefreshToken.belongsTo(Users, { foreignKey: "userId", as: "user" });
-
   // OrderDetail relationships
   OrderDetail.belongsTo(Product, { foreignKey: "productId", as: "product" });
+  Product.hasMany(OrderDetail, { foreignKey: "productId", as: "orderDetails" });
+
   OrderDetail.belongsTo(Voucher, {
     foreignKey: "voucherId",
     as: "voucher",
     onDelete: "SET NULL",
   });
+
   OrderDetail.belongsTo(ProductDetail, {
     foreignKey: "productDetailId",
     as: "productDetail",

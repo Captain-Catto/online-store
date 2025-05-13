@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Slider from "react-slick";
 import Link from "next/link";
 import { PrevArrow, NextArrow } from "@/utils/CustomArrowSlick";
@@ -10,6 +11,7 @@ import { Product, SimpleProduct } from "@/types/product";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 const CasualProducts: React.FC = () => {
+  const router = useRouter();
   const sliderRef = useRef<Slider>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -183,7 +185,7 @@ const CasualProducts: React.FC = () => {
             <p className="text-red-600 mb-4">{error}</p>
             <button
               className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition"
-              onClick={() => window.location.reload()}
+              onClick={() => router.refresh()}
             >
               Thử lại
             </button>

@@ -413,4 +413,87 @@ export const OrderService = {
       throw error;
     }
   },
+
+  // thêm phương thức gọi api lấy shipping fee
+  getShippingFee: async (requestData: {
+    shippingAddress: string;
+    subtotal: number;
+  }): Promise<{
+    shipping: {
+      baseFee: number;
+      discount: number;
+      finalFee: number;
+    };
+  }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/orders/shipping-fee`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message ||
+            `Error ${response.status}: ${response.statusText}`
+        );
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Error calculating shipping fee:", error);
+      throw error;
+    }
+  },
+
+  // hàm lấy voucher theo voucherCode
+  getVoucherByCode: async (code: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/vouchers/${code}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Không thể lấy thông tin mã giảm giá");
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Error fetching voucher:", error);
+      throw error;
+    }
+  },
+
+  // Thêm phương thức validateVoucher để kiểm tra giá trị đơn hàng:
+  validateVoucher: async (code: string, orderTotal: number) => {
+    try {
+      console.log(
+        `Validating voucher ${code} for order total ${orderTotal}...`
+      );
+      const response = await fetch(`${API_BASE_URL}/vouchers/validate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ code, orderTotal }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Không thể áp dụng mã giảm giá");
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Error validating voucher:", error);
+      throw error;
+    }
+  },
 };

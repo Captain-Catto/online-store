@@ -338,6 +338,16 @@ export const getProductsByCategorySlug = async (
     const suitabilities = suitabilityParam ? suitabilityParam.split(",") : [];
     const childCategorySlug = req.query.childCategory as string;
 
+    // nếu không có slug thì lấy hết categories
+    if (!slug) {
+      const categories = await Category.findAll({
+        where: { isActive: true },
+        attributes: ["id", "name", "slug"],
+      });
+      res.status(200).json(categories);
+      return;
+    }
+
     // Tìm category theo slug
     const category = await Category.findOne({
       where: { slug, isActive: true },

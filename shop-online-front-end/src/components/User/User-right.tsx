@@ -1975,10 +1975,14 @@ const Wishlist: React.FC<{
 
       <div className="text-center pt-2">
         <Link
-          href="/account/wishlist"
+          href="/account/wishlist/details"
           className="text-blue-600 hover:text-blue-800 font-medium"
         >
-          Xem tất cả {pagination?.totalItems} sản phẩm yêu thích
+          Xem tất cả{" "}
+          {pagination?.totalItems && pagination.totalItems > 1
+            ? pagination.totalItems
+            : ""}
+          sản phẩm yêu thích
           <i className="fas fa-chevron-right ml-1 text-xs"></i>
         </Link>
       </div>

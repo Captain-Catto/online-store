@@ -486,7 +486,7 @@ const ProductDetailModal = ({
   );
 };
 
-export default function WishlistPage() {
+export default function WishlistPageClient() {
   const { addToCart } = useCart();
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
   const [loading, setLoading] = useState(true);

@@ -1,7 +1,10 @@
 {
   "scripts": {
-    "start": "nodemon ./src/server.ts",
-    "seed": "nodemon ./src/seeders/seed.ts"
+    "dev": "nodemon src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "seed": "nodemon ./src/seeders/seed.ts",
+    "generate-test-orders": "ts-node ./src/scripts/generateTestOrders.ts"
   },
   "dependencies": {
     "aws-sdk": "^2.1692.0",

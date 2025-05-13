@@ -7,6 +7,11 @@ class Voucher extends Model {
   public type!: string;
   public value!: number;
   public expirationDate!: Date;
+  public minOrderValue!: number;
+  public description!: string;
+  public status!: string;
+  public usageLimit!: number;
+  public usageCount!: number;
 }
 
 Voucher.init(
@@ -30,9 +35,33 @@ Voucher.init(
       type: DataTypes.FLOAT,
       allowNull: false,
     },
+    minOrderValue: {
+      type: DataTypes.FLOAT,
+      allowNull: false,
+      defaultValue: 0,
+    },
+    description: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
     expirationDate: {
       type: DataTypes.DATE,
       allowNull: false,
+    },
+    status: {
+      type: DataTypes.ENUM("active", "inactive", "expired"),
+      allowNull: false,
+      defaultValue: "active",
+    },
+    usageLimit: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0, // 0 = không giới hạn
+    },
+    usageCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
     },
   },
   {

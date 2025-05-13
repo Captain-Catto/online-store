@@ -41,11 +41,16 @@ import wishlistRoutes from "./routes/Wishlist.route";
 import suitabilityRoutes from "./routes/Suitability.route";
 import AdminMenuItemRoutes from "./routes/AdminMenu.route";
 import cartRoutes from "./routes/Cart.route";
+import reportsRoutes from "./routes/Reports.route";
 
 dotenv.config();
 
 const CorsOptions = {
-  origin: ["http://localhost:3001", "http://localhost:3000"],
+  origin: [
+    "http://localhost:3001",
+    "http://localhost:3000",
+    "https://248f72d012ca52.lhr.life",
+  ],
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: true,
   preflightContinue: false,
@@ -76,7 +81,7 @@ app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/suitabilities", suitabilityRoutes);
 app.use("/api/admin-menu", AdminMenuItemRoutes);
 app.use("/api/cart", cartRoutes);
-
+app.use("/api/reports", reportsRoutes);
 // Middleware xử lý lỗi
 
 // Kết nối DB
