@@ -3,8 +3,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateProductVariants = exports.setMainProductImage = exports.removeProductImages = exports.addProductImages = exports.updateProductInventory = exports.updateProductBasicInfo = exports.getProductVariantsById = exports.getSubtypes = exports.getSuitabilities = exports.getProductsByCategory = exports.deleteProduct = exports.getProductById = exports.getProductsWithVariants = exports.createProductWithDetails = void 0;
-const db_1 = __importDefault(require("../config/db"));
+exports.getProductBreadcrumb = exports.updateProductVariants = exports.setMainProductImage = exports.removeProductImages = exports.addProductImages = exports.updateProductInventory = exports.updateProductBasicInfo = exports.getProductVariantsById = exports.getSubtypes = exports.getSuitabilities = exports.getProductsByCategory = exports.deleteProduct = exports.getProductById = exports.getProductsWithVariants = exports.createProductWithDetails = void 0;
+const sequelize_1 = require("sequelize");
 const Product_1 = __importDefault(require("../models/Product"));
 const ProductDetail_1 = __importDefault(require("../models/ProductDetail"));
 const ProductInventory_1 = __importDefault(require("../models/ProductInventory"));
@@ -12,9 +12,9 @@ const ProductImage_1 = __importDefault(require("../models/ProductImage"));
 const ProductCategory_1 = __importDefault(require("../models/ProductCategory"));
 const Category_1 = __importDefault(require("../models/Category"));
 const imageUpload_1 = require("../services/imageUpload");
-const sequelize_1 = require("sequelize");
 const Suitability_1 = __importDefault(require("../models/Suitability"));
 const ProductSuitability_1 = __importDefault(require("../models/ProductSuitability"));
+const db_1 = __importDefault(require("../config/db"));
 /**
  * Create a product with details and inventory
  */
@@ -186,7 +186,6 @@ const getProductsWithVariants = async (req, res) => {
         const category = req.query.category;
         const status = req.query.status;
         const brand = req.query.brand;
-        const subtype = req.query.subtype;
         const featured = req.query.featured === "true"
             ? true
             : req.query.featured === "false"
@@ -198,6 +197,13 @@ const getProductsWithVariants = async (req, res) => {
         const sizes = sizeParam ? sizeParam.split(",") : [];
         const suitabilityParam = req.query.suitability;
         const suitabilities = suitabilityParam ? suitabilityParam.split(",") : [];
+        console.log("Suitabilities:", suitabilities);
+        console.log("Comparing suitabilities:", {
+            input: suitabilities,
+            dbValues: await Suitability_1.default.findAll({
+                attributes: ["id", "name", "slug"],
+            }).then((records) => records.map((r) => r.get({ plain: true }))),
+        });
         // thêm tham số để sort
         const sort = req.query.sort;
         let order = [["createdAt", "DESC"]]; // Default sort
@@ -208,7 +214,7 @@ const getProductsWithVariants = async (req, res) => {
             if (validFields.includes(field) &&
                 validDirections.includes(direction?.toLowerCase())) {
                 if (field === "price") {
-                    // Sắp xếp theo giá cần xử lý đặc biệt vì price nằm trong bảng ProductDetail
+                    // Sắp xếp theo giá
                     order = [
                         [
                             { model: ProductDetail_1.default, as: "details" },
@@ -225,11 +231,16 @@ const getProductsWithVariants = async (req, res) => {
         // Tính offset
         const offset = (page - 1) * limit;
         // Tạo where condition
-        const where = {};
+        let where = {};
         // Xây dựng include
         const include = [];
         if (search) {
-            where.name = { [sequelize_1.Op.like]: `%${search}%` };
+            where = {
+                [sequelize_1.Op.or]: {
+                    name: { [sequelize_1.Op.like]: `%${search}%` },
+                    sku: { [sequelize_1.Op.like]: `%${search}%` },
+                },
+            };
         }
         if (status) {
             where.status = { [sequelize_1.Op.eq]: status };
@@ -237,13 +248,24 @@ const getProductsWithVariants = async (req, res) => {
         if (brand) {
             where.brand = brand;
         }
+        // so sánh với slug trong db
         if (suitabilities.length > 0) {
             include.push({
                 model: Suitability_1.default,
                 as: "suitabilities",
-                where: { name: { [sequelize_1.Op.in]: suitabilities } },
+                // so sánh bằng slug luôn thay vì phải mapping id
+                where: { slug: { [sequelize_1.Op.in]: suitabilities } },
                 through: { attributes: [] }, // Không lấy thông tin bảng trung gian
                 required: true, // Bắt buộc phải có
+            });
+        }
+        else {
+            include.push({
+                model: Suitability_1.default,
+                as: "suitabilities",
+                attributes: ["id", "name"],
+                through: { attributes: [] },
+                required: false, // Không bắt buộc có
             });
         }
         if (featured === true) {
@@ -260,14 +282,6 @@ const getProductsWithVariants = async (req, res) => {
             categoryInclude.where = { id: category };
         }
         include.push(categoryInclude);
-        // Thêm Suitability include vào đây, ngay cả khi không dùng để filter
-        include.push({
-            model: Suitability_1.default,
-            as: "suitabilities",
-            attributes: ["id", "name"],
-            through: { attributes: [] },
-            required: false, // Không bắt buộc có
-        });
         // ProductDetail include với lọc
         const detailsInclude = {
             model: ProductDetail_1.default,
@@ -369,6 +383,7 @@ const getProductsWithVariants = async (req, res) => {
                     statusClass = "warning";
                     break;
             }
+            console.log("Suitabilities in product:", product.suitabilities);
             // Return formatted product
             return {
                 id: product.id,
@@ -417,20 +432,7 @@ const getProductsWithVariants = async (req, res) => {
                 size: sizeParam || null,
                 featured: req.query.featured === "true" ? true : null,
                 sort: sort || null,
-                suitability: products
-                    .flatMap((product) => {
-                    try {
-                        return Array.isArray(product.suitability)
-                            ? product.suitability
-                            : typeof product.suitability === "string"
-                                ? JSON.parse(product.suitability)
-                                : [];
-                    }
-                    catch (e) {
-                        return [];
-                    }
-                })
-                    .filter((value, index, self) => self.indexOf(value) === index), // loại bỏ trùng lặp
+                suitability: suitabilityParam ? suitabilityParam.split(",") : [],
             },
             pagination: {
                 total: count,
@@ -442,6 +444,11 @@ const getProductsWithVariants = async (req, res) => {
     }
     catch (error) {
         res.status(500).json({ message: error.message });
+        console.error("GET PRODUCTS ERROR:", {
+            message: error.message,
+            stack: error.stack,
+            query: req.query,
+        });
     }
 };
 exports.getProductsWithVariants = getProductsWithVariants;
@@ -775,7 +782,8 @@ const getProductsByCategory = async (req, res) => {
             distinct: true,
         });
         // Format sản phẩm (giữ nguyên phần này)
-        const formattedProducts = products.map((product) => {
+        const formattedProducts = products.map((product, index) => {
+            console.log(`Processing product ${index}:`, product.toJSON());
             const details = product.details || [];
             // Get all unique colors
             const uniqueColors = [
@@ -1043,7 +1051,8 @@ const updateProductBasicInfo = async (req, res) => {
     const t = await db_1.default.transaction();
     try {
         const { id } = req.params;
-        const { name, sku, description, brand, material, featured, status, tags, suitability, categories, } = req.body;
+        const { name, sku, description, brand, material, featured, status, tags, suitabilities, categories, } = req.body;
+        console.log("suitabilities nhặn vào", suitabilities);
         // Check if product exists
         const product = await Product_1.default.findByPk(id, { transaction: t });
         if (!product) {
@@ -1061,10 +1070,26 @@ const updateProductBasicInfo = async (req, res) => {
             featured: featured === "true" || featured === true,
             status: status || "draft",
             tags: typeof tags === "string" ? JSON.parse(tags) : tags,
-            suitability: typeof suitability === "string"
-                ? JSON.parse(suitability)
-                : suitability,
         }, { transaction: t });
+        // Update suitabilities if provided
+        if (suitabilities &&
+            Array.isArray(suitabilities)
+        // kể cả = 0 thì cũng xóa vì có thể xóa hết suitabilities
+        ) {
+            // Delete existing suitability relationships
+            await ProductSuitability_1.default.destroy({
+                where: { productId: id },
+                transaction: t,
+            });
+            // Add new suitability relationships
+            const suitabilityEntries = suitabilities.map((suitabilityId) => ({
+                productId: Number(id),
+                suitabilityId,
+            }));
+            await ProductSuitability_1.default.bulkCreate(suitabilityEntries, {
+                transaction: t,
+            });
+        }
         // Update categories if provided
         if (categories && categories.length > 0) {
             // Kiểm tra xem có đang cố gắng cập nhật đầy đủ categories hay không
@@ -1098,7 +1123,7 @@ const updateProductBasicInfo = async (req, res) => {
                             },
                             transaction: t,
                         });
-                        return; // Không thực hiện code dưới đây
+                        return;
                     }
                 }
             }
@@ -1750,3 +1775,76 @@ const updateProductVariants = async (req, res) => {
     }
 };
 exports.updateProductVariants = updateProductVariants;
+/**
+ * Get product breadcrumb path
+ */
+const getProductBreadcrumb = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const product = await Product_1.default.findByPk(id, {
+            include: [
+                {
+                    model: Category_1.default,
+                    as: "categories",
+                    attributes: ["id", "name", "slug", "parentId"],
+                    through: { attributes: [] },
+                },
+            ],
+        });
+        if (!product) {
+            res.status(404).json({ message: "Product not found" });
+            return;
+        }
+        // tạo breadcrumb mặc định
+        const breadcrumb = [
+            { label: "Trang chủ", href: "/", isLast: false },
+        ];
+        // Lấy category chính (ưu tiên category cha nếu có)
+        const categories = product.categories || [];
+        let mainCategory = null;
+        let parentCategory = null;
+        // Tìm category cha (parentId === null)
+        for (const cat of categories) {
+            if (!cat.parentId) {
+                mainCategory = cat;
+                break;
+            }
+        }
+        // Nếu không tìm thấy category cha, lấy category đầu tiên
+        if (!mainCategory && categories.length > 0) {
+            mainCategory = categories[0];
+            // Lấy category cha của mainCategory nếu có
+            if (mainCategory.parentId) {
+                parentCategory = await Category_1.default.findByPk(mainCategory.parentId, {
+                    attributes: ["id", "name", "slug"],
+                });
+            }
+        }
+        // Thêm category cha vào breadcrumb nếu có
+        if (parentCategory) {
+            breadcrumb.push({
+                label: parentCategory.name,
+                href: `/category/${parentCategory.slug}`,
+            });
+        }
+        // Thêm category hiện tại vào breadcrumb
+        if (mainCategory) {
+            breadcrumb.push({
+                label: mainCategory.name,
+                href: `/category/${mainCategory.slug}`,
+            });
+        }
+        // Thêm sản phẩm hiện tại vào breadcrumb
+        breadcrumb.push({
+            label: product.name,
+            href: `/products/${id}`,
+            isLast: true,
+        });
+        res.status(200).json(breadcrumb);
+    }
+    catch (error) {
+        console.error("Error generating product breadcrumb:", error);
+        res.status(500).json({ message: error.message });
+    }
+};
+exports.getProductBreadcrumb = getProductBreadcrumb;

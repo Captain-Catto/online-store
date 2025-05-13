@@ -10,15 +10,17 @@ const router = (0, express_1.Router)();
 router.post("/", authMiddleware_1.authMiddleware, Order_Controller_1.createOrder);
 // ADMIN ROUTES (Tất cả đều yêu cầu quyền admin)
 // Lấy tất cả đơn hàng (Admin)
-router.get("/admin/all", authMiddleware_1.authMiddleware, (0, roleMiddleware_1.roleMiddleware)([1]), OrderEdit_controller_1.getAllOrders);
+router.get("/admin/all", authMiddleware_1.authMiddleware, (0, roleMiddleware_1.permissionMiddleware)([roleMiddleware_1.Permission.VIEW_FULL_ORDERS]), OrderEdit_controller_1.getAllOrders);
+// lấy tất cả đơn hàng (employee) - chỉ xem được 1 phần thông tin đơn hàng
+router.get("/employee/all", authMiddleware_1.authMiddleware, (0, roleMiddleware_1.permissionMiddleware)([roleMiddleware_1.Permission.VIEW_ORDERS]), Order_Controller_1.getAllOrdersByEmployee);
 // Lấy danh sách đơn hàng của người dùng (chỉ người dùng đã đăng nhập)
 router.get("/my-orders", authMiddleware_1.authMiddleware, Order_Controller_1.getUserOrders);
 // Lấy danh sách đơn hàng của người dùng theo ID (Admin)
-router.get("/user/:userId", authMiddleware_1.authMiddleware, (0, roleMiddleware_1.roleMiddleware)([1]), Order_Controller_1.getUserOrdersByAdmin);
+router.get("/user/:userId", authMiddleware_1.authMiddleware, (0, roleMiddleware_1.roleMiddleware)([1, 2]), Order_Controller_1.getUserOrdersByAdmin);
 // Lấy chi tiết đơn hàng theo ID
 router.get("/:id", authMiddleware_1.authMiddleware, Order_Controller_1.getOrderById);
 // Cập nhật trạng thái đơn hàng
-router.put("/:id/status", authMiddleware_1.authMiddleware, (0, roleMiddleware_1.roleMiddleware)([1]), OrderEdit_controller_1.updateOrderStatus);
+router.put("/:id/status", authMiddleware_1.authMiddleware, (0, roleMiddleware_1.roleMiddleware)([1, 2]), OrderEdit_controller_1.updateOrderStatus);
 // Cập nhật trạng thái thanh toán
 router.put("/:id/payment-status", authMiddleware_1.authMiddleware, (0, roleMiddleware_1.roleMiddleware)([1]), OrderEdit_controller_1.updatePaymentStatus);
 // Cập nhật địa chỉ giao hàng

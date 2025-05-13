@@ -3,10 +3,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteAddress = exports.setDefaultAddress = exports.updateAddress = exports.getAddressById = exports.getUserAddresses = exports.createAddress = void 0;
+exports.deleteAddressByAdmin = exports.setDefaultAddressByAdmin = exports.updateAddressByAdmin = exports.createAddressByAdmin = exports.getAddressByIdForAdmin = exports.getAddressesByUserId = exports.deleteAddress = exports.setDefaultAddress = exports.updateAddress = exports.getAddressById = exports.getUserAddresses = exports.createAddress = void 0;
 const UserAddress_1 = __importDefault(require("../models/UserAddress"));
 const db_1 = __importDefault(require("../config/db"));
 const sequelize_1 = require("sequelize");
+const Users_1 = __importDefault(require("../models/Users"));
+const UserAddress_2 = __importDefault(require("../models/UserAddress"));
 /**
  * Create a new address for the logged-in user
  */
@@ -242,3 +244,216 @@ const deleteAddress = async (req, res) => {
     }
 };
 exports.deleteAddress = deleteAddress;
+// ADMIN CONTROLLERS
+/**
+ * Lấy tất cả địa chỉ của một người dùng cụ thể (chỉ admin)
+ */
+const getAddressesByUserId = async (req, res) => {
+    try {
+        const userId = parseInt(req.params.userId);
+        // Kiểm tra người dùng tồn tại
+        const user = await Users_1.default.findByPk(userId);
+        if (!user) {
+            res.status(404).json({ message: "Không tìm thấy người dùng" });
+            return;
+        }
+        // Lấy tất cả địa chỉ của người dùng đó
+        const addresses = await UserAddress_2.default.findAll({
+            where: { userId },
+            order: [
+                ["isDefault", "DESC"],
+                ["id", "ASC"],
+            ],
+        });
+        res.status(200).json(addresses);
+    }
+    catch (error) {
+        console.error("Error in getAddressesByUserId:", error);
+        res.status(500).json({ message: error.message || "Đã xảy ra lỗi" });
+    }
+};
+exports.getAddressesByUserId = getAddressesByUserId;
+/**
+ * Lấy thông tin một địa chỉ cụ thể (chỉ admin)
+ */
+const getAddressByIdForAdmin = async (req, res) => {
+    try {
+        const addressId = parseInt(req.params.id);
+        const address = await UserAddress_2.default.findByPk(addressId);
+        if (!address) {
+            res.status(404).json({ message: "Không tìm thấy địa chỉ" });
+            return;
+        }
+        res.status(200).json(address);
+    }
+    catch (error) {
+        console.error("Error in getAddressByIdForAdmin:", error);
+        res.status(500).json({ message: error.message || "Đã xảy ra lỗi" });
+    }
+};
+exports.getAddressByIdForAdmin = getAddressByIdForAdmin;
+/**
+ * Tạo địa chỉ mới cho người dùng (chỉ admin)
+ */
+const createAddressByAdmin = async (req, res) => {
+    try {
+        const userId = parseInt(req.params.userId);
+        // Kiểm tra người dùng tồn tại
+        const user = await Users_1.default.findByPk(userId);
+        if (!user) {
+            res.status(404).json({ message: "Không tìm thấy người dùng" });
+            return;
+        }
+        const { fullName, phoneNumber, streetAddress, city, district, ward, isDefault, } = req.body;
+        // Kiểm tra dữ liệu đầu vào
+        if (!fullName ||
+            !phoneNumber ||
+            !streetAddress ||
+            !city ||
+            !district ||
+            !ward) {
+            res
+                .status(400)
+                .json({ message: "Vui lòng điền đầy đủ thông tin địa chỉ" });
+            return;
+        }
+        // Nếu là địa chỉ mặc định, hủy địa chỉ mặc định hiện tại
+        if (isDefault) {
+            await UserAddress_2.default.update({ isDefault: false }, { where: { userId, isDefault: true } });
+        }
+        // Tạo địa chỉ mới
+        const newAddress = await UserAddress_2.default.create({
+            userId,
+            fullName,
+            phoneNumber,
+            streetAddress,
+            city,
+            district,
+            ward,
+            isDefault: isDefault || false,
+        });
+        res.status(201).json({
+            message: "Tạo địa chỉ thành công",
+            address: newAddress,
+        });
+    }
+    catch (error) {
+        console.error("Error in createAddressByAdmin:", error);
+        res.status(500).json({ message: error.message || "Đã xảy ra lỗi" });
+    }
+};
+exports.createAddressByAdmin = createAddressByAdmin;
+/**
+ * Cập nhật địa chỉ người dùng (chỉ admin)
+ */
+const updateAddressByAdmin = async (req, res) => {
+    try {
+        const addressId = parseInt(req.params.id);
+        // Tìm địa chỉ
+        const addressToUpdate = await UserAddress_2.default.findByPk(addressId);
+        if (!addressToUpdate) {
+            res.status(404).json({ message: "Không tìm thấy địa chỉ" });
+            return;
+        }
+        const { fullName, phoneNumber, streetAddress, city, district, ward, isDefault, } = req.body;
+        // Kiểm tra dữ liệu đầu vào
+        if (!fullName ||
+            !phoneNumber ||
+            !streetAddress ||
+            !city ||
+            !district ||
+            !ward) {
+            res
+                .status(400)
+                .json({ message: "Vui lòng điền đầy đủ thông tin địa chỉ" });
+            return;
+        }
+        // Nếu đang đặt làm địa chỉ mặc định, hủy địa chỉ mặc định hiện tại
+        if (isDefault && !addressToUpdate.isDefault) {
+            await UserAddress_2.default.update({ isDefault: false }, { where: { userId: addressToUpdate.userId, isDefault: true } });
+        }
+        // Cập nhật địa chỉ
+        await addressToUpdate.update({
+            fullName,
+            phoneNumber,
+            streetAddress,
+            city,
+            district,
+            ward,
+            isDefault: isDefault || false,
+        });
+        res.status(200).json({
+            message: "Cập nhật địa chỉ thành công",
+            address: addressToUpdate,
+        });
+    }
+    catch (error) {
+        console.error("Error in updateAddressByAdmin:", error);
+        res.status(500).json({ message: error.message || "Đã xảy ra lỗi" });
+    }
+};
+exports.updateAddressByAdmin = updateAddressByAdmin;
+/**
+ * Đặt địa chỉ mặc định (chỉ admin)
+ */
+const setDefaultAddressByAdmin = async (req, res) => {
+    try {
+        const addressId = parseInt(req.params.id);
+        // Tìm địa chỉ
+        const address = await UserAddress_2.default.findByPk(addressId);
+        if (!address) {
+            res.status(404).json({ message: "Không tìm thấy địa chỉ" });
+            return;
+        }
+        // Đã là mặc định rồi thì không cần làm gì
+        if (address.isDefault) {
+            res.status(200).json({
+                message: "Địa chỉ này đã là địa chỉ mặc định",
+                address,
+            });
+            return;
+        }
+        // Hủy địa chỉ mặc định hiện tại
+        await UserAddress_2.default.update({ isDefault: false }, { where: { userId: address.userId, isDefault: true } });
+        // Đặt địa chỉ mới làm mặc định
+        await address.update({ isDefault: true });
+        res.status(200).json({
+            message: "Đặt địa chỉ mặc định thành công",
+            address,
+        });
+    }
+    catch (error) {
+        console.error("Error in setDefaultAddressByAdmin:", error);
+        res.status(500).json({ message: error.message || "Đã xảy ra lỗi" });
+    }
+};
+exports.setDefaultAddressByAdmin = setDefaultAddressByAdmin;
+/**
+ * Xóa địa chỉ người dùng (chỉ admin)
+ */
+const deleteAddressByAdmin = async (req, res) => {
+    try {
+        const addressId = parseInt(req.params.id);
+        // Tìm địa chỉ
+        const address = await UserAddress_2.default.findByPk(addressId);
+        if (!address) {
+            res.status(404).json({ message: "Không tìm thấy địa chỉ" });
+            return;
+        }
+        // Không cho phép xóa địa chỉ mặc định
+        if (address.isDefault) {
+            res.status(400).json({
+                message: "Không thể xóa địa chỉ mặc định. Vui lòng đặt một địa chỉ khác làm mặc định trước khi xóa.",
+            });
+            return;
+        }
+        // Xóa địa chỉ
+        await address.destroy();
+        res.status(200).json({ message: "Xóa địa chỉ thành công" });
+    }
+    catch (error) {
+        console.error("Error in deleteAddressByAdmin:", error);
+        res.status(500).json({ message: error.message || "Đã xảy ra lỗi" });
+    }
+};
+exports.deleteAddressByAdmin = deleteAddressByAdmin;

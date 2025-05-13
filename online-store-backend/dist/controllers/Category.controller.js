@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getSubCategories = exports.getProductsByCategorySlug = exports.getCategoryBySlug = exports.getNavCategories = exports.getAllCategories = exports.deleteCategory = exports.getCategoryById = exports.updateCategory = exports.createCategory = void 0;
+exports.getCategoryBreadcrumb = exports.getSubCategories = exports.getProductsByCategorySlug = exports.getCategoryBySlug = exports.getNavCategories = exports.getAllCategories = exports.deleteCategory = exports.getCategoryById = exports.updateCategory = exports.createCategory = void 0;
 const sequelize_1 = require("sequelize");
 const Category_1 = __importDefault(require("../models/Category"));
 const Product_1 = __importDefault(require("../models/Product"));
@@ -285,11 +285,19 @@ const getProductsByCategorySlug = async (req, res) => {
         const minPrice = parseFloat(req.query.minPrice) || 0;
         const maxPrice = parseFloat(req.query.maxPrice) || 9999999999;
         const featured = req.query.featured === "true" ? true : undefined;
-        const sortBy = req.query.sortBy || "createdAt";
-        const sortOrder = req.query.sortOrder?.toUpperCase() === "ASC" ? "ASC" : "DESC";
+        const sort = req.query.sort || "createdAt";
         const suitabilityParam = req.query.suitability;
         const suitabilities = suitabilityParam ? suitabilityParam.split(",") : [];
         const childCategorySlug = req.query.childCategory;
+        // nếu không có slug thì lấy hết categories
+        if (!slug) {
+            const categories = await Category_1.default.findAll({
+                where: { isActive: true },
+                attributes: ["id", "name", "slug"],
+            });
+            res.status(200).json(categories);
+            return;
+        }
         // Tìm category theo slug
         const category = await Category_1.default.findOne({
             where: { slug, isActive: true },
@@ -372,17 +380,25 @@ const getProductsByCategorySlug = async (req, res) => {
         // Xác định thứ tự sắp xếp
         let order = [];
         // Sắp xếp theo giá là trường hợp đặc biệt vì giá nằm trong ProductDetail
-        if (sortBy === "price") {
-            order = [[{ model: ProductDetail_1.default, as: "details" }, "price", sortOrder]];
-        }
-        else {
-            // Các trường sắp xếp khác thuộc về Product
-            const validFields = ["createdAt", "name", "brand"];
-            if (validFields.includes(sortBy)) {
-                order = [[sortBy, sortOrder]];
-            }
-            else {
-                order = [["createdAt", "DESC"]]; // Default
+        if (sort) {
+            const [field, direction] = sort.split("_");
+            const validFields = ["name", "createdAt", "price", "featured"];
+            const validDirections = ["asc", "desc"];
+            if (validFields.includes(field) &&
+                validDirections.includes(direction?.toLowerCase())) {
+                if (field === "price") {
+                    // Sắp xếp theo giá
+                    order = [
+                        [
+                            { model: ProductDetail_1.default, as: "details" },
+                            "price",
+                            direction.toUpperCase(),
+                        ],
+                    ];
+                }
+                else {
+                    order = [[field, direction.toUpperCase()]];
+                }
             }
         }
         // Lấy sản phẩm theo danh mục với các điều kiện lọc
@@ -573,3 +589,47 @@ const getSubCategories = async (req, res) => {
     }
 };
 exports.getSubCategories = getSubCategories;
+/**
+ * Get category breadcrumb path
+ */
+const getCategoryBreadcrumb = async (req, res) => {
+    try {
+        const { slug } = req.params;
+        const category = await Category_1.default.findOne({
+            where: { slug },
+            attributes: ["id", "name", "slug", "parentId"],
+        });
+        if (!category) {
+            res.status(404).json({ message: "Category not found" });
+            return;
+        }
+        // tạo breadcrumb mặc định
+        const breadcrumb = [
+            { label: "Trang chủ", href: "/", isLast: false },
+        ];
+        // Thêm parent category nếu có
+        if (category.parentId) {
+            const parentCategory = await Category_1.default.findByPk(category.parentId, {
+                attributes: ["id", "name", "slug"],
+            });
+            if (parentCategory) {
+                breadcrumb.push({
+                    label: parentCategory.name,
+                    href: `/category/${parentCategory.slug}`,
+                });
+            }
+        }
+        // Thêm category hiện tại
+        breadcrumb.push({
+            label: category.name,
+            href: `/category/${slug}`,
+            isLast: true,
+        });
+        res.status(200).json(breadcrumb);
+    }
+    catch (error) {
+        console.error("Error generating category breadcrumb:", error);
+        res.status(500).json({ message: error.message });
+    }
+};
+exports.getCategoryBreadcrumb = getCategoryBreadcrumb;

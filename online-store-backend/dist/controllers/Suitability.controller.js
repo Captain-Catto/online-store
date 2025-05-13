@@ -10,8 +10,12 @@ const db_1 = __importDefault(require("../config/db"));
 // Tạo mới một suitability
 const createSuitability = async (req, res) => {
     try {
-        const { name, description } = req.body;
-        const newSuitability = await Suitability_1.default.create({ name, description });
+        const { name, description, slug } = req.body;
+        const newSuitability = await Suitability_1.default.create({
+            name,
+            description,
+            slug,
+        });
         res.status(201).json(newSuitability);
     }
     catch (error) {
@@ -65,13 +69,13 @@ exports.getAllSuitabilities = getAllSuitabilities;
 const updateSuitability = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, description } = req.body;
+        const { name, description, slug } = req.body;
         const suitability = await Suitability_1.default.findByPk(id);
         if (!suitability) {
             res.status(404).json({ message: "Suitability không tồn tại" });
             return;
         }
-        await suitability.update({ name, description });
+        await suitability.update({ name, description, slug });
         res.json({ message: "Cập nhật thành công", suitability });
     }
     catch (error) {

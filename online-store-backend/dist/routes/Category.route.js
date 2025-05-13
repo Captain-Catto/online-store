@@ -19,6 +19,8 @@ router.post("/", authMiddleware_1.authMiddleware, (0, roleMiddleware_1.roleMiddl
 router.put("/:id", authMiddleware_1.authMiddleware, (0, roleMiddleware_1.roleMiddleware)([1]), Category_controller_1.updateCategory);
 // Xóa một Category (chỉ admin)
 router.delete("/:id", authMiddleware_1.authMiddleware, (0, roleMiddleware_1.roleMiddleware)([1]), Category_controller_1.deleteCategory);
+// Lấy breadcrumb cho một Category
+router.get("/slug/:slug/breadcrumb", Category_controller_1.getCategoryBreadcrumb);
 // Lấy danh mục theo slug
 router.get("/slug/:slug", Category_controller_1.getCategoryBySlug);
 // Lấy danh sách sản phẩm theo slug danh mục

@@ -49,11 +49,27 @@ Order.init({
         allowNull: false,
         references: { model: PaymentStatus_1.default, key: "id" },
     },
-    shippingAddress: {
-        type: sequelize_1.DataTypes.TEXT,
+    shippingFullName: {
+        type: sequelize_1.DataTypes.STRING,
         allowNull: false,
     },
-    phoneNumber: {
+    shippingPhoneNumber: {
+        type: sequelize_1.DataTypes.STRING,
+        allowNull: false,
+    },
+    shippingStreetAddress: {
+        type: sequelize_1.DataTypes.STRING,
+        allowNull: false,
+    },
+    shippingWard: {
+        type: sequelize_1.DataTypes.STRING,
+        allowNull: true,
+    },
+    shippingDistrict: {
+        type: sequelize_1.DataTypes.STRING,
+        allowNull: false,
+    },
+    shippingCity: {
         type: sequelize_1.DataTypes.STRING,
         allowNull: false,
     },

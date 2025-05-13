@@ -14,7 +14,7 @@ router.post("/refresh-token", User_controller_1.refreshToken);
 // Đăng xuất
 router.post("/logout", User_controller_1.logout);
 // api admin, check role = 1 (admin)
-router.get("/admin", authMiddleware_1.authMiddleware, (0, roleMiddleware_1.roleMiddleware)([1]), (req, res) => {
+router.get("/admin", authMiddleware_1.authMiddleware, (0, roleMiddleware_1.roleMiddleware)([1, 2]), (req, res) => {
     res.json({ message: "chào mừng, admin" });
 });
 // quên mật khẩu

@@ -27,9 +27,33 @@ Voucher.init({
         type: sequelize_1.DataTypes.FLOAT,
         allowNull: false,
     },
+    minOrderValue: {
+        type: sequelize_1.DataTypes.FLOAT,
+        allowNull: false,
+        defaultValue: 0,
+    },
+    description: {
+        type: sequelize_1.DataTypes.STRING,
+        allowNull: true,
+    },
     expirationDate: {
         type: sequelize_1.DataTypes.DATE,
         allowNull: false,
+    },
+    status: {
+        type: sequelize_1.DataTypes.ENUM("active", "inactive", "expired"),
+        allowNull: false,
+        defaultValue: "active",
+    },
+    usageLimit: {
+        type: sequelize_1.DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0, // 0 = không giới hạn
+    },
+    usageCount: {
+        type: sequelize_1.DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
     },
 }, {
     sequelize: db_1.default,

@@ -18,6 +18,11 @@ Suitability.init({
         allowNull: false,
         unique: true,
     },
+    slug: {
+        type: sequelize_1.DataTypes.STRING,
+        allowNull: false,
+        unique: true,
+    },
     description: {
         type: sequelize_1.DataTypes.STRING,
         allowNull: true,

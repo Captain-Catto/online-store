@@ -9,16 +9,55 @@ const sequelize_1 = require("sequelize");
 const db_1 = __importDefault(require("../config/db"));
 const getAdminMenu = async (req, res) => {
     try {
-        const menuItems = await AdminMenuItem_model_1.default.findAll({
-            order: [
-                [(0, sequelize_1.literal)("ISNULL(`parentId`)"), "DESC"],
-                ["parentId", "ASC"],
-                ["displayOrder", "ASC"],
-            ],
-            raw: true, // <<< Thêm dòng này
-        });
-        // Bây giờ menuItems sẽ là một mảng các object thuần túy
-        res.json(menuItems || []);
+        const userRole = req.user?.role;
+        if (!userRole) {
+            res.status(401).json({ message: "Unauthorized" });
+            return;
+        }
+        let menuItems;
+        if (userRole === 1) {
+            // Admin: lấy toàn bộ menu
+            menuItems = await AdminMenuItem_model_1.default.findAll({
+                order: [
+                    [(0, sequelize_1.literal)("ISNULL(`parentId`)"), "DESC"],
+                    ["parentId", "ASC"],
+                    ["displayOrder", "ASC"],
+                ],
+                raw: true,
+            });
+        }
+        else if (userRole === 2) {
+            // Employee: chỉ lấy các menu liên quan user, order, product
+            // Lấy các menu con liên quan user, order, product
+            const childMenus = await AdminMenuItem_model_1.default.findAll({
+                where: {
+                    [sequelize_1.Op.or]: [
+                        { path: { [sequelize_1.Op.like]: "%user%" } },
+                        { path: { [sequelize_1.Op.like]: "%order%" } },
+                        { path: { [sequelize_1.Op.like]: "%product%" } },
+                    ],
+                },
+                raw: true,
+            });
+            // Lấy danh sách parentId duy nhất (menu cha)
+            const parentIds = [
+                ...new Set(childMenus.map((item) => item.parentId).filter(Boolean)),
+            ];
+            // Lấy các menu cha (nếu có)
+            const parentMenus = parentIds.length
+                ? await AdminMenuItem_model_1.default.findAll({
+                    where: { id: parentIds },
+                    raw: true,
+                })
+                : [];
+            // Gộp menu cha và menu con, sắp xếp lại
+            menuItems = [...parentMenus, ...childMenus].sort((a, b) => a.displayOrder - b.displayOrder);
+        }
+        else {
+            res.status(403).json({ message: "Forbidden" });
+            return;
+        }
+        res.json(menuItems);
     }
     catch (error) {
         console.error("Error fetching admin menu:", error);

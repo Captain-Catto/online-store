@@ -9,6 +9,7 @@ const db_1 = __importDefault(require("../config/db"));
 // Lấy tất cả kích thước
 const getAllSizes = async (req, res) => {
     try {
+        console.log("đang chạy getAllSizes");
         const sizes = await ProductSize_1.ProductSize.findAll({
             order: [["displayOrder", "ASC"]],
         });
@@ -22,14 +23,24 @@ exports.getAllSizes = getAllSizes;
 // Lấy kích thước theo danh mục
 const getSizesByCategory = async (req, res) => {
     try {
-        const { category } = req.query; // Lấy category từ query params
-        if (!category) {
-            res.status(400).json({ message: "Danh mục không được để trống" });
+        const { categoryId } = req.query; // Lấy categoryId từ query params
+        if (!categoryId) {
+            res.status(400).json({ message: "ID danh mục không được để trống" });
+            return;
+        }
+        // Chuyển đổi categoryId từ string sang number
+        const categoryIdNumber = parseInt(categoryId.toString());
+        if (isNaN(categoryIdNumber)) {
+            res.status(400).json({ message: "ID danh mục phải là số" });
             return;
         }
         const sizes = await ProductSize_1.ProductSize.findAll({
-            // Lọc theo category và chỉ lấy kích thước đang hoạt động
-            where: { category: category.toString(), active: true },
+            // Lọc theo categoryId và chỉ lấy kích thước đang hoạt động
+            where: {
+                categoryId: categoryIdNumber,
+                active: true,
+            },
+            // Sắp xếp theo displayOrder tăng dần
             order: [["displayOrder", "ASC"]],
         });
         if (sizes.length === 0) {
@@ -41,7 +52,11 @@ const getSizesByCategory = async (req, res) => {
         res.status(200).json(sizes);
     }
     catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error("Lỗi khi lấy kích thước theo danh mục:", error);
+        res.status(500).json({
+            message: "Có lỗi xảy ra khi lấy kích thước",
+            error: error.message,
+        });
     }
 };
 exports.getSizesByCategory = getSizesByCategory;

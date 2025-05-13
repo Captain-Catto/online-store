@@ -7,12 +7,17 @@ exports.authMiddleware = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const authMiddleware = (req, res, next) => {
     try {
+        // Kiểm tra xem có header Authorization không
         const authHeader = req.headers.authorization;
+        // Nếu không có header Authorization hoặc không phải Bearer token
+        // thì trả về lỗi 401 Unauthorized
         if (!authHeader || !authHeader.startsWith("Bearer ")) {
             res.status(401).json({ message: "Không tìm thấy token" });
             return; // Chỉ return không có giá trị
         }
+        // Tách token ra khỏi header Authorization
         const token = authHeader.split(" ")[1];
+        // Giải mã token bằng secret key
         const decoded = jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET);
         // Đặt thông tin user vào req.user
         req.user = {

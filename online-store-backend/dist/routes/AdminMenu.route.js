@@ -9,7 +9,7 @@ const AdminMenuItem_controller_1 = require("../controllers/AdminMenuItem.control
 const authMiddleware_1 = require("../middlewares/authMiddleware");
 const roleMiddleware_1 = require("../middlewares/roleMiddleware");
 const router = express_1.default.Router();
-// Route để lấy menu cho sidebar (có thể giữ nguyên hoặc dùng route mới nếu cần)
+// Route để lấy menu cho sidebar (dùng cho tất cả các user)
 router.get("/", authMiddleware_1.authMiddleware, AdminMenuItem_controller_1.getAdminMenu);
 // Routes cho trang quản lý CRUD
 router.get("/manage", // Route riêng để lấy danh sách phẳng

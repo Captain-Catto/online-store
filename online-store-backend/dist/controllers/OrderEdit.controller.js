@@ -92,29 +92,79 @@ const cancelOrder = async (req, res) => {
             status: "cancelled",
             cancelNote: cancelNote || "Hủy bởi Admin",
         }, { transaction: t });
-        // Hoàn trả số lượng vào kho hàng
+        // Danh sách sản phẩm cần kiểm tra sau khi cập nhật tồn kho
+        const updatedProductIds = new Set();
         const orderDetails = order.orderDetails || [];
+        // BƯỚC 1: Hoàn trả tồn kho
         for (const detail of orderDetails) {
-            const productDetail = await ProductDetail_1.default.findOne({
-                where: {
-                    productId: detail.productId,
-                    color: detail.color,
-                },
-                transaction: t,
-            });
-            if (productDetail) {
-                const inventory = await ProductInventory_1.default.findOne({
-                    where: {
-                        productDetailId: productDetail.id,
-                        size: detail.size,
-                    },
+            const productId = detail.productId;
+            updatedProductIds.add(productId);
+            // Tìm ProductDetail dựa trên productDetailId (ưu tiên) hoặc productId và color
+            let productDetail;
+            if (detail.productDetailId) {
+                productDetail = await ProductDetail_1.default.findByPk(detail.productDetailId, {
                     transaction: t,
                 });
-                if (inventory) {
-                    await inventory.update({
-                        stock: inventory.getDataValue("stock") + detail.quantity,
-                    }, { transaction: t });
+            }
+            else {
+                productDetail = await ProductDetail_1.default.findOne({
+                    where: { productId, color: detail.color },
+                    transaction: t,
+                });
+            }
+            if (!productDetail) {
+                continue;
+            }
+            const inventory = await ProductInventory_1.default.findOne({
+                where: { productDetailId: productDetail.id, size: detail.size },
+                transaction: t,
+            });
+            if (inventory) {
+                const currentStock = inventory.getDataValue("stock");
+                const newStock = currentStock + detail.quantity;
+                await inventory.update({ stock: newStock }, { transaction: t });
+            }
+            else {
+                await ProductInventory_1.default.create({
+                    productDetailId: productDetail.id,
+                    size: detail.size,
+                    stock: detail.quantity,
+                }, { transaction: t });
+            }
+        }
+        // BƯỚC 2: Truy vấn và cập nhật trạng thái sản phẩm
+        for (const productId of updatedProductIds) {
+            try {
+                // Truy vấn trạng thái sản phẩm
+                const product = await Product_1.default.findByPk(productId, { transaction: t });
+                if (!product) {
+                    continue;
                 }
+                // Tính tổng tồn kho bằng Sequelize
+                const totalStock = (await ProductInventory_1.default.sum("stock", {
+                    where: {
+                        productDetailId: {
+                            [sequelize_1.Op.in]: db_1.default.literal(`(SELECT id FROM product_details WHERE productId = ${productId})`),
+                        },
+                    },
+                    transaction: t,
+                })) || 0;
+                // Cập nhật trạng thái sản phẩm
+                if (totalStock > 0 && product.status !== "active") {
+                    await db_1.default.query(`UPDATE products SET status = 'active', updatedAt = NOW() 
+             WHERE id = :productId AND status = 'outofstock'`, {
+                        replacements: { productId },
+                        type: sequelize_1.QueryTypes.UPDATE,
+                        transaction: t,
+                    });
+                }
+                else if (totalStock === 0 && product.status !== "outofstock") {
+                    await product.update({ status: "outofstock" }, { transaction: t });
+                }
+            }
+            catch (error) {
+                // Giữ lại log lỗi cho mục đích debug
+                console.error(`[ERROR] Lỗi khi cập nhật trạng thái sản phẩm ID ${productId}:`, error);
             }
         }
         await t.commit();
@@ -126,6 +176,11 @@ const cancelOrder = async (req, res) => {
     }
     catch (error) {
         await t.rollback();
+        console.error("[ERROR] Lỗi khi hủy đơn hàng:", {
+            message: error.message,
+            stack: error.stack,
+            orderId: req.params.id,
+        });
         res.status(500).json({ message: error.message });
     }
 };
@@ -332,7 +387,10 @@ const getAllOrders = async (req, res) => {
                                 model: Product_1.default,
                                 as: "product",
                                 where: {
-                                    name: { [sequelize_1.Op.like]: searchTerm },
+                                    [sequelize_1.Op.or]: [
+                                        { name: { [sequelize_1.Op.like]: searchTerm } },
+                                        { sku: { [sequelize_1.Op.like]: searchTerm } },
+                                    ],
                                 },
                                 required: true,
                             },

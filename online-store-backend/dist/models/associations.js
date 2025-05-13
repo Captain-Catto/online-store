@@ -80,6 +80,7 @@ function initAssociations() {
     RefreshToken_1.default.belongsTo(Users_1.default, { foreignKey: "userId", as: "user" });
     // OrderDetail relationships
     OrderDetail_1.default.belongsTo(Product_1.default, { foreignKey: "productId", as: "product" });
+    Product_1.default.hasMany(OrderDetail_1.default, { foreignKey: "productId", as: "orderDetails" });
     OrderDetail_1.default.belongsTo(Voucher_1.default, {
         foreignKey: "voucherId",
         as: "voucher",
