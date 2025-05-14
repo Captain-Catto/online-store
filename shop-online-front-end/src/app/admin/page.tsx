@@ -31,7 +31,7 @@ export default function AdminDashboardPage() {
     totalPages: 1,
     totalItems: 0,
   });
-  const [totalUsers, setTotalUsers] = useState(0);
+  const [, setTotalUsers] = useState(0);
 
   // Kiểm tra quyền admin
   useEffect(() => {

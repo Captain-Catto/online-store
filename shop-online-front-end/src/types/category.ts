@@ -34,10 +34,3 @@ export interface Category {
   name: string;
   slug: string;
 }
-
-interface FilterResponse {
-  availableColors?: string[];
-  availableSizes?: string[];
-  priceRange?: { min: number; max: number };
-  brands?: string[];
-}

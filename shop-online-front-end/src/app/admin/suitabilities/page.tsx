@@ -103,7 +103,7 @@ export default function SuitabilitiesManagement() {
     { label: "Quản lý phù hợp sản phẩm", active: true },
   ];
 
-  const fetchSuitabilities = async () => {
+  const fetchSuitabilities = React.useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`${API_BASE_URL}/suitabilities`);
@@ -118,12 +118,12 @@ export default function SuitabilitiesManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
 
   // Sử dụng fetchSuitabilities trong useEffect
   useEffect(() => {
     fetchSuitabilities();
-  }, [showToast]);
+  }, [fetchSuitabilities]);
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const name = e.target.value;

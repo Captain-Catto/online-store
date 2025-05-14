@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
 import { ProductService } from "@/services/ProductService";
 import ProductCard from "@/components/ProductCard/ProductCard";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
@@ -12,11 +11,11 @@ import SortingFilter from "@/components/UI/SortingFilter";
 import Header from "@/components/Header/Header";
 import Footer from "@/components/Footer/Footer";
 
-const SearchPage = () => {
-  // Lấy query từ URL
-  const searchParams = useSearchParams();
-  const query = searchParams.get("q") || "";
+type SearchPageClientProps = {
+  initialQuery: string;
+};
 
+function SearchPageClient({ initialQuery }: SearchPageClientProps) {
   // State
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +39,7 @@ const SearchPage = () => {
   // Tải sản phẩm khi query, trang hoặc sắp xếp thay đổi
   useEffect(() => {
     const fetchProducts = async () => {
-      if (!query) {
+      if (!initialQuery) {
         setProducts([]);
         setLoading(false);
         return;
@@ -52,7 +51,7 @@ const SearchPage = () => {
       try {
         // Tạo params cho API
         const params: { search: string; sort?: string } = {
-          search: query,
+          search: initialQuery,
         };
 
         // Thêm tùy chọn sắp xếp nếu có
@@ -115,7 +114,7 @@ const SearchPage = () => {
     };
 
     fetchProducts();
-  }, [query, currentPage, sortOption]);
+  }, [initialQuery, currentPage, sortOption]);
 
   // Đổi trang
   const handlePageChange = (page: number) => {
@@ -155,10 +154,13 @@ const SearchPage = () => {
         <div className="mb-6">
           <h1 className="text-2xl font-bold mb-4">
             Kết quả tìm kiếm{" "}
-            {query && (
+            {initialQuery && (
               <span>
                 {" "}
-                cho: <span className="text-gray-500">&quot;{query}&quot;</span>
+                cho:{" "}
+                <span className="text-gray-500">
+                  &quot;{initialQuery}&quot;
+                </span>
               </span>
             )}
           </h1>
@@ -234,6 +236,6 @@ const SearchPage = () => {
       <Footer />
     </>
   );
-};
+}
 
-export default SearchPage;
+export default SearchPageClient;

@@ -2,19 +2,21 @@ import { Metadata } from "next";
 import { createOrderDetailMetadata } from "@/utils/metadata";
 import OrderDetailPageClient from "@/components/Account/OrderDetailPageClient";
 
-// Props cho generateMetadata và page component
+// Define Props type to handle async params and searchParams
 type Props = {
-  params: { orderId: string };
+  params: Promise<{ orderId: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
-// Tạo metadata động dựa trên orderId
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const orderId = params.orderId;
-
-  return createOrderDetailMetadata(orderId);
+// Async page component
+export default async function OrderDetailPage({ params, searchParams }: Props) {
+  const { orderId } = await params; // Await params to get orderId
+  await searchParams; // Await searchParams if used
+  return <OrderDetailPageClient orderId={orderId} />;
 }
 
-// Server Component - chỉ truyền orderId sang Client Component
-export default function OrderDetailPage({ params }: Props) {
-  return <OrderDetailPageClient orderId={params.orderId} />;
+// Generate metadata
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { orderId } = await params; // Await params to get orderId
+  return createOrderDetailMetadata(orderId);
 }

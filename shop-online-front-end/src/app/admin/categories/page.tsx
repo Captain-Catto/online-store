@@ -108,7 +108,7 @@ export default function CategoriesManagement() {
     };
 
     fetchCategories();
-  }, []);
+  }, [showToast]);
 
   // Hàm làm phẳng dữ liệu danh mục phân cấp (cải tiến với đệ quy)
   const flattenCategories = (nestedCategories: Category[]): Category[] => {

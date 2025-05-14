@@ -1,22 +1,24 @@
 import { Metadata } from "next";
 import SearchPageClient from "@/components/Search/SearchPageClient";
 
-// Định nghĩa props cho hàm generateMetadata
+// Define Props type for async searchParams
 type Props = {
-  searchParams: { q?: string; page?: string; sort?: string };
+  params?: Promise<{ [key: string]: string | string[] | undefined }>;
+  searchParams: Promise<{ q?: string; page?: string; sort?: string }>;
 };
 
-// Hàm tạo metadata động dựa trên từ khóa tìm kiếm
+// Generate metadata
 export async function generateMetadata({
   searchParams,
 }: Props): Promise<Metadata> {
-  const query = searchParams.q || "";
-  const page = Number(searchParams.page) || 1;
+  const { q, page } = await searchParams; // Await searchParams to get query params
+  const query = q || "";
+  const pageNum = Number(page) || 1;
 
   let title = query ? `Kết quả tìm kiếm cho "${query}"` : "Tìm kiếm sản phẩm";
 
-  if (page > 1) {
-    title += ` - Trang ${page}`;
+  if (pageNum > 1) {
+    title += ` - Trang ${pageNum}`;
   }
 
   return {
@@ -33,14 +35,15 @@ export async function generateMetadata({
     robots: query
       ? {}
       : {
-          index: false, // Không index trang tìm kiếm trống
+          index: false, // Don't index empty search page
         },
   };
 }
 
-// Component trang tìm kiếm - Thêm từ khóa async
+// Async page component
 export default async function SearchPage({ searchParams }: Props) {
-  const query = searchParams.q || "";
+  const { q } = await searchParams; // Await searchParams to get query
+  const query = q || "";
 
   return <SearchPageClient initialQuery={query} />;
 }

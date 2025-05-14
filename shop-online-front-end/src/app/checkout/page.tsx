@@ -1,10 +1,20 @@
 import { Metadata } from "next";
+import { Suspense } from "react";
 import { createCheckoutMetadata } from "@/utils/metadata";
 import CheckoutPageClient from "@/components/Checkout/CheckoutPageClient";
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
-// Metadata tĩnh cho trang thanh toán
+// Static metadata for checkout page
 export const metadata: Metadata = createCheckoutMetadata();
 
 export default function CheckoutPage() {
-  return <CheckoutPageClient />;
+  return (
+    <Suspense
+      fallback={
+        <LoadingSpinner size="lg" text="Đang tải trang thanh toán..." />
+      }
+    >
+      <CheckoutPageClient />
+    </Suspense>
+  );
 }

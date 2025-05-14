@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Chart from "chart.js/auto";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
@@ -87,16 +87,37 @@ export default function ReportsPage() {
     datasets: [],
   });
 
+  interface TopProduct {
+    id: number;
+    sku: string;
+    name: string;
+    category: string;
+    sales: number;
+    revenue: number;
+    stock: number;
+  }
+
   // State for top selling products
-  const [topProducts, setTopProducts] = useState([]);
+  const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
 
   // State for low stock products
   const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>(
     []
   );
 
+  interface CategoryPerformanceItem {
+    id: number;
+    name: string;
+    sales: number;
+    revenue: number;
+    products: number;
+    growth: number;
+  }
+
   // State for category performance
-  const [categoryPerformance, setCategoryPerformance] = useState([]);
+  const [categoryPerformance, setCategoryPerformance] = useState<
+    CategoryPerformanceItem[]
+  >([]);
 
   // State for order analysis
   const [orderAnalysis, setOrderAnalysis] = useState({
@@ -208,7 +229,7 @@ export default function ReportsPage() {
   };
 
   // Fetch all report data
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
@@ -261,16 +282,21 @@ export default function ReportsPage() {
         params
       );
       setLowStockProducts(lowStockResponse || []);
-    } catch (err: any) {
-      setError(err.message || "Lỗi khi lấy dữ liệu báo cáo");
-      console.error("Error fetching reports:", err);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || "Lỗi khi lấy dữ liệu báo cáo");
+        console.error("Error fetching reports:", err);
+      } else {
+        setError("Lỗi khi lấy dữ liệu báo cáo");
+        console.error("Error fetching reports:", err);
+      }
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [dateRange, dateFrom, dateTo]);
 
   // Fetch order analysis data
-  const handleUpdateOrderAnalysis = async () => {
+  const handleUpdateOrderAnalysis = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
@@ -353,12 +379,15 @@ export default function ReportsPage() {
         ],
         paymentMethods: Object.entries(
           response.current.paymentMethods || {}
-        ).map(([name, data]: [string, any]) => ({
-          name,
-          count: data.count || 0,
-          percentage: data.percentage || 0,
-          growth: 0, // Set default value or calculate if available
-        })),
+        ).map(([name, data]) => {
+          const typedData = data as { count: number; percentage: number };
+          return {
+            name,
+            count: typedData.count || 0,
+            percentage: typedData.percentage || 0,
+            growth: 0, // Set default value or calculate if available
+          };
+        }),
         timelines: {
           averageProcessingTime: 0,
           averageDeliveryTime: 0,
@@ -366,13 +395,18 @@ export default function ReportsPage() {
           onTimeDeliveryRate: 0,
         },
       });
-    } catch (err: any) {
-      setError(err.message || "Lỗi khi lấy dữ liệu phân tích đơn hàng");
-      console.error("Error fetching order analysis:", err);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || "Lỗi khi lấy dữ liệu phân tích đơn hàng");
+        console.error("Error fetching order analysis:", err);
+      } else {
+        setError("Lỗi khi lấy dữ liệu phân tích đơn hàng");
+        console.error("Error fetching order analysis:", err);
+      }
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [orderTimeRange, dateFrom, dateTo]);
 
   // Fetch initial data when dateRange, dateFrom, or dateTo changes
   useEffect(() => {
@@ -400,13 +434,13 @@ export default function ReportsPage() {
     setDateTo(today.toISOString().split("T")[0]);
 
     fetchReports();
-  }, [dateRange, dateFrom, dateTo, reportType]);
+  }, [dateRange, dateFrom, dateTo, reportType, fetchReports]);
 
   // Update time labels when orderTimeRange changes
   useEffect(() => {
     setOrderTimeLabel(generateDateLabels(orderTimeRange));
     handleUpdateOrderAnalysis();
-  }, [orderTimeRange]);
+  }, [orderTimeRange, handleUpdateOrderAnalysis]);
 
   // Initialize charts when data is ready
   useEffect(() => {
@@ -746,18 +780,18 @@ export default function ReportsPage() {
               <table className="table table-striped">
                 <thead>
                   <tr>
-                    <th>STT</th>
-                    <th>Slug</th>
+                    <th>#</th>
+                    <th>Mã SP</th>
                     <th>Tên sản phẩm</th>
                     <th>Danh mục</th>
-                    <th>Đã bán</th>
+                    <th>Số lượng bán</th>
                     <th>Doanh thu</th>
                     <th>Tồn kho</th>
                   </tr>
                 </thead>
                 <tbody>
                   {topProducts.length > 0 ? (
-                    topProducts.map((product: any, index) => (
+                    topProducts.map((product: TopProduct, index) => (
                       <tr key={product.id}>
                         <td>{index + 1}</td>
                         <td>{product.sku}</td>
@@ -846,25 +880,29 @@ export default function ReportsPage() {
                 </thead>
                 <tbody>
                   {categoryPerformance.length > 0 ? (
-                    categoryPerformance.map((category: any) => (
-                      <tr key={category.id}>
-                        <td>{category.name}</td>
-                        <td>{category.sales}</td>
-                        <td>{formatCurrency(category.revenue)}</td>
-                        <td>{category.products}</td>
-                        <td>
-                          <span
-                            className={`badge ${
-                              category.growth >= 0 ? "bg-success" : "bg-danger"
-                            }`}
-                          >
-                            {category.growth >= 0
-                              ? `+${category.growth}%`
-                              : `${category.growth}%`}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
+                    categoryPerformance.map(
+                      (category: CategoryPerformanceItem) => (
+                        <tr key={category.id}>
+                          <td>{category.name}</td>
+                          <td>{category.sales}</td>
+                          <td>{formatCurrency(category.revenue)}</td>
+                          <td>{category.products}</td>
+                          <td>
+                            <span
+                              className={`badge ${
+                                category.growth >= 0
+                                  ? "bg-success"
+                                  : "bg-danger"
+                              }`}
+                            >
+                              {category.growth >= 0
+                                ? `+${category.growth}%`
+                                : `${category.growth}%`}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    )
                   ) : (
                     <tr>
                       <td colSpan={5} className="text-center">

@@ -1,3 +1,17 @@
+interface ChildCategory {
+  id: string | number;
+  name: string;
+  slug: string;
+}
+
+interface ChildCategoryFilterProps {
+  isOpen: boolean;
+  activeChildCategory: string;
+  onToggle: () => void;
+  onFilterChange: (slug: string) => void;
+  childCategories: ChildCategory[];
+}
+
 export default function ChildCategoryFilter({
   isOpen,
   activeChildCategory,

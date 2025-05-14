@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Header from "@/components/Header/Header";
 import Footer from "@/components/Footer/Footer";
@@ -142,8 +142,7 @@ export default function AccountLayout({
     }
   }, [activeTab]);
 
-  // Copy các hàm fetch data từ AccountPageClient
-  const fetchAccountInfo = async () => {
+  const fetchAccountInfo = useCallback(async () => {
     if (!isLoggedIn) return;
     try {
       setDataLoading(true);
@@ -161,10 +160,9 @@ export default function AccountLayout({
     } finally {
       setDataLoading(false);
     }
-  };
+  }, [isLoggedIn]);
 
-  const fetchAddresses = async () => {
-    // Copy từ AccountPageClient
+  const fetchAddresses = useCallback(async () => {
     if (!isLoggedIn) return;
     try {
       setDataLoading(true);
@@ -179,36 +177,37 @@ export default function AccountLayout({
     } finally {
       setDataLoading(false);
     }
-  };
+  }, [isLoggedIn]);
 
-  const fetchOrders = async (page = 1) => {
-    // Copy từ AccountPageClient
-    if (!isLoggedIn) return;
-    try {
-      setDataLoading(true);
-      setOrderError(null);
-      const response = await OrderService.getMyOrders(page);
-      setOrdersData({
-        orders: response.orders || [],
-        pagination: {
-          total: response.pagination?.total || 0,
-          totalPages: response.pagination?.totalPages || 1,
-          currentPage: page,
-          perPage: response.pagination?.perPage || 10,
-        },
-      });
-    } catch (error) {
-      console.error("Error fetching orders:", error);
-      setOrderError(
-        error instanceof Error ? error.message : "Không thể tải đơn hàng"
-      );
-    } finally {
-      setDataLoading(false);
-    }
-  };
+  const fetchOrders = useCallback(
+    async (page = 1) => {
+      if (!isLoggedIn) return;
+      try {
+        setDataLoading(true);
+        setOrderError(null);
+        const response = await OrderService.getMyOrders(page);
+        setOrdersData({
+          orders: response.orders || [],
+          pagination: {
+            total: response.pagination?.total || 0,
+            totalPages: response.pagination?.totalPages || 1,
+            currentPage: page,
+            perPage: response.pagination?.perPage || 10,
+          },
+        });
+      } catch (error) {
+        console.error("Error fetching orders:", error);
+        setOrderError(
+          error instanceof Error ? error.message : "Không thể tải đơn hàng"
+        );
+      } finally {
+        setDataLoading(false);
+      }
+    },
+    [isLoggedIn]
+  );
 
-  const fetchWishlist = async () => {
-    // Copy từ AccountPageClient
+  const fetchWishlist = useCallback(async () => {
     if (!isLoggedIn) return;
     try {
       setDataLoading(true);
@@ -226,7 +225,7 @@ export default function AccountLayout({
     } finally {
       setDataLoading(false);
     }
-  };
+  }, [isLoggedIn]);
 
   // Handle order page change
   const handleOrderPageChange = (page: number) => {
@@ -262,7 +261,15 @@ export default function AccountLayout({
         },
       ]);
     }
-  }, [isLoggedIn, isLoading, activeTab]);
+  }, [
+    isLoggedIn,
+    isLoading,
+    activeTab,
+    fetchAccountInfo,
+    fetchAddresses,
+    fetchOrders,
+    fetchWishlist,
+  ]);
 
   // Nếu không đăng nhập, không hiển thị nội dung
   if (!isLoggedIn) return null;

@@ -170,11 +170,16 @@ export default function ProductsPage() {
     { label: "Quản lý sản phẩm", active: true },
   ];
 
-  const getProductImageUrl = (product) => {
-    console.log("Product:", product);
-    // Nếu không có variants, trả về ảnh mặc định
-    if (!product.variants || Object.keys(product.variants).length === 0) {
-      return null;
+  // Remove ProductWithVariants interface and use ProductAdminResponse directly
+
+  const getProductImageUrl = (product: ProductAdminResponse): string => {
+    // Nếu không có variants hoặc variants không phải object, trả về ảnh mặc định
+    if (
+      !product.variants ||
+      typeof product.variants !== "object" ||
+      Object.keys(product.variants).length === 0
+    ) {
+      return "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/products/269ea64b-55b9b941_9b8e_4c6a_a35b_ee9806f43c5e.jpg";
     }
 
     // Lấy màu đầu tiên
@@ -182,13 +187,13 @@ export default function ProductsPage() {
     const variant = product.variants[firstColorKey];
 
     // Tìm ảnh chính (isMain = true)
-    const mainImage = variant.images.find((img) => img.isMain);
+    const mainImage = variant.images?.find((img) => img.isMain);
 
     // Nếu có ảnh chính, trả về URL của nó
     // Nếu không, trả về ảnh đầu tiên hoặc ảnh mặc định
     return (
       mainImage?.url ||
-      // variant.Image[0]?.url ||
+      (variant.images && variant.images[0]?.url) ||
       "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/products/269ea64b-55b9b941_9b8e_4c6a_a35b_ee9806f43c5e.jpg"
     );
   };

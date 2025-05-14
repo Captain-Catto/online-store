@@ -1,6 +1,7 @@
 import { Metadata } from "next";
-import { CategoryService } from "@/services/CategoryService";
+import { Suspense } from "react"; // Import Suspense from react
 import CategoryPageClient from "@/components/Category/CategoryPageClient";
+import LoadingSpinner from "@/components/UI/LoadingSpinner"; // Import your loading component
 
 export const metadata: Metadata = {
   title: "Danh mục sản phẩm | Shop Online",
@@ -12,7 +13,11 @@ export const metadata: Metadata = {
 };
 
 export default async function CategoryPage() {
-  // Gọi CategoryPageClient mà không cần slug
-  // Component sẽ xử lý việc lấy categoryId từ query parameter
-  return <CategoryPageClient />;
+  return (
+    <Suspense
+      fallback={<LoadingSpinner size="lg" text="Đang tải danh mục..." />}
+    >
+      <CategoryPageClient slug="" />
+    </Suspense>
+  );
 }

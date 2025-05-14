@@ -53,7 +53,7 @@ export default function OrderDetailPageClient({
     paymentMethodId: number;
     paymentStatusId: number;
     shippingAddress: string;
-    phoneNumber: string;
+    phoneNumber?: string;
     cancelNote: string | null;
     refundAmount: number | null;
     refundReason: string | null;

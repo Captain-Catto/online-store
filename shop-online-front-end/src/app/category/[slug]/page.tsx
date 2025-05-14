@@ -2,15 +2,15 @@ import { Metadata } from "next";
 import CategoryPageClient from "@/components/Category/CategoryPageClient";
 import { CategoryService } from "@/services/CategoryService";
 
-// Props cho component và generateMetadata
+// Define Props type for async params
 interface Props {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-// Hàm tạo metadata động dựa trên slug danh mục
+// Generate metadata
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  // Lấy thông tin danh mục từ slug
-  const { slug } = await params;
+  const { slug } = await params; // Await params to get slug
 
   try {
     const category = await CategoryService.getCategoryBySlug(slug);
@@ -42,9 +42,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-// Thêm từ khóa async
+// Async page component
 export default async function CategoryPage({ params }: Props) {
-  const { slug } = await params;
-
+  const { slug } = await params; // Await params to get slug
   return <CategoryPageClient slug={slug} />;
 }

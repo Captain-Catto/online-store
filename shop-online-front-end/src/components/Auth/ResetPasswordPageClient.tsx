@@ -2,15 +2,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
 import Header from "@/components/Header/Header";
 import Footer from "@/components/Footer/Footer";
 import { API_BASE_URL } from "@/config/apiConfig";
 
-export default function ResetPasswordPageClient() {
-  const params = useParams();
-  const token = params.token as string;
+interface ResetPasswordPageClientProps {
+  token: string;
+}
 
+export default function ResetPasswordPageClient({
+  token,
+}: ResetPasswordPageClientProps) {
   const [formData, setFormData] = useState({
     password: "",
     confirmPassword: "",

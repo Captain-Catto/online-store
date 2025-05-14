@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { ProductService } from "@/services/ProductService";
 import { useToast } from "@/utils/useToast";
 import ConfirmModal from "@/components/admin/shared/ConfirmModal";
@@ -48,7 +48,7 @@ const SizeManager: React.FC = () => {
   const { showToast, Toast } = useToast();
 
   // Lấy danh sách kích thước
-  const loadSizes = async () => {
+  const loadSizes = useCallback(async () => {
     setLoading(true);
     try {
       const data = await ProductService.getSizes();
@@ -65,10 +65,10 @@ const SizeManager: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Lấy danh sách danh mục
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
       const data = await CategoryService.getAllCategories();
       setCategories(
@@ -78,12 +78,12 @@ const SizeManager: React.FC = () => {
       console.error("Không thể tải danh sách danh mục", err);
       showToast("Không thể tải danh sách danh mục", { type: "error" });
     }
-  };
+  }, [showToast]);
 
   useEffect(() => {
     loadSizes();
     loadCategories();
-  }, []);
+  }, [loadSizes, loadCategories]);
 
   // Xử lý thêm mới kích thước
   const handleAddSize = async (e: React.FormEvent) => {

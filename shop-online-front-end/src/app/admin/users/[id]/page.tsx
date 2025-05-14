@@ -159,35 +159,6 @@ export default function UserDetailPage() {
     { value: "cancelled", label: "Đã hủy" },
   ];
 
-  // Hàm helper để tạo URL với các bộ lọc
-  const createFilteredUrl = (
-    page: number,
-    status: string,
-    orderId: string,
-    startDate: string,
-    endDate: string
-  ) => {
-    let url = `${API_BASE_URL}/orders/user/${id}?page=${page}&limit=${pagination.perPage}`;
-
-    if (status !== "all") {
-      url += `&status=${status}`;
-    }
-
-    if (orderId) {
-      url += `&orderId=${orderId}`;
-    }
-
-    if (startDate) {
-      url += `&startDate=${startDate}`;
-    }
-
-    if (endDate) {
-      url += `&endDate=${endDate}`;
-    }
-
-    return url;
-  };
-
   // Hàm lấy dữ liệu đơn hàng
   const fetchUserOrders = useCallback(
     async (
@@ -197,6 +168,35 @@ export default function UserDetailPage() {
       startDate: string,
       endDate: string
     ) => {
+      // Hàm helper để tạo URL với các bộ lọc
+      const createFilteredUrl = (
+        page: number,
+        status: string,
+        orderId: string,
+        startDate: string,
+        endDate: string
+      ) => {
+        let url = `${API_BASE_URL}/orders/user/${id}?page=${page}&limit=${pagination.perPage}`;
+
+        if (status !== "all") {
+          url += `&status=${status}`;
+        }
+
+        if (orderId) {
+          url += `&orderId=${orderId}`;
+        }
+
+        if (startDate) {
+          url += `&startDate=${startDate}`;
+        }
+
+        if (endDate) {
+          url += `&endDate=${endDate}`;
+        }
+
+        return url;
+      };
+
       try {
         setOrdersLoading(true);
         setOrdersError(null);

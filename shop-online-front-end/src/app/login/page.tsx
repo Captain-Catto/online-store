@@ -1,11 +1,18 @@
 import { Metadata } from "next";
+import { Suspense } from "react";
 import { createLoginMetadata } from "@/utils/metadata";
 import LoginPageClient from "@/components/Auth/LoginPageClient";
+import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
-// Sử dụng metadata tĩnh cho trang đăng nhập
+// Static metadata for login page
 export const metadata: Metadata = createLoginMetadata();
 
-// Server Component không chứa logic, chỉ render Client Component
 export default function LoginPage() {
-  return <LoginPageClient />;
+  return (
+    <Suspense
+      fallback={<LoadingSpinner size="lg" text="Đang tải trang đăng nhập..." />}
+    >
+      <LoginPageClient />
+    </Suspense>
+  );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, FC } from "react";
+import { useState, useEffect, FC, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
@@ -216,123 +216,125 @@ const ProductDetailPage: FC = () => {
     { value: "XXL", label: "XXL" },
   ]);
 
-  const formatProductData = (
-    productData: ProductApiResponse
-  ): FormattedProduct => {
-    const parentCategory = productData.categories.find((c) => !c.parentId);
-    const subCategory = productData.categories.find((c) => c.parentId);
-
-    const tags =
-      typeof productData.tags === "string"
-        ? JSON.parse(productData.tags)
-        : productData.tags;
-
-    const totalStock = productData.details.reduce(
-      (total, detail) =>
-        total + detail.inventories.reduce((sum, inv) => sum + inv.stock, 0),
-      0
-    );
-
-    const colors = productData.details.map((detail) => detail.color);
-    const sizes = [
-      ...new Set(
-        productData.details.flatMap((detail) =>
-          detail.inventories.map((inv) => inv.size)
-        )
-      ),
-    ];
-
-    const stockVariants = productData.details.flatMap((detail) =>
-      detail.inventories.map((inv) => ({
-        color: detail.color,
-        size: inv.size,
-        stock: inv.stock,
-        detailId: detail.id,
-      }))
-    );
-
-    const images = productData.details.flatMap((detail) =>
-      detail.images.map((image) => ({
-        ...image,
-        color: detail.color,
-        productDetailId: detail.id,
-      }))
-    );
-
-    const details = productData.details.map((detail) => ({
-      id: detail.id,
-      color: detail.color,
-      price: detail.price,
-      originalPrice: detail.originalPrice,
-      sizes: detail.inventories.map((inv) => ({
-        size: inv.size,
-        stock: inv.stock,
-      })),
-      images: detail.images.map((img) => ({
-        id: img.id,
-        url: img.url,
-        isMain: img.isMain,
-      })),
-    }));
-
-    return {
-      id: productData.id,
-      name: productData.name,
-      sku: productData.sku,
-      description: productData.description,
-      category: parentCategory?.id?.toString() || "",
-      categoryName: parentCategory?.name || "",
-      subtype: subCategory?.id ? String(subCategory.id) : "",
-      subtypeName: subCategory?.name || "",
-      material: productData.material,
-      brand: productData.brand || "",
-      price: productData.details[0]?.price || 0,
-      originalPrice: productData.details[0]?.originalPrice || 0,
-      stock: {
-        total: totalStock,
-        variants: stockVariants,
-      },
-      colors,
-      sizes,
-      status: productData.status,
-      statusLabel:
-        productData.status === "active"
-          ? "Đang bán"
-          : productData.status === "outofstock"
-          ? "Hết hàng"
-          : "Nháp",
-      statusClass:
-        productData.status === "active"
-          ? "bg-success"
-          : productData.status === "outofstock"
-          ? "bg-danger"
-          : "bg-secondary",
-      featured: productData.featured,
-      tags,
-      suitabilities: productData.suitabilities?.map((suit) => suit.id) || [],
-      images,
-      createdAt: new Date(productData.createdAt).toLocaleDateString("vi-VN"),
-      updatedAt: new Date(productData.updatedAt).toLocaleDateString("vi-VN"),
-      modificationHistory: [
-        {
-          date: new Date(productData.updatedAt).toLocaleString("vi-VN"),
-          user: "Admin",
-          action: "Cập nhật sản phẩm",
-          detail: "Cập nhật thông tin sản phẩm",
-        },
-        {
-          date: new Date(productData.createdAt).toLocaleString("vi-VN"),
-          user: "Admin",
-          action: "Tạo sản phẩm",
-          detail: "Tạo mới sản phẩm",
-        },
-      ],
-      details,
-      categories: productData.categories,
-    };
-  };
   // Tách logic fetch sản phẩm thành một hàm riêng
-  const fetchProductData = async () => {
+
+  const fetchProductData = useCallback(async () => {
+    const formatProductData = (
+      productData: ProductApiResponse
+    ): FormattedProduct => {
+      const parentCategory = productData.categories.find((c) => !c.parentId);
+      const subCategory = productData.categories.find((c) => c.parentId);
+
+      const tags =
+        typeof productData.tags === "string"
+          ? JSON.parse(productData.tags)
+          : productData.tags;
+
+      const totalStock = productData.details.reduce(
+        (total, detail) =>
+          total + detail.inventories.reduce((sum, inv) => sum + inv.stock, 0),
+        0
+      );
+
+      const colors = productData.details.map((detail) => detail.color);
+      const sizes = [
+        ...new Set(
+          productData.details.flatMap((detail) =>
+            detail.inventories.map((inv) => inv.size)
+          )
+        ),
+      ];
+
+      const stockVariants = productData.details.flatMap((detail) =>
+        detail.inventories.map((inv) => ({
+          color: detail.color,
+          size: inv.size,
+          stock: inv.stock,
+          detailId: detail.id,
+        }))
+      );
+
+      const images = productData.details.flatMap((detail) =>
+        detail.images.map((image) => ({
+          ...image,
+          color: detail.color,
+          productDetailId: detail.id,
+        }))
+      );
+
+      const details = productData.details.map((detail) => ({
+        id: detail.id,
+        color: detail.color,
+        price: detail.price,
+        originalPrice: detail.originalPrice,
+        sizes: detail.inventories.map((inv) => ({
+          size: inv.size,
+          stock: inv.stock,
+        })),
+        images: detail.images.map((img) => ({
+          id: img.id,
+          url: img.url,
+          isMain: img.isMain,
+        })),
+      }));
+
+      return {
+        id: productData.id,
+        name: productData.name,
+        sku: productData.sku,
+        description: productData.description,
+        category: parentCategory?.id?.toString() || "",
+        categoryName: parentCategory?.name || "",
+        subtype: subCategory?.id ? String(subCategory.id) : "",
+        subtypeName: subCategory?.name || "",
+        material: productData.material,
+        brand: productData.brand || "",
+        price: productData.details[0]?.price || 0,
+        originalPrice: productData.details[0]?.originalPrice || 0,
+        stock: {
+          total: totalStock,
+          variants: stockVariants,
+        },
+        colors,
+        sizes,
+        status: productData.status,
+        statusLabel:
+          productData.status === "active"
+            ? "Đang bán"
+            : productData.status === "outofstock"
+            ? "Hết hàng"
+            : "Nháp",
+        statusClass:
+          productData.status === "active"
+            ? "bg-success"
+            : productData.status === "outofstock"
+            ? "bg-danger"
+            : "bg-secondary",
+        featured: productData.featured,
+        tags,
+        suitabilities: productData.suitabilities?.map((suit) => suit.id) || [],
+        images,
+        createdAt: new Date(productData.createdAt).toLocaleDateString("vi-VN"),
+        updatedAt: new Date(productData.updatedAt).toLocaleDateString("vi-VN"),
+        modificationHistory: [
+          {
+            date: new Date(productData.updatedAt).toLocaleString("vi-VN"),
+            user: "Admin",
+            action: "Cập nhật sản phẩm",
+            detail: "Cập nhật thông tin sản phẩm",
+          },
+          {
+            date: new Date(productData.createdAt).toLocaleString("vi-VN"),
+            user: "Admin",
+            action: "Tạo sản phẩm",
+            detail: "Tạo mới sản phẩm",
+          },
+        ],
+        details,
+        categories: productData.categories,
+      };
+    };
+
     try {
       setLoading(true);
       const productData = await ProductService.getProductVariants(id);
@@ -359,12 +361,12 @@ const ProductDetailPage: FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   // Sửa useEffect ban đầu để sử dụng hàm này
   useEffect(() => {
     fetchProductData();
-  }, [id]);
+  }, [fetchProductData]);
 
   useEffect(() => {
     const fetchCategories = async () => {

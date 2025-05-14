@@ -240,11 +240,10 @@ export function createProductMetadata(product: Product | null): Metadata {
 
   // Lấy giá hiện tại và giá gốc
   const price = firstVariant?.price || 0;
-  const originalPrice = firstVariant?.originalPrice || price;
 
   // Tính toán phần trăm giảm giá
-  const discountPercent =
-    originalPrice > price ? Math.round(100 - (price / originalPrice) * 100) : 0;
+  // const discountPercent =
+  //   originalPrice > price ? Math.round(100 - (price / originalPrice) * 100) : 0;
 
   // Lấy hình ảnh đầu tiên cho OpenGraph
   const firstImage =

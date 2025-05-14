@@ -187,7 +187,7 @@ export default function AddProductPage() {
     };
 
     fetchCategories();
-  }, []); // Chỉ chạy một lần khi mount
+  }, [product.category, showToast]); // Chạy lại khi product.category hoặc showToast thay đổi
 
   // Lấy danh mục con khi danh mục cha thay đổi
   useEffect(() => {
@@ -235,7 +235,7 @@ export default function AddProductPage() {
     if (product.category) {
       fetchSubtypes();
     }
-  }, [product.category, showToast]);
+  }, [product.category, product.subtype, product.subtypeName, showToast]);
 
   // Theo dõi màu sắc được chọn (sử dụng useCallback và tránh setState không cần thiết)
   useEffect(() => {
@@ -287,7 +287,7 @@ export default function AddProductPage() {
     };
 
     fetchSuitabilities();
-  }, []); // Không phụ thuộc showToast
+  }, [showToast]); // Đã thêm showToast vào dependency array
 
   // Tải kích thước dựa trên danh mục
   useEffect(() => {
@@ -560,6 +560,9 @@ export default function AddProductPage() {
         status: product.status,
         tags: product.tags,
         suitability: product.suitability,
+        suitabilities: product.suitability
+          .map((id) => Number(id))
+          .filter((id) => !isNaN(id)),
         categories: [
           parseInt(product.category) || 0,
           ...(product.subtype ? [parseInt(product.subtype)] : []),

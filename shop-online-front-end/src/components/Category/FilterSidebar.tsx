@@ -60,7 +60,7 @@ export default function FilterSidebar({
   childCategories,
   mainCategories,
   showCategoryFilters = true,
-  availableSizes, // Thêm props này để khắc phục lỗi
+  availableSizes,
 }: FilterSidebarProps) {
   return (
     <div className="lg:w-1/4">

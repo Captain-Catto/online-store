@@ -2,17 +2,17 @@ import { Metadata } from "next";
 import { createResetPasswordMetadata } from "@/utils/metadata";
 import ResetPasswordPageClient from "@/components/Auth/ResetPasswordPageClient";
 
-// Định nghĩa props cho server component
+// Define Props type for async params
 interface Props {
-  params: {
-    token: string;
-  };
+  params: Promise<{ token: string }>;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-// Sử dụng metadata tĩnh cho trang đặt lại mật khẩu
+// Use static metadata
 export const metadata: Metadata = createResetPasswordMetadata();
 
-// Server Component truyền token từ URL vào Client Component
-export default function ResetPasswordPage({ params }: Props) {
-  return <ResetPasswordPageClient token={params.token} />;
+// Async Server Component
+export default async function ResetPasswordPage({ params }: Props) {
+  const { token } = await params; // Await params to get token
+  return <ResetPasswordPageClient token={token} />;
 }

@@ -4,15 +4,16 @@ import { createProductMetadata } from "@/utils/metadata";
 import ProductDetailPageClient from "@/components/ProductDetail/ProductDetailPageClient";
 import { notFound } from "next/navigation";
 
-// Props từ dynamic route
+// Define Props type for async params
 interface Props {
-  params: { id: string };
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-// Tạo metadata động dựa trên dữ liệu sản phẩm
+// Generate metadata
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {
-    const { id } = await params;
+    const { id } = await params; // Await params to get id
     const product = await ProductService.getProductById(id);
 
     if (!product) {
@@ -33,26 +34,28 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-// Tối ưu tính năng Streaming với Suspense (tùy chọn)
+// Optimize with streaming and caching
 export const dynamic = "force-dynamic";
-export const revalidate = 3600; // Revalidate sau 1 giờ
+export const revalidate = 3600; // Revalidate after 1 hour
 
+// Async page component
 export default async function ProductDetailPage({ params }: Props) {
   try {
-    const { id } = await params;
+    const { id } = await params; // Await params to get id
 
-    // Fetch dữ liệu sản phẩm từ server
+    // Fetch product data from server
     const product = await ProductService.getProductById(id);
 
     if (!product) {
-      notFound(); // Sử dụng trang 404 của Next.js
+      notFound(); // Use Next.js 404 page
     }
 
-    // Truyền dữ liệu sản phẩm ban đầu cho Client Component
+    // Pass initial product data to Client Component
     return <ProductDetailPageClient productId={id} initialProduct={product} />;
   } catch (error) {
     console.error("Error loading product in server component:", error);
-    // Truyền productId và để client component xử lý lỗi và loading
-    return <ProductDetailPageClient productId={params.id} />;
+    // Pass productId and let client component handle error/loading
+    const { id } = await params;
+    return <ProductDetailPageClient productId={id} />;
   }
 }

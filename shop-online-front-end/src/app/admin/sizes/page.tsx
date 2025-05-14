@@ -7,9 +7,9 @@ import SizeManager from "@/components/admin/settings/SizeManager";
 
 export default function SizesPage() {
   const breadcrumbItems = [
-    { title: "Trang chủ", link: "/admin" },
-    { title: "Cài đặt", link: "/admin/settings" },
-    { title: "Quản lý kích thước", link: "#" },
+    { label: "Trang chủ", href: "/admin" },
+    { label: "Cài đặt", href: "/admin/settings" },
+    { label: "Quản lý kích thước", href: "#" },
   ];
 
   return (
