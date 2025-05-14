@@ -8,6 +8,7 @@ interface BreadcrumbProps {
 
 export default function BreadcrumbTrail({ items }: BreadcrumbProps) {
   return (
+    // Breadcrumb navigation
     <nav aria-label="breadcrumb" className="mb-6">
       <ol className="flex flex-wrap items-center text-sm gap-2">
         {items.map((item, index) => (
