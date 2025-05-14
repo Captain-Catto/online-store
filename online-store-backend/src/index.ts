@@ -49,7 +49,7 @@ const CorsOptions = {
   origin: [
     "http://localhost:3001",
     "http://localhost:3000",
-    "https://248f72d012ca52.lhr.life",
+    "https://shop-online.up.railway.app/",
   ],
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: true,
