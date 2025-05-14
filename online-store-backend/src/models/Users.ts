@@ -54,7 +54,7 @@ Users.init(
       type: DataTypes.INTEGER,
       allowNull: false,
       references: { model: Role, key: "id" },
-      defaultValue: 2,
+      defaultValue: 3,
     },
     phoneNumber: {
       type: DataTypes.STRING,
