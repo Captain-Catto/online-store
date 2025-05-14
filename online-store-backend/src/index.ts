@@ -50,6 +50,7 @@ const CorsOptions = {
     "http://localhost:3001",
     "http://localhost:3000",
     "https://shop-online.up.railway.app",
+    "https://online-store-backend.up.railway.app",
   ],
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: true,
