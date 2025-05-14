@@ -183,7 +183,7 @@ export default function AboutPage() {
               </p>
               <div className="flex justify-center">
                 <Link
-                  href="/categories"
+                  href="/"
                   className="inline-block px-6 py-3 bg-pink-600 text-white font-medium rounded-lg hover:bg-pink-700 transition"
                 >
                   Khám phá các sản phẩm
@@ -373,7 +373,7 @@ export default function AboutPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
-                href="/categories"
+                href="/"
                 className="px-6 py-3 bg-pink-600 text-white font-medium rounded-lg hover:bg-pink-700 transition"
               >
                 Mua sắm ngay

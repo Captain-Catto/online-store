@@ -73,6 +73,7 @@ Users.init(
   {
     sequelize,
     modelName: "Users",
+    tableName: "users",
   }
 );
 

@@ -164,7 +164,7 @@ const CasualProducts: React.FC = () => {
         </h2>
         {!loading && !error && (
           <Link
-            href="/categories?suitability=casual"
+            href="/category/ao?suitability=Hằng+Ngày"
             className="text-right text-lg text-gray-500 hover:underline hover:text-gray-700"
           >
             Xem thêm

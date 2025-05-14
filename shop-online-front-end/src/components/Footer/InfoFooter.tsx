@@ -61,11 +61,6 @@ const InfoFooter: React.FC = () => {
               Chính sách bảo hành
             </Link>
           </li>
-          <li>
-            <Link href="/payment" className="hover:text-blue-400">
-              Phương thức thanh toán
-            </Link>
-          </li>
         </ul>
       </div>
 

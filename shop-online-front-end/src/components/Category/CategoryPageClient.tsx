@@ -243,7 +243,6 @@ export default function CategoryPageClient({ slug }: CategoryClientProps) {
         if (sortOption) {
           apiFilters.sort = sortOption;
         }
-        console.log("apiFilters", apiFilters);
 
         const response = await CategoryService.getProductsByCategorySlug(
           categorySlug,
@@ -251,8 +250,6 @@ export default function CategoryPageClient({ slug }: CategoryClientProps) {
           itemsPerPage,
           apiFilters
         );
-
-        console.log("response getProductsByCategorySlug", response);
 
         const {
           products: productsData,
@@ -276,7 +273,6 @@ export default function CategoryPageClient({ slug }: CategoryClientProps) {
             );
           });
         });
-        console.log("categoryData", categoryData);
         setProducts(filteredProducts);
         setTotalItems(pagination.total);
         setParentCategoryId(
