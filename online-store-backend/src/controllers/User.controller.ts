@@ -301,7 +301,7 @@ export const getUserById = async (
             Sequelize.literal(`(
               SELECT COUNT(*)
               FROM orders
-              WHERE orders.userId = Users.id
+              WHERE orders.userId = users.id
             )`),
             "totalOrders",
           ],
@@ -427,7 +427,7 @@ export const getAllUsers = async (
             Sequelize.literal(`(
               SELECT COUNT(*)
               FROM orders
-              WHERE orders.userId = Users.id
+              WHERE orders.userId = users.id
             )`),
             "totalOrders",
           ],
