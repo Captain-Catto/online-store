@@ -15,7 +15,7 @@ import { WishlistItem } from "@/types/wishlist";
 import { UserService } from "@/services/UserService";
 import { OrderService } from "@/services/OrderService";
 import { WishlistService } from "@/services/WishlistService";
-import BreadcrumbTrail from "@/components/Breadcrumb/BreadcrumbTrail";
+import BreadcrumbTrail from "../Breadcrumb/BreadcrumbTrail";
 import { BreadcrumbItem } from "@/types/breadcrumb";
 
 interface AccountLayoutProps {

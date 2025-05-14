@@ -8,7 +8,7 @@ import Footer from "@/components/Footer/Footer";
 import { OrderService } from "@/services/OrderService";
 import Image from "next/image";
 import { getColorName } from "@/utils/colorUtils";
-import BreadcrumbTrail from "@/components/Breadcrumb/BreadcrumbTrail";
+import BreadcrumbTrail from "../Breadcrumb/BreadcrumbTrail";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 export default function OrderDetailPageClient({

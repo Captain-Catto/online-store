@@ -12,7 +12,7 @@ import { useToast } from "@/utils/useToast";
 import { useCart } from "@/contexts/CartContext";
 import { CartService } from "@/services/CartService";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
-import BreadcrumbTrail from "@/components/Breadcrumb/BreadcrumbTrail";
+import BreadcrumbTrail from "../Breadcrumb/BreadcrumbTrail";
 import { useBreadcrumb } from "@/hooks/useBreadcrumb";
 
 export default function CartPageClient() {

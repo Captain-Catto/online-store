@@ -11,7 +11,7 @@ import { CategoryService } from "@/services/CategoryService";
 import { ProductService } from "@/services/ProductService";
 import { Product, VariantDetail } from "@/types/product";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
-import BreadcrumbTrail from "@/components/Breadcrumb/BreadcrumbTrail";
+import BreadcrumbTrail from "../Breadcrumb/BreadcrumbTrail";
 import { useBreadcrumb } from "@/hooks/useBreadcrumb";
 
 // Định nghĩa interface cho thông tin danh mục

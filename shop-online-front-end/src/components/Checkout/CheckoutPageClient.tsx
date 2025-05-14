@@ -16,7 +16,7 @@ import { UserService } from "@/services/UserService";
 import { Address } from "@/types/address";
 import { OrderService } from "@/services/OrderService";
 import { useCart } from "@/contexts/CartContext";
-import BreadcrumbTrail from "@/components/Breadcrumb/BreadcrumbTrail";
+import BreadcrumbTrail from "../Breadcrumb/BreadcrumbTrail";
 import { BreadcrumbItem } from "@/types/breadcrumb";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
