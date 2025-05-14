@@ -49,7 +49,7 @@ const CorsOptions = {
   origin: [
     "http://localhost:3001",
     "http://localhost:3000",
-    "https://online-store-sigma-nine.vercel.app/",
+    "https://online-store-sigma-nine.vercel.app",
   ],
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: true,
