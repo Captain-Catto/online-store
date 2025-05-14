@@ -14,7 +14,7 @@ import { Order } from "@/types/order";
 import { AddressPagination } from "@/types/address";
 import { WishlistItem } from "@/types/wishlist";
 import { WishlistService } from "@/services/WishlistService";
-import BreadcrumbTrail from "@/components/Breadcrumb/BreadcrumbTrail";
+import BreadcrumbTrail from "../Breadcrumb/BreadcrumbTrail";
 import { BreadcrumbItem } from "@/types/breadcrumb";
 
 interface AccountData {
