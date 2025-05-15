@@ -110,7 +110,6 @@ export default function RegisterPageClient() {
 
       setRegisterSuccess(true);
     } catch (error) {
-      console.error("Registration error:", error);
       setErrors((prev) => ({
         ...prev,
         general:

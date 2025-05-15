@@ -181,7 +181,7 @@ export const createUser = async (user: User) => {
   });
 
   if (!response.ok) {
-    throw new Error("Đăng ký thất bại");
+    throw new Error("Email đã tồn tại. Vui lòng thử lại!");
   }
 
   const data = await response.json();
