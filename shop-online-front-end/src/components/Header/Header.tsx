@@ -31,7 +31,7 @@ const Header: React.FC = () => {
       } w-full bg-white z-50`}
     >
       <div className="container mx-auto px-4">
-        <div className="flex justify-between items-center h-10">
+        <div className="flex justify-between items-center">
           {/* Mobile menu toggle */}
           <div className="md:hidden">
             <MenuToggle />

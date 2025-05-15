@@ -60,6 +60,10 @@ export default function CartPageClient() {
       if (cartItem) {
         try {
           await handleUpdateQuantity(cartItem, newQuantity);
+          //thông báo cập nhật giỏ hàng thành công
+          showToast("Cập nhật giỏ hàng thành công", {
+            type: "success",
+          });
         } catch {
           showToast("Không thể cập nhật số lượng. Vui lòng thử lại sau.", {
             type: "error",
@@ -75,6 +79,10 @@ export default function CartPageClient() {
     async (itemId: string, color: string, size: string): Promise<void> => {
       try {
         await removeFromCart(itemId, color, size);
+        // Thông báo xóa sản phẩm thành công
+        showToast("Xóa sản phẩm thành công", {
+          type: "success",
+        });
       } catch {
         showToast("Không thể xóa sản phẩm. Vui lòng thử lại sau.", {
           type: "error",

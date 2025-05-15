@@ -48,7 +48,6 @@ export const AuthService = {
     accessToken: string;
     user: { id: string; username: string; email: string; roleId: string };
   }> => {
-    console.log("rememberMe", rememberMe);
     try {
       const response = await fetch(API_BASE_URL + "/auth/login", {
         method: "POST",
@@ -94,6 +93,10 @@ export const AuthService = {
 
       console.log("Login successful:", data);
 
+      // Kích hoạt sự kiện đăng nhập thành công
+      const loginSuccessEvent = new CustomEvent("auth-login-success");
+      window.dispatchEvent(loginSuccessEvent);
+
       return data;
     } catch (error) {
       console.error("Login failed:", error);
@@ -119,6 +122,10 @@ export const AuthService = {
       // Xóa localStorage
       localStorage.removeItem("isLoggedIn");
       localStorage.removeItem("user");
+
+      // Kích hoạt sự kiện đăng xuất thành công
+      const logoutSuccessEvent = new CustomEvent("auth-logout-success");
+      window.dispatchEvent(logoutSuccessEvent);
     } catch (error) {
       console.error("Logout failed:", error);
       // Vẫn xóa dữ liệu phía client ngay cả khi API lỗi

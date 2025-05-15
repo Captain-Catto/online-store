@@ -1,9 +1,6 @@
 import { API_BASE_URL } from "@/config/apiConfig";
 import { CartItem } from "@/types/cart";
-import {
-  getCartFromCookie,
-  clearCart as clearLocalCart,
-} from "@/utils/cartUtils";
+import { getCartFromCookie } from "@/utils/cartUtils";
 import { AuthClient } from "./AuthClient";
 
 interface CartResponse {
@@ -114,32 +111,66 @@ export const CartService = {
   },
 
   // Merge giỏ hàng từ cookie vào database sau khi đăng nhập
+  // Cải thiện mergeCartFromCookies trong CartService
   mergeCartFromCookies: async (): Promise<{ message: string }> => {
-    const cartItems = getCartFromCookie();
+    try {
+      const cartItems = getCartFromCookie();
+      console.log("Merging items from cookie:", cartItems);
 
-    if (cartItems.length === 0) {
-      return { message: "No items to merge" };
-    }
-
-    const response = await AuthClient.fetchWithAuth(
-      `${API_BASE_URL}/cart/merge`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ cartItems }),
+      if (!cartItems.length) {
+        return { message: "No items to merge" };
       }
-    );
 
-    if (!response.ok) {
-      throw new Error("Không thể merge giỏ hàng");
+      // Đảm bảo đặt timeout dài hơn để xử lý đơn hàng lớn
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      try {
+        const response = await AuthClient.fetchWithAuth(
+          `${API_BASE_URL}/cart/merge`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              cartItems: cartItems.map((item) => ({
+                productId: Number(item.productId),
+                productDetailId: Number(item.productDetailId),
+                color: item.color,
+                size: item.size,
+                quantity: item.quantity,
+              })),
+            }),
+            signal: controller.signal,
+          }
+        );
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          let errorMessage;
+          try {
+            const errorData = JSON.parse(errorText);
+            errorMessage = errorData.message || "Failed to merge cart";
+          } catch {
+            errorMessage = `Error ${response.status}: ${response.statusText}`;
+          }
+          throw new Error(errorMessage);
+        }
+
+        const result = await response.json();
+        console.log("Merge successful:", result);
+        return result;
+      } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
+      }
+    } catch (error) {
+      console.error("Error merging cart from cookies:", error);
+      throw error;
     }
-
-    // Clear local cart after successful merge
-    clearLocalCart();
-
-    return response.json();
   },
 
   checkCartItemsStock: async (

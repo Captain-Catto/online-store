@@ -118,13 +118,13 @@ export default function CartItem({
 
       <div className="flex flex-wrap sm:gap-10 items-center gap-2 sm:flex-2 flex-1">
         {/* hình */}
-        <div className="relative w-24 h-24">
+        <div className="relative w-24 h-30">
           <Image
             src={item.image}
             alt={item.name}
             fill
-            sizes="100%"
-            priority
+            sizes="(max-width: 768px) 96px, 24vw"
+            priority={true}
             className="rounded object-cover"
           />
         </div>
