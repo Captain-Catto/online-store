@@ -25,6 +25,7 @@ export function useAuth(redirectTo?: string) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [isEmployee, setIsEmployee] = useState<boolean>(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -53,7 +54,8 @@ export function useAuth(redirectTo?: string) {
                 const userData = JSON.parse(userStr);
                 setUser(userData);
                 // Kiểm tra nếu user có role === 1 (admin role) và role == 2 (employee role)
-                setIsAdmin(userData.role === 1 || userData.role === 2);
+                setIsAdmin(userData.role === 1);
+                setIsEmployee(userData.role === 2);
               } catch (e) {
                 console.error("Error parsing user data:", e);
               }
@@ -133,5 +135,5 @@ export function useAuth(redirectTo?: string) {
     setUser(null);
   };
 
-  return { isLoggedIn, user, isLoading, logout, isAdmin };
+  return { isLoggedIn, user, isLoading, logout, isAdmin, isEmployee };
 }

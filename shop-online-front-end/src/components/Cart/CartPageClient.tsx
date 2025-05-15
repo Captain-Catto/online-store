@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import CartItems from "../../components/Cart/CartItems";
 import OrderSummary from "../../components/Cart/OrderSummary";
 import Header from "../../components/Header/Header";
 import Footer from "../../components/Footer/Footer";
-import { AuthService } from "@/services/AuthService";
 import { useToast } from "@/utils/useToast";
 import { useCart } from "@/contexts/CartContext";
 import { CartService } from "@/services/CartService";
@@ -24,129 +23,140 @@ export default function CartPageClient() {
     undefined,
     "Giỏ hàng"
   );
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  // Sử dụng CartContext thay vì state và cookie local
+  // Thêm state mới để theo dõi trạng thái tải ban đầu
+  const [initialLoading, setInitialLoading] = useState(true);
   const { cartItems, loading, handleUpdateQuantity, removeFromCart } =
     useCart();
-  const [subtotal, setSubtotal] = useState(0);
 
-  // Load login status
+  // Theo dõi khi nào quá trình tải ban đầu hoàn tất
   useEffect(() => {
-    const isLoggedIn = AuthService.isLoggedIn();
-    setIsLoggedIn(isLoggedIn);
-  }, []);
-
-  // Calculate subtotal when cart items change
-  useEffect(() => {
-    if (!loading) {
-      const calculatedSubtotal = cartItems.reduce(
-        (sum, item) => sum + (item.price || 0) * item.quantity,
-        0
-      );
-      setSubtotal(calculatedSubtotal);
+    if (!loading && initialLoading) {
+      setInitialLoading(false);
     }
-  }, [cartItems, loading]);
+  }, [loading, initialLoading]);
 
-  // Sử dụng handleUpdateQuantity từ CartContext
-  const handleQuantityChange = (
-    itemId: string,
-    newQuantity: number,
-    color: string,
-    size: string
-  ) => {
-    // Tìm cartItem từ ID, color và size
-    const cartItem = cartItems.find(
-      (item) => item.id === itemId && item.color === color && item.size === size
+  // Tính subtotal bằng useMemo
+  const subtotal = useMemo(() => {
+    return cartItems.reduce(
+      (sum, item) => sum + (item.price || 0) * item.quantity,
+      0
     );
+  }, [cartItems]);
 
-    if (cartItem) {
-      handleUpdateQuantity(cartItem, newQuantity);
-    }
-  };
+  // Xử lý thay đổi số lượng
+  const handleQuantityChange = useCallback(
+    async (
+      itemId: string,
+      newQuantity: number,
+      color: string,
+      size: string
+    ) => {
+      const cartItem = cartItems.find(
+        (item) =>
+          item.id === itemId && item.color === color && item.size === size
+      );
 
-  // Sử dụng removeFromCart từ CartContext
-  const handleRemoveItem = (itemId: string, color: string, size: string) => {
-    removeFromCart(itemId, color, size);
-  };
+      if (cartItem) {
+        try {
+          await handleUpdateQuantity(cartItem, newQuantity);
+          return true;
+        } catch {
+          showToast("Không thể cập nhật số lượng. Vui lòng thử lại sau.", {
+            type: "error",
+          });
+          return false;
+        }
+      }
+      return false;
+    },
+    [cartItems, handleUpdateQuantity, showToast]
+  );
 
-  // Trong trang Cart (khi người dùng nhấn Checkout)
-  const handleCheckout = async () => {
+  // Xử lý xóa sản phẩm
+  const handleRemoveItem = useCallback(
+    async (itemId: string, color: string, size: string) => {
+      try {
+        await removeFromCart(itemId, color, size);
+        return true;
+      } catch {
+        showToast("Không thể xóa sản phẩm. Vui lòng thử lại sau.", {
+          type: "error",
+        });
+        return false;
+      }
+    },
+    [removeFromCart, showToast]
+  );
+
+  // Xử lý chuyển sang trang thanh toán
+  const handleCheckout = useCallback(async () => {
     if (cartItems.length === 0) {
-      console.log("Giỏ hàng của bạn đang trống!");
+      showToast("Giỏ hàng của bạn đang trống!", {
+        type: "warning",
+      });
       return;
     }
 
-    if (!isLoggedIn) {
-      router.push("/login");
-      return;
-    }
-
-    // Thêm loading state
     setIsProcessing(true);
 
     try {
-      // Kiểm tra tồn kho trước khi chuyển sang checkout
       const stockCheck = await CartService.checkCartItemsStock(cartItems);
 
-      console.log("Kết quả kiểm tra tồn kho:", stockCheck);
-
       if (!stockCheck.valid) {
-        // Hiển thị thông báo cho người dùng về các sản phẩm không đủ số lượng
         const errorMessages = stockCheck.invalidItems.map(
           (item) =>
             `${item.name}: Chỉ còn ${item.available} sản phẩm (bạn đang chọn ${item.requested})`
         );
-
-        // Hiển thị thông báo lỗi
-        showToast(`${errorMessages}`, {
+        showToast(errorMessages.join(", "), {
           type: "error",
         });
-
         setIsProcessing(false);
         return;
       }
 
-      // Lưu thông tin đơn hàng vào sessionStorage (chỉ lưu các sản phẩm và tạm tính)
       const orderData = {
         items: cartItems,
         summary: {
-          subtotal: subtotal,
+          subtotal,
         },
         timestamp: new Date().getTime(),
       };
 
       sessionStorage.setItem("pendingOrder", JSON.stringify(orderData));
-
-      // Chuyển hướng đến trang checkout
       router.push("/checkout");
-    } catch (error) {
-      console.error("Lỗi kiểm tra tồn kho:", error);
+    } catch {
       showToast("Có lỗi xảy ra khi kiểm tra tồn kho. Vui lòng thử lại sau.", {
         type: "error",
       });
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [cartItems, subtotal, router, showToast]);
+
+  // Memoize props cho CartItems để tránh rerender
+  const cartItemsProps = useMemo(
+    () =>
+      cartItems.map((item) => ({
+        ...item,
+        price: item.price ?? 0,
+        image: item.image ?? "",
+      })),
+    [cartItems]
+  );
 
   return (
     <>
       <Header />
-
       <main className="container mx-auto px-4 py-8">
-        {/* Phần Breadcrumb */}
         <BreadcrumbTrail items={breadcrumbs} />
-
         <h1 className="text-3xl font-bold mb-8">Giỏ hàng của bạn</h1>
 
-        {/* Hiển thị khi đang tải dữ liệu giỏ hàng */}
-        {loading ? (
+        {initialLoading ? ( // Thay thế loading bằng initialLoading
           <div className="text-center py-12">
             <LoadingSpinner size="lg" text="Đang tải giỏ hàng..." />
           </div>
-        ) : /* Hiển thị khi giỏ hàng trống */
-        cartItems.length === 0 ? (
+        ) : cartItems.length === 0 ? (
           <div className="text-center py-12">
             <h2 className="text-2xl font-medium mb-4">Giỏ hàng trống</h2>
             <p className="text-gray-600 mb-6">
@@ -160,43 +170,23 @@ export default function CartPageClient() {
             </Link>
           </div>
         ) : (
-          /*  Hiển thị khi giỏ hàng có sản phẩm */
           <div className="flex flex-col lg:flex-row gap-6">
-            {/* Danh sách sản phẩm */}
             <CartItems
-              items={cartItems.map((item) => ({
-                ...item,
-                price: item.price ?? 0,
-                image: item.image ?? "",
-              }))}
+              items={cartItemsProps}
               onQuantityChange={handleQuantityChange}
               onRemove={handleRemoveItem}
             />
-
-            {/* Thông tin thanh toán */}
             <OrderSummary
               subtotal={subtotal}
               onCheckout={handleCheckout}
               isEmpty={cartItems.length === 0}
+              isProcessing={isProcessing}
             />
           </div>
         )}
       </main>
-
       <Footer />
-
-      {/* Toast thông báo */}
       {Toast}
-
-      {/* Hiển thị khi đang xử lý checkout */}
-      {isProcessing && (
-        <LoadingSpinner
-          fullScreen
-          size="lg"
-          color="white"
-          text="Đang kiểm tra tồn kho..."
-        />
-      )}
     </>
   );
 }

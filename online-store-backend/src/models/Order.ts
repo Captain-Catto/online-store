@@ -33,8 +33,9 @@ Order.init(
     },
     userId: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       references: { model: Users, key: "id" },
+      onDelete: "SET NULL",
     },
     total: {
       type: DataTypes.FLOAT,

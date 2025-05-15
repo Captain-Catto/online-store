@@ -156,22 +156,19 @@ export const CartService = {
     try {
       console.log("Items being sent for stock check:", items);
 
-      const response = await AuthClient.fetchWithAuth(
-        `${API_BASE_URL}/cart/check-stock`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            items: items.map((item) => ({
-              productDetailId: item.productDetailId,
-              size: item.size,
-              quantity: item.quantity,
-            })),
-          }),
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}/cart/check-stock`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          items: items.map((item) => ({
+            productDetailId: item.productDetailId,
+            size: item.size,
+            quantity: item.quantity,
+          })),
+        }),
+      });
 
       if (!response.ok) {
         throw new Error("Không thể kiểm tra tồn kho");

@@ -36,7 +36,7 @@ export default function OrderSummary({
               : "bg-black hover:bg-gray-800"
           } text-white font-medium rounded transition flex items-center justify-center`}
         >
-          {isProcessing ? "Đang xử lý.." : "Tiến hành thanh toán"}
+          {isProcessing ? "Đang kiểm tra tồn kho.." : "Tiến hành thanh toán"}
         </button>
 
         <p className="text-sm text-gray-500 mt-4 text-center">

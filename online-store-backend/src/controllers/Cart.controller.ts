@@ -376,12 +376,7 @@ export const checkStockAvailability = async (
   res: Response
 ): Promise<void> => {
   try {
-    const userId = req.user?.id;
-
-    if (!userId) {
-      res.status(401).json({ message: "Unauthorized" });
-      return;
-    }
+    // đổi flow, ng dùng ko cần đăng nhập vẫn có thể kiểm tra tồn kho
 
     const { items } = req.body;
 

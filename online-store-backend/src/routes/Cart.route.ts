@@ -12,14 +12,14 @@ import { authMiddleware } from "../middlewares/authMiddleware";
 
 const router = Router();
 
-// Tất cả routes đều yêu cầu đăng nhập
+// Kiểm tra tồn kho cho sản phẩm trong giỏ hàng
+router.post("/check-stock", checkStockAvailability);
+
+// Tất cả routes ở dưới đều yêu cầu đăng nhập
 router.use(authMiddleware);
 
 // Lấy giỏ hàng của user hiện tại
 router.get("/", getUserCart);
-
-// Kiểm tra tồn kho cho sản phẩm trong giỏ hàng
-router.post("/check-stock", checkStockAvailability);
 
 // Thêm sản phẩm vào giỏ hàng
 router.post("/items", addItemToCart);

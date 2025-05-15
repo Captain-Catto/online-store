@@ -24,8 +24,8 @@ import {
 
 const router = Router();
 
-// Tạo đơn hàng mới (cần đăng nhập)
-router.post("/", authMiddleware, createOrder);
+// Tạo đơn hàng mới (ko cần đăng nhập)
+router.post("/", createOrder);
 // ADMIN ROUTES (Tất cả đều yêu cầu quyền admin)
 // Lấy tất cả đơn hàng (Admin)
 router.get(
@@ -55,7 +55,7 @@ router.get(
 );
 
 // Lấy chi tiết đơn hàng theo ID
-router.get("/:id", authMiddleware, getOrderById);
+router.get("/:id", getOrderById);
 
 // Cập nhật trạng thái đơn hàng
 router.put(

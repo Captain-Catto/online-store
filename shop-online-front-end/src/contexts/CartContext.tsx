@@ -5,7 +5,10 @@ import React, {
   useContext,
   useState,
   useEffect,
+  useRef,
   ReactNode,
+  useCallback,
+  useMemo,
 } from "react";
 import { CartItem } from "@/types/cart";
 import { CartService } from "@/services/CartService";
@@ -18,6 +21,7 @@ import {
   clearCart as clearLocalCart,
 } from "@/utils/cartUtils";
 import { useAuth } from "@/hooks/useAuth";
+import { debounce } from "lodash"; // Sử dụng lodash để debounce API calls
 
 interface CartContextType {
   cartItems: CartItem[];
@@ -33,6 +37,7 @@ interface CartContextType {
   ) => Promise<void>;
   clearCart: () => Promise<void>;
   handleUpdateQuantity: (cartItem: CartItem, quantity: number) => Promise<void>;
+  refreshCart: () => Promise<void>;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -54,57 +59,120 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
   const [cartCount, setCartCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const { isLoggedIn, isLoading: authLoading } = useAuth();
+  const isInitialized = useRef(false);
+  const refreshInProgress = useRef(false);
+  const prevIsLoggedIn = useRef(isLoggedIn);
 
-  // Fetch cart data on auth change
-  useEffect(() => {
-    if (authLoading) return;
+  // Gửi sự kiện cart-updated với số lượng hoặc items cụ thể
+  const dispatchCartEvent = useCallback(
+    (count?: number, items?: CartItem[]) => {
+      const itemsToCount = items || cartItems;
+      const eventCount =
+        count !== undefined
+          ? count
+          : itemsToCount.reduce((sum, item) => sum + item.quantity, 0);
 
-    const initializeCart = async () => {
-      setLoading(true);
+      const event = new CustomEvent("cart-updated", {
+        detail: { count: eventCount },
+      });
+      window.dispatchEvent(event);
+    },
+    [cartItems]
+  );
 
+  // Làm mới giỏ hàng từ server hoặc local storage
+  const refreshCart = useCallback(async () => {
+    if (refreshInProgress.current) return;
+    refreshInProgress.current = true;
+    const shouldShowLoading = !loading;
+    if (shouldShowLoading) setLoading(true);
+
+    try {
       if (isLoggedIn) {
-        try {
-          // First try to merge local cart to database if there are items
-          const localCart = getCartFromCookie();
-          if (localCart.length > 0) {
-            await CartService.mergeCartFromCookies();
-          }
-
-          // Then fetch the cart from database
-          const cartData = await CartService.getCart();
-          setCartItems(cartData.items);
-          setCartCount(cartData.totalItems);
-        } catch (error) {
-          console.error("Failed to fetch cart:", error);
-          // Fallback to local cart
-          const localCart = getCartFromCookie();
-          setCartItems(
-            localCart.map((item) => ({
-              ...item,
-              productId: Number(item.productId), // Chắc chắn productId là number
-            }))
-          );
-          setCartCount(getCartItemCount());
-        }
+        const cartData = await CartService.getCart();
+        setCartItems(cartData.items || []);
+        setCartCount(cartData.totalItems || 0);
+        dispatchCartEvent(cartData.totalItems || 0, cartData.items || []);
       } else {
-        // Not authenticated, use local cart
         const localCart = getCartFromCookie();
-        setCartItems(
-          localCart.map((item) => ({
-            ...item,
-            productId: Number(item.productId), // Chắc chắn productId là number
-          }))
-        );
+        const mappedItems = localCart.map((item) => ({
+          ...item,
+          productId: Number(item.productId),
+        }));
+        setCartItems(mappedItems);
+        const localCount = getCartItemCount();
+        setCartCount(localCount);
+        dispatchCartEvent(localCount, mappedItems);
+      }
+    } catch (error) {
+      console.error("Failed to refresh cart:", error);
+    } finally {
+      if (shouldShowLoading) setLoading(false);
+      refreshInProgress.current = false;
+    }
+  }, [isLoggedIn, loading, dispatchCartEvent]);
+
+  // Khởi tạo giỏ hàng khi component mount
+  const initializeCart = useCallback(async () => {
+    if (isInitialized.current || authLoading) return;
+    isInitialized.current = true;
+    setLoading(true);
+
+    try {
+      if (isLoggedIn) {
+        const localCart = getCartFromCookie();
+        if (localCart.length > 0) {
+          try {
+            await CartService.mergeCartFromCookies();
+            clearLocalCart();
+          } catch (mergeError) {
+            console.error("Failed to merge local cart:", mergeError);
+          }
+        }
+        const cartData = await CartService.getCart();
+        setCartItems(cartData.items || []);
+        setCartCount(cartData.totalItems || 0);
+      } else {
+        const localCart = getCartFromCookie();
+        const mappedItems = localCart.map((item) => ({
+          ...item,
+          productId: Number(item.productId),
+        }));
+        setCartItems(mappedItems);
         setCartCount(getCartItemCount());
       }
-
+    } catch (error) {
+      console.error("Failed to initialize cart:", error);
+      const localCart = getCartFromCookie();
+      const mappedItems = localCart.map((item) => ({
+        ...item,
+        productId: Number(item.productId),
+      }));
+      setCartItems(mappedItems);
+      setCartCount(getCartItemCount());
+    } finally {
       setLoading(false);
-    };
-
-    initializeCart();
+    }
   }, [isLoggedIn, authLoading]);
 
-  // Listen for cart-updated events (for legacy compatibility)
+  useEffect(() => {
+    initializeCart();
+    return () => {
+      isInitialized.current = false;
+    };
+  }, [initializeCart]);
+
+  // Lắng nghe thay đổi trạng thái đăng nhập
+  useEffect(() => {
+    if (authLoading || !isInitialized.current) return;
+    if (prevIsLoggedIn.current !== isLoggedIn) {
+      prevIsLoggedIn.current = isLoggedIn;
+      const timeoutId = setTimeout(() => refreshCart(), 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isLoggedIn, authLoading, refreshCart]);
+
+  // Lắng nghe sự kiện cart-updated
   useEffect(() => {
     const handleCartUpdate = (e: Event) => {
       const customEvent = e as CustomEvent;
@@ -112,7 +180,6 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         setCartCount(customEvent.detail.count);
       }
     };
-
     window.addEventListener("cart-updated", handleCartUpdate as EventListener);
     return () => {
       window.removeEventListener(
@@ -122,265 +189,216 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     };
   }, []);
 
-  const addToCart = async (item: CartItem) => {
-    if (isLoggedIn) {
+  // Thêm sản phẩm vào giỏ hàng
+  const addToCart = useCallback(
+    async (item: CartItem) => {
       try {
-        const productDetailId = item.productDetailId;
-        console.log("Adding to cart:", {
-          productDetailId: Number(productDetailId),
-        });
-        await CartService.addToCart(
-          Number(item.productId),
-          Number(productDetailId),
-          item.color,
-          item.size,
-          item.quantity
+        const existingItemIndex = cartItems.findIndex(
+          (i) =>
+            i.id === item.id && i.color === item.color && i.size === item.size
         );
+        let updatedItems: CartItem[];
+        if (existingItemIndex >= 0) {
+          updatedItems = [...cartItems];
+          updatedItems[existingItemIndex] = {
+            ...updatedItems[existingItemIndex],
+            quantity: updatedItems[existingItemIndex].quantity + item.quantity,
+          };
+        } else {
+          updatedItems = [...cartItems, item];
+        }
+        setCartItems(updatedItems);
+        const newCount = updatedItems.reduce((sum, i) => sum + i.quantity, 0);
+        setCartCount(newCount);
+        dispatchCartEvent(newCount, updatedItems);
 
-        // Refresh cart from server
-        const cartData = await CartService.getCart();
-        console.log("API cart structure:", {
-          items:
-            cartData.items && cartData.items.length > 0
-              ? cartData.items[0]
-              : "No items",
-          totalItems: cartData.totalItems,
-          hasItemsProperty: "items" in cartData,
-        });
-        setCartItems(cartData.items);
-        setCartCount(cartData.totalItems);
+        if (isLoggedIn) {
+          const productDetailId = item.productDetailId;
+          await CartService.addToCart(
+            Number(item.productId),
+            Number(productDetailId),
+            item.color,
+            item.size,
+            item.quantity
+          );
+          await refreshCart(); // Đồng bộ với server
+        } else {
+          addToLocalCart(item);
+        }
       } catch (error) {
         console.error("Failed to add to cart:", error);
-        // Fallback to local cart
-        const updatedCart = addToLocalCart(item);
-        setCartItems(updatedCart);
-        setCartCount(getCartItemCount());
+        await refreshCart(); // Revert on error
       }
-    } else {
-      // Not authenticated, use local cart
-      const updatedCart = addToLocalCart(item);
-      setCartItems(updatedCart);
-      setCartCount(getCartItemCount());
-    }
+    },
+    [cartItems, isLoggedIn, dispatchCartEvent, refreshCart]
+  );
 
-    // For compatibility with existing code
-    const event = new CustomEvent("cart-updated", {
-      detail: {
-        count: isLoggedIn ? await getServerCartCount() : getCartItemCount(),
-      },
-    });
-    window.dispatchEvent(event);
-  };
-
-  const removeFromCart = async (id: string, color: string, size: string) => {
-    if (isLoggedIn) {
+  // Xóa sản phẩm khỏi giỏ hàng
+  const removeFromCart = useCallback(
+    async (id: string, color: string, size: string) => {
       try {
-        // Find the cart item ID from the local state
-        const cartItem = cartItems.find(
-          (item) => item.id === id && item.color === color && item.size === size
+        const originalItems = [...cartItems];
+        const updatedItems = cartItems.filter(
+          (item) =>
+            !(item.id === id && item.color === color && item.size === size)
         );
+        setCartItems(updatedItems);
+        const newCount = updatedItems.reduce(
+          (sum, item) => sum + item.quantity,
+          0
+        );
+        setCartCount(newCount);
+        dispatchCartEvent(newCount, updatedItems);
 
-        if (cartItem && cartItem.cartItemId) {
-          await CartService.removeCartItem(cartItem.cartItemId);
-
-          // Refresh cart from server
-          const cartData = await CartService.getCart();
-          setCartItems(cartData.items);
-          setCartCount(cartData.totalItems);
+        if (isLoggedIn) {
+          const itemToRemove = originalItems.find(
+            (item) =>
+              item.id === id && item.color === color && item.size === size
+          );
+          if (itemToRemove?.cartItemId) {
+            await CartService.removeCartItem(itemToRemove.cartItemId);
+            await refreshCart(); // Đồng bộ với server
+          }
+        } else {
+          removeFromLocalCart(id, color, size);
         }
       } catch (error) {
         console.error("Failed to remove from cart:", error);
-        // Fallback to local cart
-        const updatedCart = removeFromLocalCart(id, color, size);
-        setCartItems(updatedCart);
-        setCartCount(getCartItemCount());
+        await refreshCart(); // Revert on error
       }
-    } else {
-      // Not authenticated, use local cart
-      const updatedCart = removeFromLocalCart(id, color, size);
-      setCartItems(updatedCart);
-      setCartCount(getCartItemCount());
-    }
+    },
+    [cartItems, isLoggedIn, dispatchCartEvent, refreshCart]
+  );
 
-    // For compatibility with existing code
-    const event = new CustomEvent("cart-updated", {
-      detail: {
-        count: isLoggedIn ? await getServerCartCount() : getCartItemCount(),
-      },
-    });
-    window.dispatchEvent(event);
-  };
-
-  const updateQuantity = async (
-    id: string,
-    color: string,
-    size: string,
-    quantity: number
-  ) => {
-    if (isLoggedIn) {
+  // Cập nhật số lượng (debounced cho logged-in users)
+  const updateQuantityInternal = useCallback(
+    async (id: string, color: string, size: string, quantity: number) => {
       try {
-        // Find the cart item ID from the local state
-        const cartItem = cartItems.find(
-          (item) => item.id === id && item.color === color && item.size === size
+        if (quantity <= 0) {
+          await removeFromCart(id, color, size);
+          return;
+        }
+
+        // Lưu trạng thái gốc để khôi phục nếu cần
+        const originalItems = [...cartItems];
+        const updatedItems = cartItems.map((item) =>
+          item.id === id && item.color === color && item.size === size
+            ? { ...item, quantity }
+            : item
         );
 
-        if (cartItem && cartItem.cartItemId) {
-          if (quantity <= 0) {
-            await CartService.removeCartItem(cartItem.cartItemId);
-          } else {
-            await CartService.updateCartItem(cartItem.cartItemId, quantity);
-          }
+        // Cập nhật UI ngay lập tức
+        setCartItems(updatedItems);
+        const newCount = updatedItems.reduce(
+          (sum, item) => sum + item.quantity,
+          0
+        );
+        setCartCount(newCount);
+        dispatchCartEvent(newCount, updatedItems);
 
-          // Refresh cart from server
-          const cartData = await CartService.getCart();
-          setCartItems(cartData.items);
-          setCartCount(cartData.totalItems);
+        if (isLoggedIn) {
+          const itemToUpdate = originalItems.find(
+            (item) =>
+              item.id === id && item.color === color && item.size === size
+          );
+          if (itemToUpdate?.cartItemId) {
+            await CartService.updateCartItem(itemToUpdate.cartItemId, quantity);
+            await refreshCart(); // Đồng bộ với server
+          }
+        } else {
+          updateLocalCartQuantity(id, color, size, quantity);
         }
       } catch (error) {
         console.error("Failed to update quantity:", error);
-        // Fallback to local cart
-        const updatedCart = updateLocalCartQuantity(id, color, size, quantity);
-        setCartItems(updatedCart);
-        setCartCount(getCartItemCount());
+        setCartItems(cartItems); // Revert to original items
+        setCartCount(cartItems.reduce((sum, item) => sum + item.quantity, 0));
+        dispatchCartEvent();
+        throw error; // Ném lỗi để xử lý ở CartPageClient
       }
-    } else {
-      // Not authenticated, use local cart
-      const updatedCart = updateLocalCartQuantity(id, color, size, quantity);
-      setCartItems(updatedCart);
-      setCartCount(getCartItemCount());
-    }
+    },
+    [cartItems, isLoggedIn, removeFromCart, dispatchCartEvent, refreshCart]
+  );
 
-    // For compatibility with existing code
-    const event = new CustomEvent("cart-updated", {
-      detail: {
-        count: isLoggedIn ? await getServerCartCount() : getCartItemCount(),
-      },
-    });
-    window.dispatchEvent(event);
-  };
-
-  const clearCart = async () => {
-    if (isLoggedIn) {
-      try {
-        await CartService.clearCart();
-        setCartItems([]);
-        setCartCount(0);
-      } catch (error) {
-        console.error("Failed to clear cart:", error);
-        // Fallback to local cart
-        clearLocalCart();
-        setCartItems([]);
-        setCartCount(0);
+  // Debounce updateQuantity cho logged-in users để giảm API calls
+  const updateQuantity = useCallback(
+    (...args: [string, string, string, number]): Promise<void> => {
+      if (isLoggedIn) {
+        return new Promise((resolve, reject) => {
+          debounce((...debounceArgs: [string, string, string, number]) => {
+            updateQuantityInternal(...debounceArgs)
+              .then(resolve)
+              .catch(reject);
+          }, 500)(...args);
+        });
+      } else {
+        return updateQuantityInternal(...args);
       }
-    } else {
-      // Not authenticated, use local cart
-      clearLocalCart();
+    },
+    [updateQuantityInternal, isLoggedIn]
+  );
+
+  // Xóa toàn bộ giỏ hàng
+  const clearCart = useCallback(async () => {
+    try {
       setCartItems([]);
       setCartCount(0);
-    }
-
-    // For compatibility with existing code
-    const event = new CustomEvent("cart-updated", {
-      detail: { count: 0 },
-    });
-    window.dispatchEvent(event);
-  };
-
-  const handleUpdateQuantity = async (cartItem: CartItem, quantity: number) => {
-    try {
-      // Trước tiên, cập nhật UI ngay lập tức cho phản hồi tức thì
-      const updatedItems = cartItems.map((item) => {
-        if (
-          item.id === cartItem.id &&
-          item.color === cartItem.color &&
-          item.size === cartItem.size
-        ) {
-          return { ...item, quantity };
-        }
-        return item;
-      });
-
-      // Xóa item khỏi danh sách nếu quantity = 0
-      const optimisticItems =
-        quantity === 0
-          ? updatedItems.filter(
-              (item) =>
-                !(
-                  item.id === cartItem.id &&
-                  item.color === cartItem.color &&
-                  item.size === cartItem.size
-                )
-            )
-          : updatedItems;
-
-      // Cập nhật UI ngay
-      setCartItems(optimisticItems);
-      setCartCount(
-        optimisticItems.reduce((sum, item) => sum + item.quantity, 0)
-      );
-
-      // Sau đó gọi API
-      if (quantity === 0) {
-        if (isLoggedIn && cartItem.cartItemId) {
-          await CartService.removeCartItem(cartItem.cartItemId);
-        } else {
-          removeFromLocalCart(cartItem.id, cartItem.color, cartItem.size);
-        }
+      if (isLoggedIn) {
+        await CartService.clearCart();
       } else {
-        if (isLoggedIn && cartItem.cartItemId) {
-          await CartService.updateCartItem(cartItem.cartItemId, quantity);
-        } else {
-          updateLocalCartQuantity(
-            cartItem.id,
-            cartItem.color,
-            cartItem.size,
-            quantity
-          );
-        }
+        clearLocalCart();
       }
-
-      // Fetch lại dữ liệu sau khi API hoàn tất để đảm bảo đồng bộ
-      if (isLoggedIn) {
-        const cartData = await CartService.getCart();
-        setCartItems(cartData.items);
-        setCartCount(cartData.totalItems);
-      }
+      dispatchCartEvent(0);
     } catch (error) {
-      console.error("Error updating cart item:", error);
-      // Khôi phục lại dữ liệu ban đầu nếu API gặp lỗi
-      if (isLoggedIn) {
-        const cartData = await CartService.getCart();
-        setCartItems(cartData.items);
-        setCartCount(cartData.totalItems);
-      }
+      console.error("Failed to clear cart:", error);
+      await refreshCart(); // Revert on error
     }
-  };
+  }, [isLoggedIn, dispatchCartEvent, refreshCart]);
 
-  // Helper method to get cart count from server
-  const getServerCartCount = async (): Promise<number> => {
-    try {
-      const cartData = await CartService.getCart();
-      return cartData.totalItems;
-    } catch (error) {
-      console.error("Failed to get cart count:", error);
-      return getCartItemCount();
-    }
-  };
+  // Cập nhật số lượng từ cartItem object
+  const handleUpdateQuantity = useCallback(
+    async (cartItem: CartItem, quantity: number) => {
+      try {
+        await updateQuantity(
+          cartItem.id,
+          cartItem.color || "",
+          cartItem.size || "",
+          quantity
+        );
+      } catch (error) {
+        console.error("Error updating cart item:", error);
+        // Lỗi được xử lý ở CartPageClient qua showToast
+      }
+    },
+    [updateQuantity]
+  );
+
+  // Memoize context value để tránh rerender không cần thiết
+  const contextValue = useMemo(
+    () => ({
+      cartItems,
+      cartCount,
+      loading,
+      addToCart,
+      removeFromCart,
+      updateQuantity,
+      clearCart,
+      handleUpdateQuantity,
+      refreshCart,
+    }),
+    [
+      cartItems,
+      cartCount,
+      loading,
+      addToCart,
+      removeFromCart,
+      updateQuantity,
+      clearCart,
+      handleUpdateQuantity,
+      refreshCart,
+    ]
+  );
 
   return (
-    <CartContext.Provider
-      value={{
-        cartItems,
-        cartCount,
-        loading,
-        addToCart,
-        removeFromCart,
-        updateQuantity,
-        clearCart,
-        handleUpdateQuantity,
-      }}
-    >
-      {children}
-    </CartContext.Provider>
+    <CartContext.Provider value={contextValue}>{children}</CartContext.Provider>
   );
 };

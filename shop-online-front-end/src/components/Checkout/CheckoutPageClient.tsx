@@ -130,15 +130,6 @@ export default function CheckoutPage() {
       const loggedIn = AuthService.isLoggedIn();
       setIsLoggedIn(loggedIn);
       setLoading(false);
-
-      if (!loggedIn) {
-        // Save current checkout parameters to redirect back after login
-        const params = new URLSearchParams(searchParams.toString());
-        const returnUrl = `/checkout?${params.toString()}`;
-
-        // Redirect to login with return URL
-        router.push(`/login?returnUrl=${encodeURIComponent(returnUrl)}`);
-      }
     };
 
     checkAuth();
@@ -269,7 +260,7 @@ export default function CheckoutPage() {
 
   // Tự động tính phí vận chuyển khi thông tin địa chỉ thay đổi
   useEffect(() => {
-    if (isLoggedIn && !loading && shippingInfo.city) {
+    if (!loading && shippingInfo.city) {
       calculateShippingFee();
     }
   }, [shippingInfo.city, isLoggedIn, loading, calculateShippingFee]);
@@ -384,6 +375,7 @@ export default function CheckoutPage() {
         shippingDistrict: shippingInfo.district,
         shippingCity: shippingInfo.city,
       };
+      console.log("Order payload:", orderPayload);
 
       // Gọi API để đặt hàng
       const response = await OrderService.placeOrder(orderPayload);
@@ -429,10 +421,6 @@ export default function CheckoutPage() {
       setSubmitting(false);
     }
   };
-
-  if (!isLoggedIn) {
-    return null;
-  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -500,7 +488,7 @@ export default function CheckoutPage() {
           <div className="flex justify-center items-center py-32">
             <LoadingSpinner size="lg" text="Đang tải thông tin thanh toán..." />
           </div>
-        ) : !isLoggedIn ? null : (
+        ) : (
           <form
             onSubmit={handlePlaceOrder}
             className="grid grid-cols-1 lg:grid-cols-3 gap-8"

@@ -26,7 +26,8 @@ interface AccountData {
 
 export default function AccountPageClient() {
   const searchParams = useSearchParams();
-  const { isLoggedIn, isLoading, logout, isAdmin } = useAuth("/login");
+  const { isLoggedIn, isLoading, logout, isAdmin, isEmployee } =
+    useAuth("/login");
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([
     { label: "Trang chủ", href: "/" },
     { label: "Tài khoản của tôi", href: "/account" },
@@ -295,9 +296,10 @@ export default function AccountPageClient() {
 
         <div className="flex gap-4 items-center mb-8">
           <h1 className="text-3xl font-bold">Tài khoản của tôi</h1>
-          {isAdmin && (
+          {/* Hiển thị link quản trị dựa vào role */}
+          {(isAdmin || isEmployee) && (
             <Link
-              href="/admin"
+              href={isAdmin ? "/admin" : "/admin/users"}
               className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 transition flex items-center gap-2"
             >
               <svg
@@ -312,7 +314,7 @@ export default function AccountPageClient() {
                   clipRule="evenodd"
                 />
               </svg>
-              Quản trị viên
+              {isAdmin ? "Quản trị viên" : "Nhân viên"}
             </Link>
           )}
         </div>

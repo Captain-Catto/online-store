@@ -36,19 +36,31 @@ export const OrderService = {
     try {
       console.log(`Getting order details for order ID ${orderId}...`);
 
-      const response = await AuthClient.fetchWithAuth(
-        `${API_BASE_URL}/orders/${orderId}`
-      );
+      const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-      const responseJson = await response.json();
-
+      console.log(`Order API response`, response);
+      const responseText = await response.text();
+      console.log("Response text:", responseText);
+      let responseJson;
+      try {
+        responseJson = JSON.parse(responseText);
+      } catch (err) {
+        console.error("Failed to parse response as JSON:", err);
+        throw new Error(`Invalid response format: ${responseText}`);
+      }
+      // Kiểm tra status code
       if (!response.ok) {
-        const errorText = await response.text();
         throw new Error(
-          `Error ${response.status}: ${errorText || response.statusText}`
+          responseJson.message ||
+            `Error ${response.status}: ${response.statusText}`
         );
       }
-
+      // Trả về dữ liệu đã parse
       return await responseJson;
     } catch (error) {
       console.error(`Error fetching order ${orderId}:`, error);
@@ -58,40 +70,39 @@ export const OrderService = {
 
   placeOrder: async (orderData: OrderCreate): Promise<OrderFullResponse> => {
     try {
-      console.log("Sending order data:", JSON.stringify(orderData)); // Log dữ liệu gửi đi
+      console.log("Sending order data:", JSON.stringify(orderData));
 
-      const response = await AuthClient.fetchWithAuth(
-        `${API_BASE_URL}/orders`,
-        {
-          method: "POST",
-          body: JSON.stringify(orderData),
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}/orders`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(orderData),
+      });
 
       // Log đầy đủ response để debug
-      console.log(`Order API response status: ${response.status}`);
+      console.log(`Order API response`, response);
       const responseText = await response.text();
-      console.log(`Response body: ${responseText}`);
+      console.log("Response text:", responseText);
 
-      if (!response.ok) {
-        let errorMessage = `Error ${response.status}`;
-        try {
-          // Thử parse JSON
-          const errorData = JSON.parse(responseText);
-          if (errorData && errorData.message) {
-            errorMessage = errorData.message;
-          }
-        } catch {
-          // Nếu không phải JSON, dùng text gốc
-          errorMessage = responseText || response.statusText;
-        }
-
-        throw new Error(errorMessage);
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (err) {
+        console.error("Failed to parse response as JSON:", err);
+        throw new Error(`Invalid response format: ${responseText}`);
       }
 
-      // Parse lại JSON từ text đã đọc
-      const data = JSON.parse(responseText);
-      return data;
+      // Kiểm tra status code
+      if (!response.ok) {
+        throw new Error(
+          responseData.message ||
+            `Error ${response.status}: ${response.statusText}`
+        );
+      }
+
+      // Trả về dữ liệu đã parse
+      return responseData;
     } catch (error) {
       console.error("Error placing order:", error);
       throw error;

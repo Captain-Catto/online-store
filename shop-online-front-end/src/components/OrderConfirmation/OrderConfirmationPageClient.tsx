@@ -78,7 +78,7 @@ export default function OrderConfirmationPage() {
         console.log("Order data:", order);
         setOrderData({
           ...order,
-          phoneNumber: order.shippingPhoneNumber || "", // Ensure phoneNumber is included
+          phoneNumber: order.shippingPhoneNumber || "",
           orderDetails: (order.orderDetails || []).map((detail) => ({
             ...detail,
             product: {
@@ -175,9 +175,23 @@ export default function OrderConfirmationPage() {
                 <h2 className="text-3xl font-bold text-green-600 mb-2">
                   Đặt hàng thành công!
                 </h2>
-                <p className="text-gray-600 mb-4">
-                  Cảm ơn bạn đã mua hàng. Đơn hàng của bạn đang được xử lý.
-                </p>
+                {/* nếu ng dùng đăng nhập thì hiển thị */}
+                {orderData.userId ? (
+                  <p className="text-gray-600">
+                    Cảm ơn bạn đã mua hàng. Đơn hàng của bạn đang được xử lý.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-gray-600 mb-4">
+                      Cảm ơn bạn đã mua hàng.
+                    </p>
+                    <p className="text-gray-600 mb-4">
+                      Đơn hàng của bạn sẽ được nhân viên gọi điện xác nhận để
+                      giao hàng.
+                    </p>
+                  </>
+                )}
+                {/* Hiển thị mã đơn hàng */}
                 <p className="text-lg font-medium">
                   Mã đơn hàng:{" "}
                   <span className="text-black">{orderData.id}</span>
@@ -190,12 +204,16 @@ export default function OrderConfirmationPage() {
                   >
                     Tiếp tục mua sắm
                   </Link>
-                  <Link
-                    href="/account/orders"
-                    className="px-6 py-3 border border-black rounded hover:bg-gray-100 transition"
-                  >
-                    Xem tất cả đơn hàng
-                  </Link>
+
+                  {/* nếu có người dùng trả về ở response mới hiển thị xem tất cả đơn hàng*/}
+                  {orderData.userId && (
+                    <Link
+                      href="/account?tab=orders"
+                      className="px-6 py-3 border border-black rounded hover:bg-gray-100 transition"
+                    >
+                      Xem tất cả đơn hàng
+                    </Link>
+                  )}
                 </div>
               </div>
 

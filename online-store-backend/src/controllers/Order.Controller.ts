@@ -30,13 +30,11 @@ export const createOrder = async (
       shippingDistrict,
       shippingCity,
     } = req.body;
-
-    if (!req.user) {
-      res.status(401).json({ message: "Unauthorized" });
-      return;
-    }
+    console.log("bắt đầu tạo đơn hàng");
+    // đổi flow, người dùng không đăng nhập vẫn có thể đặt hàng
     // Lấy user ID từ token
-    const userId = req.user.id;
+    const userId = req.user?.id || null;
+    console.log("userId", userId);
 
     if (!items || !items.length) {
       await t.rollback();
@@ -398,13 +396,6 @@ export const getOrderById = async (
 ): Promise<void> => {
   try {
     const orderId = parseInt(req.params.id);
-    // Kiểm tra và xác nhận user tồn tại
-    if (!req.user) {
-      res.status(401).json({ message: "Unauthorized" });
-      return;
-    }
-
-    const userId = req.user.id;
 
     const order = await Order.findByPk(orderId, {
       include: [
@@ -429,17 +420,6 @@ export const getOrderById = async (
 
     if (!order) {
       res.status(404).json({ message: "Đơn hàng không tồn tại" });
-      return;
-    }
-
-    // Kiểm tra quyền truy cập
-    // Nếu không phải admin và không phải đơn hàng của người dùng đó
-    if (
-      req.user.role !== 1 &&
-      req.user.role !== 2 &&
-      order.userId !== req.user.id
-    ) {
-      res.status(403).json({ message: "Bạn không có quyền xem đơn hàng này" });
       return;
     }
 
