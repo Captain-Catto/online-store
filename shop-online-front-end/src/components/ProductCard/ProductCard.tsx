@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import SizeSelector from "./SizeSelector";
@@ -30,6 +30,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [secondaryImageLoaded, setSecondaryImageLoaded] = useState(false);
+  const [isSelectorReady, setIsSelectorReady] = useState(false);
 
   const currentVariant: VariantDetail | null =
     product.variants && selectedColor in product.variants
@@ -55,6 +56,25 @@ const ProductCard: React.FC<ProductCardProps> = ({
     pink: "#FFC0CB",
     orange: "#FFA500",
   };
+
+  // Theo dõi trạng thái hover và update trạng thái sẵn sàng
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+
+    if (isHovered) {
+      // Đặt delay để animate hoàn tất trước khi cho phép tương tác
+      timer = setTimeout(() => {
+        setIsSelectorReady(true);
+      }, 300); // Đợi 300ms để animation hoàn thành
+    } else {
+      // Reset lại trạng thái khi không hover
+      setIsSelectorReady(false);
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [isHovered]);
 
   const handleProductAdded = (
     product: SimpleProduct,
@@ -157,6 +177,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
         <div
           className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[80%] max-w-[90%] backdrop-blur-2xl bg-white/40 rounded-lg text-white text-center p-3 opacity-0 transition-all duration-500 ease-in-out z-[9] ${
             isHovered && imageLoaded ? "opacity-100 bottom-[30px]" : ""
+          } ${
+            !isSelectorReady ? "pointer-events-none" : "pointer-events-auto"
           }`}
         >
           <SizeSelector
