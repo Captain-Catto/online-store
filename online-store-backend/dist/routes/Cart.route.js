@@ -4,12 +4,12 @@ const express_1 = require("express");
 const Cart_controller_1 = require("../controllers/Cart.controller");
 const authMiddleware_1 = require("../middlewares/authMiddleware");
 const router = (0, express_1.Router)();
-// Tất cả routes đều yêu cầu đăng nhập
+// Kiểm tra tồn kho cho sản phẩm trong giỏ hàng
+router.post("/check-stock", Cart_controller_1.checkStockAvailability);
+// Tất cả routes ở dưới đều yêu cầu đăng nhập
 router.use(authMiddleware_1.authMiddleware);
 // Lấy giỏ hàng của user hiện tại
 router.get("/", Cart_controller_1.getUserCart);
-// Kiểm tra tồn kho cho sản phẩm trong giỏ hàng
-router.post("/check-stock", Cart_controller_1.checkStockAvailability);
 // Thêm sản phẩm vào giỏ hàng
 router.post("/items", Cart_controller_1.addItemToCart);
 // Cập nhật số lượng sản phẩm

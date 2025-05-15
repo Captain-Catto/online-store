@@ -18,8 +18,9 @@ Order.init({
     },
     userId: {
         type: sequelize_1.DataTypes.INTEGER,
-        allowNull: false,
+        allowNull: true,
         references: { model: Users_1.default, key: "id" },
+        onDelete: "SET NULL",
     },
     total: {
         type: sequelize_1.DataTypes.FLOAT,

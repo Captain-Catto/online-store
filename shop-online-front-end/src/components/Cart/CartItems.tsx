@@ -16,8 +16,8 @@ interface CartItemsProps {
     newQuantity: number,
     color: string,
     size: string
-  ) => void;
-  onRemove: (itemId: string, color: string, size: string) => void;
+  ) => Promise<void>;
+  onRemove: (itemId: string, color: string, size: string) => Promise<void>;
 }
 
 export default function CartItems({

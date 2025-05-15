@@ -36,7 +36,7 @@ Users.init({
         type: sequelize_1.DataTypes.INTEGER,
         allowNull: false,
         references: { model: Role_1.default, key: "id" },
-        defaultValue: 2,
+        defaultValue: 3,
     },
     phoneNumber: {
         type: sequelize_1.DataTypes.STRING,
@@ -54,6 +54,7 @@ Users.init({
 }, {
     sequelize: db_1.default,
     modelName: "Users",
+    tableName: "users",
 });
 // export class Users
 exports.default = Users;

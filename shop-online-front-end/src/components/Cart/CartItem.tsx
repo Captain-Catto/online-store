@@ -29,7 +29,9 @@ export default function CartItem({
   onRemove,
 }: CartItemProps) {
   // state để lưu giá trị hiện tại của input số lượng
-  const [inputQuantity, setInputQuantity] = useState(item.quantity);
+  const [inputQuantity, setInputQuantity] = useState<number | string>(
+    item.quantity
+  );
   // Thêm state loading cho quantity và remove
   const [isQuantityLoading, setIsQuantityLoading] = useState(false);
   const [isRemoveLoading, setIsRemoveLoading] = useState(false);
@@ -49,14 +51,15 @@ export default function CartItem({
 
   // chỉ gọi api khi ng dùng blur (bấm ra ngoài input)
   const handleInputBlur = async () => {
-    // kiểm tra giá trị hợp lệ
     const validQuantity =
-      inputQuantity === "" ? 1 : Math.max(Math.round(Number(inputQuantity)), 1);
+      inputQuantity === "" || inputQuantity === undefined
+        ? 1
+        : Math.max(Math.round(Number(inputQuantity)), 1);
 
-    // cập nhật state local
+    // Cập nhật state local
     setInputQuantity(validQuantity);
 
-    // chỉ gọi API nếu giá trị thay đổi
+    // Chỉ gọi API nếu giá trị thay đổi
     if (validQuantity !== item.quantity) {
       setIsQuantityLoading(true);
       try {

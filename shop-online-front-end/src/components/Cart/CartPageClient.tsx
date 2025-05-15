@@ -60,30 +60,25 @@ export default function CartPageClient() {
       if (cartItem) {
         try {
           await handleUpdateQuantity(cartItem, newQuantity);
-          return true;
         } catch {
           showToast("Không thể cập nhật số lượng. Vui lòng thử lại sau.", {
             type: "error",
           });
-          return false;
         }
       }
-      return false;
     },
     [cartItems, handleUpdateQuantity, showToast]
   );
 
   // Xử lý xóa sản phẩm
   const handleRemoveItem = useCallback(
-    async (itemId: string, color: string, size: string) => {
+    async (itemId: string, color: string, size: string): Promise<void> => {
       try {
         await removeFromCart(itemId, color, size);
-        return true;
       } catch {
         showToast("Không thể xóa sản phẩm. Vui lòng thử lại sau.", {
           type: "error",
         });
-        return false;
       }
     },
     [removeFromCart, showToast]

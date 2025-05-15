@@ -6,8 +6,8 @@ const OrderEdit_controller_1 = require("../controllers/OrderEdit.controller");
 const authMiddleware_1 = require("../middlewares/authMiddleware");
 const roleMiddleware_1 = require("../middlewares/roleMiddleware");
 const router = (0, express_1.Router)();
-// Tạo đơn hàng mới (cần đăng nhập)
-router.post("/", authMiddleware_1.authMiddleware, Order_Controller_1.createOrder);
+// Tạo đơn hàng mới (ko cần đăng nhập)
+router.post("/", Order_Controller_1.createOrder);
 // ADMIN ROUTES (Tất cả đều yêu cầu quyền admin)
 // Lấy tất cả đơn hàng (Admin)
 router.get("/admin/all", authMiddleware_1.authMiddleware, (0, roleMiddleware_1.permissionMiddleware)([roleMiddleware_1.Permission.VIEW_FULL_ORDERS]), OrderEdit_controller_1.getAllOrders);
@@ -18,7 +18,7 @@ router.get("/my-orders", authMiddleware_1.authMiddleware, Order_Controller_1.get
 // Lấy danh sách đơn hàng của người dùng theo ID (Admin)
 router.get("/user/:userId", authMiddleware_1.authMiddleware, (0, roleMiddleware_1.roleMiddleware)([1, 2]), Order_Controller_1.getUserOrdersByAdmin);
 // Lấy chi tiết đơn hàng theo ID
-router.get("/:id", authMiddleware_1.authMiddleware, Order_Controller_1.getOrderById);
+router.get("/:id", Order_Controller_1.getOrderById);
 // Cập nhật trạng thái đơn hàng
 router.put("/:id/status", authMiddleware_1.authMiddleware, (0, roleMiddleware_1.roleMiddleware)([1, 2]), OrderEdit_controller_1.updateOrderStatus);
 // Cập nhật trạng thái thanh toán

@@ -254,7 +254,7 @@ const getUserById = async (req, res) => {
                         sequelize_1.Sequelize.literal(`(
               SELECT COUNT(*)
               FROM orders
-              WHERE orders.userId = Users.id
+              WHERE orders.userId = users.id
             )`),
                         "totalOrders",
                     ],
@@ -370,7 +370,7 @@ const getAllUsers = async (req, res) => {
                         sequelize_1.Sequelize.literal(`(
               SELECT COUNT(*)
               FROM orders
-              WHERE orders.userId = Users.id
+              WHERE orders.userId = users.id
             )`),
                         "totalOrders",
                     ],
