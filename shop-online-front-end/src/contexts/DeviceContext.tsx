@@ -6,9 +6,9 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-import { AuthService } from "@/services/AuthService";
 
 interface DeviceContextType {
+  isMiniMobile: boolean;
   isMobile: boolean;
   isTablet: boolean;
   isLaptop: boolean;
@@ -16,6 +16,7 @@ interface DeviceContextType {
 }
 
 const DeviceContext = createContext<DeviceContextType>({
+  isMiniMobile: false,
   isMobile: false,
   isTablet: false,
   isLaptop: true,
@@ -24,6 +25,7 @@ const DeviceContext = createContext<DeviceContextType>({
 
 export function DeviceProvider({ children }: { children: ReactNode }) {
   const [deviceType, setDeviceType] = useState({
+    isMiniMobile: false,
     isMobile: false,
     isTablet: false,
     isLaptop: true,
@@ -34,6 +36,7 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     const handleResize = () => {
       const width = window.innerWidth;
       setDeviceType({
+        isMiniMobile: width < 576,
         isMobile: width < 768,
         isTablet: width >= 768 && width < 992,
         isLaptop: width >= 992 && width < 1200,
@@ -49,18 +52,6 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
 
     // Cleanup
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  useEffect(() => {
-    async function initializeAuth() {
-      try {
-        await AuthService.initAuth();
-      } catch (error) {
-        console.error("Lỗi khởi tạo xác thực:", error);
-      }
-    }
-
-    initializeAuth();
   }, []);
 
   return (

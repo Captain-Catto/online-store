@@ -135,7 +135,12 @@ const MenuToggle: React.FC = () => {
                         {item.children?.map((child) => (
                           <Link
                             key={child.id}
-                            href={child.link || "#"}
+                            href={
+                              child.link ||
+                              (child.category?.slug
+                                ? `/category/${child.category.slug}`
+                                : `/category/${child.slug || ""}`)
+                            }
                             className="block px-8 py-2 text-gray-600 hover:text-black"
                             onClick={toggleMenu}
                           >
@@ -146,7 +151,12 @@ const MenuToggle: React.FC = () => {
                     </>
                   ) : (
                     <Link
-                      href={item.link || "#"}
+                      href={
+                        item.link ||
+                        (item.category?.slug
+                          ? `/category/${item.category.slug}`
+                          : `/category/${item.slug || ""}`)
+                      }
                       className="block px-4 py-3 hover:bg-gray-50 font-medium"
                       onClick={toggleMenu}
                     >

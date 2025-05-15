@@ -6,6 +6,7 @@ import Link from "next/link";
 import SizeSelector from "./SizeSelector";
 import { useToast } from "@/utils/useToast";
 import { SimpleProduct, VariantDetail } from "@/types/product";
+import { useDevice } from "@/contexts/DeviceContext";
 
 interface ProductCardProps {
   product: SimpleProduct;
@@ -25,6 +26,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   secondaryImage,
   onColorSelect,
 }) => {
+  const { isMiniMobile } = useDevice();
   const [isHovered, setIsHovered] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [secondaryImageLoaded, setSecondaryImageLoaded] = useState(false);
@@ -60,19 +62,28 @@ const ProductCard: React.FC<ProductCardProps> = ({
     size: string
   ) => {
     try {
-      showToast(`Đã thêm vào giỏ hàng thành công!`, {
-        type: "cart",
-        product: {
-          name: product.name,
-          image: productImage,
-          color,
-          size,
-          quantity: 1,
-          price,
-          originalPrice,
-        },
-        duration: 4000,
-      });
+      if (isMiniMobile) {
+        // Trên mobile: chỉ hiển thị thông báo đơn giản
+        showToast(`Đã thêm vào giỏ hàng thành công!`, {
+          type: "success",
+          duration: 2000,
+        });
+      } else {
+        // Trên desktop: hiển thị đầy đủ chi tiết sản phẩm
+        showToast(`Đã thêm vào giỏ hàng thành công!`, {
+          type: "cart",
+          product: {
+            name: product.name,
+            image: productImage,
+            color,
+            size,
+            quantity: 1,
+            price,
+            originalPrice,
+          },
+          duration: 4000,
+        });
+      }
     } catch (error) {
       console.error("Lỗi hiển thị toast:", error);
     }
