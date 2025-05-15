@@ -82,28 +82,19 @@ const ProductCard: React.FC<ProductCardProps> = ({
     size: string
   ) => {
     try {
-      if (isMiniMobile) {
-        // Trên mobile: chỉ hiển thị thông báo đơn giản
-        showToast(`Đã thêm vào giỏ hàng thành công!`, {
-          type: "success",
-          duration: 2000,
-        });
-      } else {
-        // Trên desktop: hiển thị đầy đủ chi tiết sản phẩm
-        showToast(`Đã thêm vào giỏ hàng thành công!`, {
-          type: "cart",
-          product: {
-            name: product.name,
-            image: productImage,
-            color,
-            size,
-            quantity: 1,
-            price,
-            originalPrice,
-          },
-          duration: 4000,
-        });
-      }
+      showToast(`Đã thêm vào giỏ hàng thành công!`, {
+        type: "cart",
+        product: {
+          name: product.name,
+          image: productImage,
+          color,
+          size,
+          quantity: 1,
+          price,
+          originalPrice,
+        },
+        duration: 4000,
+      });
     } catch (error) {
       console.error("Lỗi hiển thị toast:", error);
     }
@@ -174,20 +165,23 @@ const ProductCard: React.FC<ProductCardProps> = ({
           )}
         </Link>
         {/* Size selector hiển thị đè lên hình ảnh */}
-        <div
-          className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[80%] max-w-[90%] backdrop-blur-2xl bg-white/40 rounded-lg text-white text-center p-3 opacity-0 transition-all duration-500 ease-in-out z-[9] ${
-            isHovered && imageLoaded ? "opacity-100 bottom-[30px]" : ""
-          } ${
-            !isSelectorReady ? "pointer-events-none" : "pointer-events-auto"
-          }`}
-        >
-          <SizeSelector
-            product={product}
-            selectedColor={selectedColor}
-            productImage={productImage}
-            onProductAdded={handleProductAdded}
-          />
-        </div>
+        {/* nếu isMiniMobile đúng thì ẩn đi */}
+        {!isMiniMobile && (
+          <div
+            className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[80%] max-w-[90%] backdrop-blur-2xl bg-white/40 rounded-lg text-white text-center p-3 opacity-0 transition-all duration-500 ease-in-out z-[9] ${
+              isHovered && imageLoaded ? "opacity-100 bottom-[30px]" : ""
+            } ${
+              !isSelectorReady ? "pointer-events-none" : "pointer-events-auto"
+            }`}
+          >
+            <SizeSelector
+              product={product}
+              selectedColor={selectedColor}
+              productImage={productImage}
+              onProductAdded={handleProductAdded}
+            />
+          </div>
+        )}
       </div>
 
       {/* Thông tin sản phẩm */}
