@@ -115,11 +115,13 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                   const selectedCategory = categoryList.find(
                     (c) => c.id.toString() === selectedCategoryId
                   );
+
+                  // Cập nhật category và reset subtype
                   setProduct({
                     ...product,
                     category: selectedCategoryId,
                     categoryName: selectedCategory ? selectedCategory.name : "",
-                    subtype: "",
+                    subtype: "", // Reset subtype khi thay đổi category
                     subtypeName: "",
                   });
                 }}
@@ -146,14 +148,30 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                 value={product.subtype}
                 onChange={(e) => {
                   const selectedSubtypeId = e.target.value;
-                  const selectedSubtype = subtypes.find(
-                    (s) => s.id.toString() === selectedSubtypeId
-                  );
-                  setProduct({
-                    ...product,
-                    subtype: selectedSubtypeId,
-                    subtypeName: selectedSubtype ? selectedSubtype.name : "",
-                  });
+                  // Chỉ thiết lập giá trị khi có lựa chọn
+                  if (selectedSubtypeId) {
+                    const selectedSubtype = subtypes.find(
+                      (s) => s.id.toString() === selectedSubtypeId
+                    );
+
+                    setProduct({
+                      ...product,
+                      subtype: selectedSubtypeId,
+                      subtypeName: selectedSubtype ? selectedSubtype.name : "",
+                    });
+
+                    console.log(
+                      "Selected subtype:",
+                      selectedSubtypeId,
+                      selectedSubtype?.name
+                    );
+                  } else {
+                    setProduct({
+                      ...product,
+                      subtype: "",
+                      subtypeName: "",
+                    });
+                  }
                 }}
                 disabled={subtypeLoading || !product.category}
               >

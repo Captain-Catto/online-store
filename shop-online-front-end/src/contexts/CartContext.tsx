@@ -294,9 +294,15 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
       isInitialized.current = false;
       refreshInProgress.current = false;
       loginInProgress.current = false;
+      prevIsLoggedIn.current = false; // Đặt lại trạng thái đăng nhập trước đó
 
       // Xóa cache
       sessionStorage.removeItem("cartData");
+
+      // Xóa cart từ cookie
+      clearLocalCart();
+
+      console.log("Cart reset after logout");
     };
 
     // Đăng ký lắng nghe sự kiện

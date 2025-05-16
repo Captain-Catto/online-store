@@ -61,7 +61,6 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
   tagInput,
   setTagInput,
 }) => {
-  console.log("AttributesTab availablesizes", availableSizes);
   // Hàm xử lý khi người dùng chọn/bỏ chọn size
   const handleSizeChange = useCallback(
     (size: string, checked: boolean) => {
@@ -207,24 +206,37 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
 
   // Hàm xử lý khi người dùng chọn/bỏ chọn suitability
   const handleSuitabilityChange = useCallback(
-    (suitability: string, checked: boolean) => {
+    (suitabilityId: number, checked: boolean) => {
       setProduct((prev) => {
+        if (!prev) return prev;
+
         if (checked) {
-          // Thêm suitability mới nếu chưa có
-          if (!prev.suitability.includes(suitability)) {
-            return { ...prev, suitability: [...prev.suitability, suitability] };
+          // Tìm suitability từ danh sách để thêm vào
+          const suitToAdd = suitabilities.find((s) => s.id === suitabilityId);
+          if (suitToAdd && !prev.suitability.includes(suitToAdd.name)) {
+            return {
+              ...prev,
+              suitability: [...prev.suitability, suitToAdd.name],
+            };
           }
         } else {
-          // Loại bỏ suitability
-          return {
-            ...prev,
-            suitability: prev.suitability.filter((s) => s !== suitability),
-          };
+          // Lọc bỏ suitability có ID tương ứng
+          const suitToRemove = suitabilities.find(
+            (s) => s.id === suitabilityId
+          );
+          if (suitToRemove) {
+            return {
+              ...prev,
+              suitability: prev.suitability.filter(
+                (name) => name !== suitToRemove.name
+              ),
+            };
+          }
         }
         return prev;
       });
     },
-    [setProduct]
+    [suitabilities, setProduct]
   );
 
   // Hàm chọn tất cả suitability
@@ -405,9 +417,9 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
                     type="checkbox"
                     className="form-check-input"
                     id={`suitability-${item.id}`}
-                    checked={product.suitability?.includes(item.name) ?? false}
+                    checked={product.suitability.includes(item.name)}
                     onChange={(e) =>
-                      handleSuitabilityChange(item.name, e.target.checked)
+                      handleSuitabilityChange(item.id, e.target.checked)
                     }
                   />
                   <label

@@ -4,6 +4,7 @@ import Image from "next/image";
 import logo from "@/assets/imgs/logo-coolmate-new-mobile-v2.svg";
 import { useAdminMenu, HierarchicalMenuItem } from "@/hooks/useAdminMenu";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
+import { useEffect, useState } from "react";
 
 interface AdminSidebarProps {
   openMenuIds: number[];
@@ -15,7 +16,20 @@ export default function AdminSidebar({
   toggleMenu,
 }: AdminSidebarProps) {
   const pathname = usePathname();
-  const { hierarchicalMenu, loading, error } = useAdminMenu(); // Sử dụng hook
+  const { hierarchicalMenu, loading, error } = useAdminMenu();
+  const [user, setUser] = useState<{ name: string } | null>(null);
+
+  // Đọc localStorage trong useEffect để tránh lỗi hydration
+  useEffect(() => {
+    try {
+      const userString = localStorage.getItem("user");
+      if (userString) {
+        setUser(JSON.parse(userString));
+      }
+    } catch (error) {
+      console.error("Lỗi khi đọc user từ localStorage:", error);
+    }
+  }, []);
 
   // Hàm render menu item
   const renderMenuItem = (item: HierarchicalMenuItem) => {
@@ -88,7 +102,7 @@ export default function AdminSidebar({
           </div>
           <div className="info">
             <a href="/admin/profile" className="d-block">
-              Admin
+              {user?.name || "Admin"}
             </a>
           </div>
         </div>

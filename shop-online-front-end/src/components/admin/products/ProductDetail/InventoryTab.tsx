@@ -1,5 +1,6 @@
 import React from "react";
 import { FormattedProduct } from "../ProductDetailPage";
+import { useToast } from "@/utils/useToast";
 
 // Kiểu dữ liệu cho thông tin biến thể
 interface ProductVariant {
@@ -7,33 +8,6 @@ interface ProductVariant {
   size: string;
   stock: number;
 }
-
-// Kiểu dữ liệu cho sản phẩm (đồng bộ với AddProductPage)
-// interface Product {
-//   name: string;
-//   sku: string;
-//   description: string;
-//   category: string;
-//   categoryName: string;
-//   brand: string;
-//   subtype: string;
-//   subtypeName: string;
-//   material: string;
-//   price: number;
-//   originalPrice: number;
-//   suitability: string[];
-//   stock: {
-//     total: number;
-//     variants: ProductVariant[];
-//   };
-//   colors: string[];
-//   sizes: string[];
-//   status: string;
-//   statusLabel: string;
-//   statusClass: string;
-//   featured: boolean;
-//   tags: string[];
-// }
 
 interface InventoryTabProps {
   product: FormattedProduct;
@@ -50,37 +24,101 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
   newVariant,
   setNewVariant,
 }) => {
+  const { showToast } = useToast();
+
+  // Tạo biến variants từ product.details (cấu trúc mới)
+  const variants = React.useMemo(() => {
+    return product.details.flatMap((detail) =>
+      detail.inventories.map((inv) => ({
+        color: detail.color,
+        size: inv.size,
+        stock: inv.stock,
+        detailId: detail.id,
+      }))
+    );
+  }, [product.details]);
+
+  // Tính tổng stock
+  const totalStock = React.useMemo(() => {
+    return product.details.reduce(
+      (sum, detail) =>
+        sum + detail.inventories.reduce((s, inv) => s + inv.stock, 0),
+      0
+    );
+  }, [product.details]);
+
   const handleAddVariant = () => {
     if (!newVariant.color || !newVariant.size) {
-      alert("Vui lòng chọn màu sắc và kích thước cho biến thể");
+      showToast("Vui lòng chọn màu sắc và kích thước cho biến thể", {
+        type: "error",
+      });
       return;
     }
 
-    const isDuplicate = product.stock.variants.some(
+    // Kiểm tra trùng lặp dựa trên variants từ details
+    const isDuplicate = variants.some(
       (v) => v.color === newVariant.color && v.size === newVariant.size
     );
 
     if (isDuplicate) {
-      alert("Biến thể này đã tồn tại!");
+      showToast("Biến thể này đã tồn tại!", {
+        type: "error",
+      });
       return;
     }
 
     setProduct((prev) => {
       if (!prev) return prev;
 
-      const updatedVariants = [...prev.stock.variants, { ...newVariant }];
-      const totalStock = updatedVariants.reduce(
-        (sum, item) => sum + item.stock,
-        0
+      // Tìm detail với màu tương ứng hoặc tạo mới
+      const detailWithColor = prev.details.find(
+        (d) => d.color === newVariant.color
       );
 
-      return {
-        ...prev,
-        stock: {
-          variants: updatedVariants,
-          total: totalStock,
-        },
-      };
+      if (detailWithColor) {
+        // Nếu detail với màu này đã tồn tại, thêm inventory mới
+        return {
+          ...prev,
+          details: prev.details.map((detail) => {
+            if (detail.color === newVariant.color) {
+              return {
+                ...detail,
+                inventories: [
+                  ...detail.inventories,
+                  {
+                    id: 0, // ID tạm thời
+                    size: newVariant.size,
+                    stock: newVariant.stock,
+                  },
+                ],
+              };
+            }
+            return detail;
+          }),
+        };
+      } else {
+        // Nếu chưa có màu này, tạo detail mới
+        return {
+          ...prev,
+          details: [
+            ...prev.details,
+            {
+              id: 0, // ID tạm thời
+              color: newVariant.color,
+              price: prev.details[0]?.price || 0,
+              originalPrice: prev.details[0]?.originalPrice || 0,
+              inventories: [
+                {
+                  id: 0, // ID tạm thời
+                  size: newVariant.size,
+                  stock: newVariant.stock,
+                },
+              ],
+              images: [],
+            },
+          ],
+        };
+      }
     });
 
     setNewVariant({
@@ -90,41 +128,55 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
     });
   };
 
-  const handleRemoveVariant = (index: number) => {
-    const updatedVariants = [...product.stock.variants];
-    updatedVariants.splice(index, 1);
+  const handleRemoveVariant = (variantToRemove: {
+    color: string;
+    size: string;
+  }) => {
+    setProduct((prev) => {
+      if (!prev) return prev;
 
-    const totalStock = updatedVariants.reduce(
-      (sum, item) => sum + item.stock,
-      0
-    );
-
-    setProduct({
-      ...product,
-      stock: {
-        variants: updatedVariants,
-        total: totalStock,
-      },
+      return {
+        ...prev,
+        details: prev.details
+          .map((detail) => {
+            if (detail.color === variantToRemove.color) {
+              return {
+                ...detail,
+                inventories: detail.inventories.filter(
+                  (inv) => inv.size !== variantToRemove.size
+                ),
+              };
+            }
+            return detail;
+          })
+          .filter((detail) => detail.inventories.length > 0), // Xóa details không có inventory nào
+      };
     });
   };
 
-  const handleVariantStockChange = (index: number, newStock: number) => {
-    const updatedVariants = [...product.stock.variants];
-    updatedVariants[index].stock = newStock;
-
-    const totalStock = updatedVariants.reduce(
-      (sum, item) => sum + item.stock,
-      0
-    );
-
+  const handleVariantStockChange = (
+    variantToUpdate: { color: string; size: string },
+    newStock: number
+  ) => {
     setProduct((prev) => {
-      if (!prev) return prev; // Kiểm tra null
+      if (!prev) return prev;
+
       return {
         ...prev,
-        stock: {
-          variants: updatedVariants,
-          total: totalStock,
-        },
+        details: prev.details.map((detail) => {
+          if (detail.color === variantToUpdate.color) {
+            return {
+              ...detail,
+              inventories: detail.inventories.map((inv) => {
+                if (inv.size === variantToUpdate.size) {
+                  return { ...inv, stock: newStock };
+                }
+                return inv;
+              }),
+            };
+          }
+          return detail;
+        }),
       };
     });
   };
@@ -143,12 +195,23 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
             </tr>
           </thead>
           <tbody>
-            {product.stock.variants.length > 0 ? (
-              product.stock.variants.map((variant, index) => (
+            {variants.length > 0 ? (
+              variants.map((variant, index) => (
                 <tr key={index}>
                   <td>
-                    {availableColors.find((c) => c.key === variant.color)
-                      ?.label || variant.color}
+                    <div className="d-flex align-items-center">
+                      <div
+                        style={{
+                          backgroundColor: variant.color,
+                          width: "20px",
+                          height: "20px",
+                          border: "1px solid #ddd",
+                          marginRight: "8px",
+                        }}
+                      />
+                      {availableColors.find((c) => c.key === variant.color)
+                        ?.label || variant.color}
+                    </div>
                   </td>
                   <td>{variant.size}</td>
                   <td>
@@ -158,7 +221,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                       value={variant.stock}
                       onChange={(e) =>
                         handleVariantStockChange(
-                          index,
+                          { color: variant.color, size: variant.size },
                           parseInt(e.target.value) || 0
                         )
                       }
@@ -168,7 +231,12 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                   <td>
                     <button
                       className="btn btn-sm btn-danger"
-                      onClick={() => handleRemoveVariant(index)}
+                      onClick={() =>
+                        handleRemoveVariant({
+                          color: variant.color,
+                          size: variant.size,
+                        })
+                      }
                     >
                       <i className="fas fa-trash"></i>
                     </button>
@@ -188,15 +256,73 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
               <th colSpan={2} className="text-right">
                 Tổng số lượng:
               </th>
-              <th>{product.stock.total}</th>
+              <th>{totalStock}</th>
               <th></th>
             </tr>
           </tfoot>
         </table>
       </div>
-      <button className="btn btn-primary mt-3" onClick={handleAddVariant}>
-        Thêm biến thể
-      </button>
+
+      <div className="row mt-3">
+        <div className="col-md-3">
+          <select
+            className="form-control"
+            value={newVariant.color}
+            onChange={(e) =>
+              setNewVariant({
+                ...newVariant,
+                color: e.target.value,
+              })
+            }
+          >
+            <option value="">Chọn màu sắc</option>
+            {availableColors.map((color) => (
+              <option key={color.key} value={color.key}>
+                {color.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="col-md-3">
+          <select
+            className="form-control"
+            value={newVariant.size}
+            onChange={(e) =>
+              setNewVariant({
+                ...newVariant,
+                size: e.target.value,
+              })
+            }
+          >
+            <option value="">Chọn kích thước</option>
+            {["XXS", "XS", "S", "M", "L", "XL", "XXL"].map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="col-md-3">
+          <input
+            type="number"
+            className="form-control"
+            placeholder="Số lượng"
+            value={newVariant.stock}
+            onChange={(e) =>
+              setNewVariant({
+                ...newVariant,
+                stock: parseInt(e.target.value) || 0,
+              })
+            }
+            min="0"
+          />
+        </div>
+        <div className="col-md-3">
+          <button className="btn btn-primary w-100" onClick={handleAddVariant}>
+            Thêm biến thể
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

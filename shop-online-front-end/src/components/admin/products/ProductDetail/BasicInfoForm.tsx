@@ -1,5 +1,6 @@
 import React from "react";
 import { FormattedProduct } from "../ProductDetailPage";
+import { ProductService } from "@/services/ProductService";
 
 // Kiểu dữ liệu cho danh mục
 interface Category {
@@ -111,18 +112,53 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                 className="form-control"
                 id="productCategory"
                 value={product.category}
-                onChange={(e) => {
+                onChange={async (e) => {
                   const selectedCategoryId = e.target.value;
                   const selectedCategory = categoryList.find(
                     (c) => c.id.toString() === selectedCategoryId
                   );
+
+                  // Tạo categories mới
+                  const updatedCategories = [];
+
+                  // Thêm danh mục cha mới được chọn (nếu có)
+                  if (selectedCategoryId && selectedCategory) {
+                    updatedCategories.push({
+                      id: parseInt(selectedCategoryId),
+                      name: selectedCategory.name,
+                    });
+                  }
+
                   setProduct({
                     ...product,
                     category: selectedCategoryId,
                     categoryName: selectedCategory ? selectedCategory.name : "",
-                    subtype: "",
+                    subtype: "", // Reset subtype khi thay đổi category
                     subtypeName: "",
+                    categories: updatedCategories, // Cập nhật mảng categories
                   });
+
+                  // Lấy kích thước dựa trên danh mục mới được chọn
+                  if (selectedCategoryId) {
+                    try {
+                      const sizes = await ProductService.getSizesByCategory(
+                        parseInt(selectedCategoryId)
+                      );
+                      onCategorySizesChange(
+                        sizes
+                          .filter((size) => size.active)
+                          .map((size) => ({
+                            value: size.value,
+                            label: size.displayName || size.value,
+                          }))
+                      );
+                    } catch (error) {
+                      console.error(
+                        "Không thể lấy kích thước theo danh mục:",
+                        error
+                      );
+                    }
+                  }
                 }}
                 disabled={categoryLoading}
               >
@@ -150,10 +186,41 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                   const selectedSubtype = subtypes.find(
                     (s) => s.id.toString() === selectedSubtypeId
                   );
+
+                  // Tạo categories mới với danh mục cha và con
+                  const updatedCategories = [];
+
+                  // Thêm danh mục cha (nếu có)
+                  if (product.categories.length > 0) {
+                    updatedCategories.push(product.categories[0]);
+                  }
+
+                  // Thêm hoặc cập nhật danh mục con
+                  if (selectedSubtypeId && selectedSubtype) {
+                    // Tìm vị trí danh mục con trong mảng (thường là vị trí thứ 1)
+                    const subtypeIndex = product.categories.length > 1 ? 1 : -1;
+
+                    if (subtypeIndex >= 0) {
+                      // Cập nhật danh mục con đã có
+                      updatedCategories[subtypeIndex] = {
+                        id: parseInt(selectedSubtypeId),
+                        name: selectedSubtype.name,
+                      };
+                    } else {
+                      // Thêm danh mục con mới
+                      updatedCategories.push({
+                        id: parseInt(selectedSubtypeId),
+                        name: selectedSubtype.name,
+                      });
+                    }
+                  }
+
+                  // Cập nhật product với categories mới và các trường khác
                   setProduct({
                     ...product,
                     subtype: selectedSubtypeId,
                     subtypeName: selectedSubtype ? selectedSubtype.name : "",
+                    categories: updatedCategories,
                   });
                 }}
                 disabled={subtypeLoading || !product.category}

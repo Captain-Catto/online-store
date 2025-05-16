@@ -106,18 +106,41 @@ export const AuthService = {
 
   logout: async (): Promise<void> => {
     try {
-      // Gọi API logout
-      await fetch(API_BASE_URL + "/auth/logout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include", // Quan trọng: để gửi và nhận cookies
-      });
+      // Gọi API logout với timeout để tránh chờ quá lâu
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      // Xóa cookie
-      document.cookie = `auth_status=; max-age=0; path=/`;
+      try {
+        const response = await fetch(API_BASE_URL + "/auth/logout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include", // Quan trọng: để gửi và nhận cookies
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          console.warn(`Logout API returned status ${response.status}`);
+        }
+      } catch (apiError) {
+        console.warn(
+          "API logout failed, continuing with client logout:",
+          apiError
+        );
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      // Xóa tất cả cookies liên quan đến auth
+      const cookies = ["auth_status", "refreshToken", "accessToken"];
+      cookies.forEach((cookieName) => {
+        document.cookie = `${cookieName}=; max-age=0; path=/; samesite=strict`;
+        // Nếu có domain cụ thể
+        document.cookie = `${cookieName}=; max-age=0; path=/; domain=${window.location.hostname}; samesite=strict`;
+      });
 
       // Xóa sessionStorage
       sessionStorage.removeItem("authToken");
+      sessionStorage.removeItem("cartData"); // Xóa cả cache giỏ hàng nếu có
 
       // Xóa localStorage
       localStorage.removeItem("isLoggedIn");
@@ -126,6 +149,11 @@ export const AuthService = {
       // Kích hoạt sự kiện đăng xuất thành công
       const logoutSuccessEvent = new CustomEvent("auth-logout-success");
       window.dispatchEvent(logoutSuccessEvent);
+
+      // Đảm bảo thời gian đủ để các component khác phản ứng
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      console.log("Logout completed successfully");
     } catch (error) {
       console.error("Logout failed:", error);
       // Vẫn xóa dữ liệu phía client ngay cả khi API lỗi
@@ -133,6 +161,10 @@ export const AuthService = {
       sessionStorage.removeItem("authToken");
       localStorage.removeItem("isLoggedIn");
       localStorage.removeItem("user");
+
+      // Vẫn dispatch event để các components khác cập nhật
+      const logoutErrorEvent = new CustomEvent("auth-logout-error");
+      window.dispatchEvent(logoutErrorEvent);
     }
   },
 

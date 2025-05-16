@@ -592,7 +592,7 @@ export const forgotPassword = async (
 
     // URL đặt lại mật khẩu
     const resetUrl = `${
-      process.env.CLIENT_URL || "http://localhost:3001"
+      process.env.CLIENT_URL || "http://localhost:3000"
     }/reset-password/${resetToken}`;
 
     // Gửi email

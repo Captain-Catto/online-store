@@ -1,4 +1,5 @@
 import React from "react";
+import { useToast } from "@/utils/useToast";
 
 // Kiểu dữ liệu cho thông tin biến thể
 interface ProductVariant {
@@ -51,9 +52,12 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
   newVariant,
   setNewVariant,
 }) => {
+  const { showToast } = useToast();
   const handleAddVariant = () => {
     if (!newVariant.color || !newVariant.size) {
-      alert("Vui lòng chọn màu sắc và kích thước cho biến thể");
+      showToast("Vui lòng chọn màu sắc và kích thước cho biến thể", {
+        type: "error",
+      });
       return;
     }
 
@@ -62,7 +66,9 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
     );
 
     if (isDuplicate) {
-      alert("Biến thể này đã tồn tại!");
+      showToast("Biến thể này đã tồn tại!", {
+        type: "error",
+      });
       return;
     }
 

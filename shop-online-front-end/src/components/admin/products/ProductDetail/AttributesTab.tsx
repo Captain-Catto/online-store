@@ -27,6 +27,18 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
   tagInput,
   setTagInput,
 }) => {
+  const colorExists = (colorKey: string) => {
+    return (
+      product.details?.some((detail) => detail.color === colorKey) || false
+    );
+  };
+  const sizeExists = (sizeValue: string) => {
+    return (
+      product.details?.some((detail) =>
+        detail.inventories?.some((inv) => inv.size === sizeValue)
+      ) || false
+    );
+  };
   // Hàm xử lý khi người dùng chọn/bỏ chọn size
   const handleSizeChange = useCallback(
     (size: string, checked: boolean) => {
@@ -52,27 +64,49 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
       setProduct((prev) => {
         if (!prev) return null;
 
-        if (checked && prev.colors.includes(color)) return prev;
-        if (!checked && !prev.colors.includes(color)) return prev;
+        // Kiểm tra màu đã tồn tại chưa
+        const colorAlreadyExists =
+          prev.details?.some((detail) => detail.color === color) || false;
+
+        if (checked === colorAlreadyExists) return prev; // Không cần thay đổi
 
         if (checked) {
-          return { ...prev, colors: [...prev.colors, color] };
-        } else {
-          const newColors = prev.colors.filter((c) => c !== color);
-          const newVariants = prev.stock.variants.filter(
-            (variant) => variant.color !== color
-          );
+          // Thêm màu mới
+          // Lấy size có sẵn (nếu có)
+          const existingSizes = [
+            ...new Set(
+              prev.details?.flatMap((detail) =>
+                detail.inventories?.map((inv) => inv.size)
+              ) || []
+            ),
+          ];
+
+          const defaultSizes = existingSizes.length > 0 ? existingSizes : ["M"];
+
           return {
             ...prev,
-            colors: newColors,
-            stock: {
-              ...prev.stock,
-              variants: newVariants,
-              total: newVariants.reduce(
-                (sum, variant) => sum + variant.stock,
-                0
-              ),
-            },
+            details: [
+              ...(prev.details || []),
+              {
+                id: 0, // ID tạm cho chi tiết mới
+                color: color,
+                price: prev.details?.[0]?.price || 0,
+                originalPrice: prev.details?.[0]?.originalPrice || 0,
+                inventories: defaultSizes.map((size) => ({
+                  size,
+                  stock: 0,
+                  id: 0, // ID tạm cho inventory mới
+                })),
+                images: [],
+              },
+            ],
+          };
+        } else {
+          // Xóa màu
+          return {
+            ...prev,
+            details:
+              prev.details?.filter((detail) => detail.color !== color) || [],
           };
         }
       });
@@ -145,30 +179,58 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
   const handleSelectAllColors = () => {
     setProduct((prev) => {
       if (!prev) return prev;
+
+      // Lấy danh sách màu hiện có
+      const existingColors = prev.details?.map((detail) => detail.color) || [];
+
+      // Lọc ra màu chưa có trong details
+      const colorsToAdd = availableColors
+        .map((color) => color.key)
+        .filter((color) => !existingColors.includes(color));
+
+      if (colorsToAdd.length === 0) return prev;
+
+      // Lấy sizes hiện có để áp dụng cho màu mới
+      const existingSizes = [
+        ...new Set(
+          prev.details?.flatMap((detail) =>
+            detail.inventories?.map((inv) => inv.size)
+          ) || []
+        ),
+      ];
+
+      const defaultSizes = existingSizes.length > 0 ? existingSizes : ["M"];
+
+      // Tạo details mới cho màu chưa có
+      const newDetails = colorsToAdd.map((color) => ({
+        id: 0,
+        color,
+        price: prev.details?.[0]?.price || 0,
+        originalPrice: prev.details?.[0]?.originalPrice || 0,
+        inventories: defaultSizes.map((size) => ({
+          size,
+          stock: 0,
+          id: 0,
+        })),
+        images: [],
+      }));
+
       return {
         ...prev,
-        colors: availableColors.map((color) => color.key),
-      } as FormattedProduct;
+        details: [...(prev.details || []), ...newDetails],
+      };
     });
   };
 
   // Hàm bỏ chọn tất cả màu
   const handleDeselectAllColors = () => {
     setProduct((prev) => {
-      if (!prev) return prev; // Thêm kiểm tra null
-
-      // Loại bỏ tất cả biến thể khi bỏ chọn tất cả màu
-      const newVariants = prev.stock.variants.filter(() => false);
+      if (!prev) return prev;
 
       return {
         ...prev,
-        colors: [],
-        stock: {
-          ...prev.stock,
-          variants: newVariants,
-          total: 0,
-        },
-      } as FormattedProduct; // Thêm type casting
+        details: [],
+      };
     });
   };
 
@@ -179,36 +241,39 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
         if (!prev) return prev;
 
         if (checked) {
-          // Thêm ID vào mảng nếu chưa có
-          if (!prev.suitabilities.includes(suitabilityId)) {
-            return {
-              ...prev,
-              suitabilities: [...prev.suitabilities, suitabilityId],
-            } as FormattedProduct;
+          // Kiểm tra xem ID đã tồn tại trong mảng chưa
+          if (!prev.suitabilities.some((s) => s.id === suitabilityId)) {
+            // Tìm thông tin suitability từ danh sách để thêm vào
+            const suitToAdd = suitabilities.find((s) => s.id === suitabilityId);
+            if (suitToAdd) {
+              return {
+                ...prev,
+                suitabilities: [...prev.suitabilities, suitToAdd],
+              };
+            }
           }
         } else {
-          // Xóa ID khỏi mảng
+          // Xóa suitability khỏi mảng
           return {
             ...prev,
             suitabilities: prev.suitabilities.filter(
-              (id) => id !== suitabilityId
+              (s) => s.id !== suitabilityId
             ),
-          } as FormattedProduct;
+          };
         }
         return prev;
       });
     },
-    [setProduct]
+    [suitabilities, setProduct]
   );
-
   // Hàm chọn tất cả suitability
   const handleSelectAllSuitabilities = () => {
     setProduct((prev) => {
       if (!prev) return prev;
       return {
         ...prev,
-        suitabilities: suitabilities.map((item) => item.id),
-      } as FormattedProduct;
+        suitabilities: [...suitabilities],
+      };
     });
   };
 
@@ -259,10 +324,11 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
                   type="checkbox"
                   className="form-check-input"
                   id={`color-${color.key}`}
-                  checked={product.colors.includes(color.key)}
+                  checked={colorExists(color.key)}
                   onChange={(e) =>
                     handleColorChange(color.key, e.target.checked)
                   }
+                  disabled
                 />
                 <label
                   className="form-check-label"
@@ -288,8 +354,8 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
           </div>
 
           <small className="form-text text-muted">
-            Chọn các màu sắc cho sản phẩm. Bạn sẽ cần tải lên hình ảnh cho mỗi
-            màu.
+            Không chọn ở đây, hãy qua tab &quot;biến thể&quot; và ghi tiếng anh
+            màu trong đây để xử lý.
           </small>
         </div>
       </div>
@@ -332,7 +398,7 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
                     type="checkbox"
                     className="form-check-input"
                     id={`size-${size.value}`}
-                    checked={product.sizes.includes(size.value)}
+                    checked={sizeExists(size.value)}
                     onChange={(e) =>
                       handleSizeChange(size.value, e.target.checked)
                     }
@@ -348,7 +414,7 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
               ))}
               {/* thêm dòng chữ xám */}
               <small className="form-text text-muted">
-                Nếu thêm biến thể mới, hay qua tab &quot;Biến thể&quot; để thêm
+                Nếu thêm biến thể mới, hãy qua tab &quot;biến thể&quot; để thêm
                 kích thước và số lượng sản phẩm
               </small>
             </div>
@@ -394,11 +460,11 @@ const AttributesTab: React.FC<AttributesTabProps> = ({
                     type="checkbox"
                     className="form-check-input"
                     id={`suitability-${item.id}`}
-                    checked={product.suitabilities.includes(item.id)}
-                    // Sử dụng ID trực tiếp
-                    onChange={
-                      (e: React.ChangeEvent<HTMLInputElement>) =>
-                        handleSuitabilityChange(item.id, e.target.checked) // Truyền ID
+                    checked={product.suitabilities.some(
+                      (s) => s.id === item.id
+                    )}
+                    onChange={(e) =>
+                      handleSuitabilityChange(item.id, e.target.checked)
                     }
                   />
                   <label

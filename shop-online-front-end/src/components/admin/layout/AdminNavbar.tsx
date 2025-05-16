@@ -1,10 +1,20 @@
 import Link from "next/link";
+import { AuthService } from "@/services/AuthService";
+import { useRouter } from "next/navigation";
 
 interface AdminNavbarProps {
   toggleSidebar: () => void;
 }
 
 export default function AdminNavbar({ toggleSidebar }: AdminNavbarProps) {
+  const router = useRouter();
+  // Kiểm tra quyền admin
+  // Hàm xử lý sự kiện khi nhấp vào nút "Đăng xuất"
+  const handleLogout = () => {
+    AuthService.logout();
+    // Chuyển hướng về trang đăng nhập sau khi đăng xuất
+    router.push("/login");
+  };
   return (
     <nav className="main-header navbar navbar-expand navbar-white navbar-light">
       {/* Left navbar links */}
@@ -50,9 +60,10 @@ export default function AdminNavbar({ toggleSidebar }: AdminNavbarProps) {
               <i className="fas fa-user mr-2"></i> Hồ sơ
             </Link>
             <div className="dropdown-divider"></div>
-            <Link href="/logout" className="dropdown-item">
+            {/* button đăng xuất */}
+            <button className="dropdown-item" onClick={handleLogout}>
               <i className="fas fa-sign-out-alt mr-2"></i> Đăng xuất
-            </Link>
+            </button>
           </div>
         </li>
       </ul>

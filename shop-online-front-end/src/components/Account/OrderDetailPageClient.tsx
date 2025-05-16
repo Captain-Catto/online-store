@@ -10,6 +10,7 @@ import Image from "next/image";
 import { getColorName } from "@/utils/colorUtils";
 import BreadcrumbTrail from "../Breadcrumb/BreadcrumbTrail";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
+import { API_BASE_URL } from "@/config/apiConfig";
 
 export default function OrderDetailPageClient({
   orderId,
@@ -146,7 +147,7 @@ export default function OrderDetailPageClient({
       console.log("final cancel note", finalCancelNote);
       // Gọi API hủy đơn hàng
       const response = await fetch(
-        `http://localhost:3000/api/orders/${order.id}/cancel`,
+        `${API_BASE_URL}/orders/${order.id}/cancel`,
         {
           method: "PUT",
           headers: {

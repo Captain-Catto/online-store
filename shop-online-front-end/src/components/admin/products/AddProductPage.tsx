@@ -111,7 +111,7 @@ export default function AddProductPage() {
     material: "",
     price: 0,
     originalPrice: 0,
-    suitability: [""],
+    suitability: [],
     stock: {
       total: 0,
       variants: [],
@@ -372,7 +372,7 @@ export default function AddProductPage() {
     loadSizes();
   }, [product.category, showToast, categoryList, product.sizes]);
 
-  // Các hàm xử lý (hầu hết đã tốt, thêm useCallback nếu cần)
+  // Các hàm xử lý hình ảnh
   const handleImageChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       e.preventDefault();
@@ -381,10 +381,10 @@ export default function AddProductPage() {
       if (!files || files.length === 0 || !selectedColor) return;
 
       const currentImages = colorImages[selectedColor] || [];
-      const remainingSlots = 3 - currentImages.length;
+      const remainingSlots = 10 - currentImages.length;
 
       if (remainingSlots <= 0) {
-        showToast("Mỗi màu chỉ được phép tải lên tối đa 3 hình ảnh", {
+        showToast("Mỗi màu chỉ được phép tải lên tối đa 10 hình ảnh", {
           type: "warning",
         });
         return;
@@ -418,8 +418,6 @@ export default function AddProductPage() {
     },
     [selectedColor, colorImages, showToast]
   );
-
-  // Các hàm xử lý khác có thể thêm useCallback tương tự
 
   const handleSetMainImage = useCallback(
     (imageId: number) => {
@@ -461,8 +459,7 @@ export default function AddProductPage() {
     [selectedColor, colorImages]
   );
 
-  // Các hàm validateProductData và handleSaveProduct giữ nguyên
-
+  // Các hàm validateProductData và handleSaveProduct
   const validateProductData = useCallback((): boolean => {
     if (!product.name) {
       showToast("Vui lòng nhập tên sản phẩm", { type: "error" });
@@ -550,6 +547,17 @@ export default function AddProductPage() {
     setIsSubmitting(true);
 
     try {
+      // Tạo mảng categories bao gồm cả category chính và subtype (nếu có)
+      const categories = [];
+
+      if (product.category) {
+        categories.push(parseInt(product.category));
+      }
+
+      if (product.subtype) {
+        categories.push(parseInt(product.subtype));
+      }
+
       const productData = {
         name: product.name,
         sku: product.sku,
@@ -560,13 +568,7 @@ export default function AddProductPage() {
         status: product.status,
         tags: product.tags,
         suitability: product.suitability,
-        suitabilities: product.suitability
-          .map((id) => Number(id))
-          .filter((id) => !isNaN(id)),
-        categories: [
-          parseInt(product.category) || 0,
-          ...(product.subtype ? [parseInt(product.subtype)] : []),
-        ],
+        categories: categories,
         details: [] as Array<{
           color: string;
           price: number;
@@ -574,6 +576,8 @@ export default function AddProductPage() {
           sizes: Array<{ size: string; stock: number }>;
         }>,
       };
+      console.log("suitability to be saved:", productData.suitability);
+      console.log("product subtype to be saved:", productData.subtype);
 
       const colorGroups: Record<
         string,
@@ -615,6 +619,13 @@ export default function AddProductPage() {
           imageMainMapping[fileIndex] = img.isMain;
           fileIndex++;
         });
+      });
+
+      console.log("Sending product data:", {
+        ...productData,
+        categories: productData.categories,
+        subtype: product.subtype,
+        category: product.category,
       });
 
       const result = await ProductService.createProductWithImages(

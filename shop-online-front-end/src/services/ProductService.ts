@@ -22,7 +22,7 @@ export interface ProductCreate {
   featured: boolean;
   status: string;
   tags: string[];
-  suitabilities: Array<number>;
+  suitability: Array<number>;
   categories: number[];
   details: ProductDetail[];
   subtypeId?: number | null;
@@ -250,7 +250,7 @@ export const ProductService = {
       formData.append("featured", product.featured.toString());
       formData.append("status", product.status);
       formData.append("tags", JSON.stringify(product.tags));
-      formData.append("suitability", JSON.stringify(product.suitabilities));
+      formData.append("suitability", JSON.stringify(product.suitability));
       formData.append("categories", JSON.stringify(product.categories));
       // Thêm chi tiết sản phẩm (details - các biến thể màu sắc)
       formData.append("details", JSON.stringify(product.details));

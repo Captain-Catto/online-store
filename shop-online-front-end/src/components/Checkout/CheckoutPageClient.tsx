@@ -338,7 +338,11 @@ export default function CheckoutPage() {
       const orderDataString = sessionStorage.getItem("pendingOrder");
 
       if (!orderDataString) {
-        alert("Không tìm thấy thông tin giỏ hàng. Vui lòng thử lại.");
+        //thông báo lỗi nếu không có dữ liệu đơn hàng sau 1s thì chuyển về trang giỏ hàng
+        setTimeout(() => {
+          setOrderError("Không có dữ liệu đơn hàng. Vui lòng thử lại sau.");
+        }, 1000);
+
         router.push("/cart");
         return;
       }
