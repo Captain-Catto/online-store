@@ -11,7 +11,7 @@ import {
   FormattedProduct,
   ProductDetailType,
   // ProductInventory,
-} from "../types";
+} from "@/components/admin/products/types";
 
 // Define context types
 type ProductState = {

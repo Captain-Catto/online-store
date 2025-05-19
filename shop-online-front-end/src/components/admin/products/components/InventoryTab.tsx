@@ -1,9 +1,12 @@
 "use client";
 
 import React, { memo, useState } from "react";
-import { useProductContext } from "../context/ProductContext";
+import { useProductContext } from "@/contexts/ProductContext";
 import TabPanel from "./TabPanel";
-import { ProductInventory, ProductDetailType } from "../types";
+import {
+  ProductInventory,
+  ProductDetailType,
+} from "@/components/admin/products/types";
 import { useToast } from "@/utils/useToast";
 
 interface ProductVariant {

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { memo } from "react";
-import { useProductContext } from "../context/ProductContext";
+import { useProductContext } from "@/contexts/ProductContext";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 interface TabContainerProps {

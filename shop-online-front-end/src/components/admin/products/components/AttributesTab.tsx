@@ -1,9 +1,12 @@
 "use client";
 
 import React, { memo, useState } from "react";
-import { useProductContext } from "../context/ProductContext";
+import { useProductContext } from "@/contexts/ProductContext";
 import TabPanel from "./TabPanel";
-import { ProductDetailType, ProductInventory } from "../types";
+import {
+  ProductDetailType,
+  ProductInventory,
+} from "@/components/admin/products/types";
 
 interface AttributesTabProps {
   suitabilities: Array<{ id: number; name: string }>;
@@ -65,16 +68,40 @@ const AttributesTab: React.FC<AttributesTabProps> = memo(
         // Also update the selected image color to this newly added color
         dispatch({ type: "SET_SELECTED_IMAGE_COLOR", payload: colorKey });
       } else {
-        // Remove color
+        // Find the detail to be removed (for tracking its ID)
+        const detailToRemove = product.details.find(
+          (detail) => detail.color === colorKey
+        );
+
+        // Remove color from details
         const updatedDetails = product.details.filter(
           (detail) => detail.color !== colorKey
         );
 
-        // Sử dụng updateProduct thay vì updateProductField
+        // Add ID to removedDetailIds if it's a saved detail (has an ID > 0)
+        if (detailToRemove && detailToRemove.id > 0) {
+          dispatch({
+            type: "ADD_REMOVED_DETAIL_ID",
+            payload: detailToRemove.id,
+          });
+        }
+
+        // Update product with filtered details
         updateProduct({
           ...product,
           details: updatedDetails,
         });
+
+        // If the removed color was the selected color, select another color if available
+        if (
+          state.selectedImageColor === colorKey &&
+          updatedDetails.length > 0
+        ) {
+          dispatch({
+            type: "SET_SELECTED_IMAGE_COLOR",
+            payload: updatedDetails[0].color,
+          });
+        }
       }
     };
     const handleSizeChange = (size: string, checked: boolean): void => {
@@ -164,6 +191,36 @@ const AttributesTab: React.FC<AttributesTabProps> = memo(
       });
     };
 
+    // Handler for price and originalPrice changes
+    const handlePriceChange = (
+      detailIndex: number,
+      field: string,
+      value: number | string
+    ): void => {
+      // Ensure value is a positive number or empty string
+      let numValue = typeof value === "string" ? parseFloat(value) : value;
+
+      // If conversion fails or value is negative, default to 0
+      if (isNaN(numValue) || numValue < 0) {
+        numValue = 0;
+      }
+
+      // Get current details
+      const updatedDetails = [...product.details];
+
+      // Update the specific field for the chosen color variant
+      updatedDetails[detailIndex] = {
+        ...updatedDetails[detailIndex],
+        [field]: numValue,
+      };
+
+      // Update product with modified details
+      updateProduct({
+        ...product,
+        details: updatedDetails,
+      });
+    };
+
     return (
       <TabPanel tabId="variants">
         {isEditing ? (
@@ -198,7 +255,92 @@ const AttributesTab: React.FC<AttributesTabProps> = memo(
                 </div>
               </div>
 
-              <div className="card">
+              {/* Price settings for each color variant */}
+              {product.details.length > 0 && (
+                <div className="card mt-4">
+                  <div className="card-header">
+                    <h3 className="card-title">Giá theo màu sắc</h3>
+                  </div>
+                  <div className="card-body">
+                    <div className="table-responsive">
+                      <table className="table table-bordered">
+                        <thead>
+                          <tr>
+                            <th>Màu sắc</th>
+                            <th>Giá bán (đ)</th>
+                            <th>Giá gốc (đ)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {product.details.map((detail, detailIndex) => {
+                            const colorLabel =
+                              availableColors.find(
+                                (c) => c.key === detail.color
+                              )?.label || detail.color;
+
+                            return (
+                              <tr key={detail.color}>
+                                <td>
+                                  <span
+                                    className="color-box mr-2"
+                                    style={{
+                                      display: "inline-block",
+                                      width: "20px",
+                                      height: "20px",
+                                      backgroundColor: detail.color,
+                                      verticalAlign: "middle",
+                                      border: "1px solid #ddd",
+                                    }}
+                                  ></span>
+                                  {colorLabel}
+                                </td>
+                                <td>
+                                  <input
+                                    type="number"
+                                    className="form-control"
+                                    value={detail.price}
+                                    min="0"
+                                    step="1000"
+                                    onChange={(e) =>
+                                      handlePriceChange(
+                                        detailIndex,
+                                        "price",
+                                        e.target.value
+                                      )
+                                    }
+                                  />
+                                </td>
+                                <td>
+                                  <input
+                                    type="number"
+                                    className="form-control"
+                                    value={detail.originalPrice || detail.price}
+                                    min="0"
+                                    step="1000"
+                                    onChange={(e) =>
+                                      handlePriceChange(
+                                        detailIndex,
+                                        "originalPrice",
+                                        e.target.value
+                                      )
+                                    }
+                                  />
+                                  <small className="form-text text-muted">
+                                    Giữ nguyên nếu không muốn có thay đổi giá
+                                    gốc
+                                  </small>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="card mt-4">
                 <div className="card-header">
                   <h3 className="card-title">Kích thước</h3>
                 </div>
@@ -346,6 +488,64 @@ const AttributesTab: React.FC<AttributesTabProps> = memo(
                   )}
                 </div>
               </div>
+
+              {/* Display price information in view mode */}
+              {product.details.length > 0 && (
+                <div className="card mt-4">
+                  <div className="card-header">Giá theo màu sắc</div>
+                  <div className="card-body">
+                    <div className="table-responsive">
+                      <table className="table table-bordered">
+                        <thead>
+                          <tr>
+                            <th>Màu sắc</th>
+                            <th>Giá bán</th>
+                            <th>Giá gốc</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {product.details.map((detail) => {
+                            const colorLabel =
+                              availableColors.find(
+                                (c) => c.key === detail.color
+                              )?.label || detail.color;
+
+                            return (
+                              <tr key={detail.color}>
+                                <td>
+                                  <span
+                                    className="color-box mr-2"
+                                    style={{
+                                      display: "inline-block",
+                                      width: "20px",
+                                      height: "20px",
+                                      backgroundColor: detail.color,
+                                      verticalAlign: "middle",
+                                      border: "1px solid #ddd",
+                                    }}
+                                  ></span>
+                                  {colorLabel}
+                                </td>
+                                <td>
+                                  {detail.price.toLocaleString("vi-VN")} đ
+                                </td>
+                                <td>
+                                  {detail.originalPrice &&
+                                  detail.originalPrice > 0
+                                    ? `${detail.originalPrice.toLocaleString(
+                                        "vi-VN"
+                                      )} đ`
+                                    : "Không áp dụng"}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="card mt-4">
                 <div className="card-header">Kích thước</div>

@@ -3,7 +3,7 @@
 import React, { memo } from "react";
 import Link from "next/link";
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
-import { useProductContext } from "../context/ProductContext";
+import { useProductContext } from "@/contexts/ProductContext";
 import ProductValidationAlert from "./ProductValidationAlert";
 
 interface ProductHeaderProps {

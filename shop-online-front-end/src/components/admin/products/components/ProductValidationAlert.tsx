@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { checkDuplicateVariants } from "@/utils/validateProductData";
-import { FormattedProduct } from "../types";
+import { FormattedProduct } from "@/components/admin/products/types";
 
 interface ProductValidationAlertProps {
   product: FormattedProduct | null;

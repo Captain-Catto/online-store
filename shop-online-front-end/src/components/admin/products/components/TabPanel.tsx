@@ -1,8 +1,7 @@
 "use client";
 
 import React, { memo } from "react";
-import { useProductContext } from "../context/ProductContext";
-// import { FormattedProduct } from "../types";
+import { useProductContext } from "@/contexts/ProductContext"; // import { FormattedProduct } from "@/components/admin/products/types";
 
 interface TabPanelProps {
   tabId: string;

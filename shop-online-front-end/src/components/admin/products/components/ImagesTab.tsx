@@ -2,7 +2,7 @@
 
 import React, { memo } from "react";
 import Image from "next/image";
-import { useProductContext } from "../context/ProductContext";
+import { useProductContext } from "@/contexts/ProductContext";
 import TabPanel from "./TabPanel";
 
 interface ColorImage {
@@ -186,9 +186,14 @@ const ImagesTab: React.FC<ImagesTabProps> = memo(
                 <div className="row mt-4">
                   {colorImages[selectedImageColor]?.length > 0 ? (
                     colorImages[selectedImageColor].map((image) => (
-                      <div className="col-md-3 mb-4" key={image.id}>
+                      <div
+                        className="col-lg-2 col-md-3 col-sm-4 col-6 mb-4"
+                        key={image.id}
+                      >
                         <div
-                          className={`card ${image.isMain ? "bg-light" : ""}`}
+                          className={`card h-100 ${
+                            image.isMain ? "bg-light" : ""
+                          }`}
                         >
                           <div
                             className="image-container position-relative"
@@ -199,7 +204,7 @@ const ImagesTab: React.FC<ImagesTabProps> = memo(
                               alt="Product"
                               className="card-img-top"
                               fill
-                              sizes="100%"
+                              sizes="(max-width: 576px) 50vw, (max-width: 768px) 33vw, (max-width: 992px) 25vw, 20vw"
                               style={{ objectFit: "cover" }}
                             />
                           </div>
@@ -252,7 +257,10 @@ const ImagesTab: React.FC<ImagesTabProps> = memo(
                       {state.newImages
                         .filter((img) => img.color === selectedImageColor)
                         .map((img, idx) => (
-                          <div className="col-md-3 mb-4" key={`new-${idx}`}>
+                          <div
+                            className="col-lg-2 col-md-3 col-sm-4 col-6 mb-4"
+                            key={`new-${idx}`}
+                          >
                             <div
                               className={`card ${img.isMain ? "bg-light" : ""}`}
                             >
@@ -265,7 +273,7 @@ const ImagesTab: React.FC<ImagesTabProps> = memo(
                                   alt="Product preview"
                                   className="card-img-top"
                                   fill
-                                  sizes="100%"
+                                  sizes="(max-width: 576px) 50vw, (max-width: 768px) 33vw, (max-width: 992px) 25vw, 20vw"
                                   style={{ objectFit: "cover" }}
                                 />
                               </div>

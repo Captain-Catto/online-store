@@ -1,9 +1,9 @@
 "use client";
 
 import React, { memo } from "react";
-import { useProductContext } from "../context/ProductContext";
+import { useProductContext } from "@/contexts/ProductContext";
 import TabPanel from "./TabPanel";
-import { FormattedProduct } from "../types";
+import { FormattedProduct } from "@/components/admin/products/types";
 
 interface Category {
   id: number | string;

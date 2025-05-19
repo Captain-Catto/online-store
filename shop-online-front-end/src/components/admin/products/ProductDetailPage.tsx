@@ -11,8 +11,7 @@ import { validateProductData } from "@/utils/validateProductData";
 import { getProductErrorMessage } from "@/utils/productErrorHandler";
 
 // Import context provider
-import { ProductProvider, useProductContext } from "./context/ProductContext";
-
+import { ProductProvider, useProductContext } from "@/contexts/ProductContext";
 // Import components
 import ProductHeader from "./components/ProductHeader";
 import TabContainer from "./components/TabContainer";

@@ -10,8 +10,7 @@ import { validateProductData } from "@/utils/validateProductData";
 import { FormattedProduct } from "./types";
 
 // Import context provider
-import { ProductProvider, useProductContext } from "./context/ProductContext";
-
+import { ProductProvider, useProductContext } from "@/contexts/ProductContext";
 // Define types used in the file
 interface ProductSize {
   id: number;
