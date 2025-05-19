@@ -1,0 +1,108 @@
+"use client";
+
+import React, { memo } from "react";
+import Link from "next/link";
+import Breadcrumb from "@/components/admin/shared/Breadcrumb";
+import { useProductContext } from "../context/ProductContext";
+import ProductValidationAlert from "./ProductValidationAlert";
+
+interface ProductHeaderProps {
+  onDelete?: () => void;
+  onSave?: () => void;
+}
+
+const ProductHeader: React.FC<ProductHeaderProps> = memo(
+  ({ onDelete, onSave }) => {
+    const { state, dispatch } = useProductContext();
+    const { product, isEditing, isSubmitting } = state;
+
+    // Toggle edit mode
+    // const handleEditToggle = () => {
+    //   dispatch({ type: "SET_EDITING", payload: !isEditing });
+    // };
+
+    return (
+      <>
+        <div className="content-header">
+          <div className="container-fluid">
+            <div className="row mb-2">
+              <div className="col-sm-6">
+                <h1 className="m-0">Chi tiết sản phẩm</h1>
+              </div>
+              <div className="col-sm-6">
+                <Breadcrumb
+                  items={[
+                    { label: "Trang chủ", href: "/admin" },
+                    { label: "Sản phẩm", href: "/admin/products" },
+                    {
+                      label: product
+                        ? product.name
+                        : state.loading
+                        ? "Đang tải..."
+                        : "Chi tiết sản phẩm",
+                      active: true,
+                    },
+                  ]}
+                />
+              </div>
+            </div>
+          </div>
+        </div>{" "}
+        {isEditing && <ProductValidationAlert product={product} />}
+        <div className="mb-3">
+          <Link href="/admin/products" className="btn btn-secondary mr-2">
+            <i className="fas fa-arrow-left mr-1" /> Quay lại
+          </Link>
+          {!state.loading && !state.error && product && (
+            <>
+              <button className="btn btn-danger mr-2" onClick={onDelete}>
+                <i className="fas fa-trash mr-1" /> Xóa
+              </button>
+              {isEditing ? (
+                <>
+                  <button
+                    className="btn btn-success mr-2"
+                    onClick={onSave}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <i className="fas fa-spinner fa-spin mr-1" /> Đang
+                        lưu...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-save mr-1" /> Lưu thay đổi
+                      </>
+                    )}
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() =>
+                      dispatch({ type: "SET_EDITING", payload: false })
+                    }
+                  >
+                    Hủy
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="btn btn-primary"
+                  onClick={() =>
+                    dispatch({ type: "SET_EDITING", payload: true })
+                  }
+                >
+                  <i className="fas fa-edit mr-1" /> Chỉnh sửa
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </>
+    );
+  }
+);
+
+ProductHeader.displayName = "ProductHeader";
+
+export default ProductHeader;

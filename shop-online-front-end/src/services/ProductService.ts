@@ -1,6 +1,11 @@
 import { API_BASE_URL } from "@/config/apiConfig";
 import { AuthClient } from "@/services/AuthClient";
-import { BreadcrumbItem } from "@/types/breadcrumb";
+
+// Import type FormattedProduct từ components/admin/products/types
+import {
+  FormattedProduct,
+  ProductDetailType,
+} from "@/components/admin/products/types";
 
 export interface ProductDetail {
   id?: number;
@@ -26,6 +31,22 @@ export interface ProductCreate {
   categories: number[];
   details: ProductDetail[];
   subtypeId?: number | null;
+}
+
+// Interface for size operations
+export interface SizeCreate {
+  value: string;
+  displayName: string;
+  categoryId: string | number;
+  displayOrder: number;
+}
+
+export interface SizeUpdate {
+  value: string;
+  displayName: string;
+  category: string | number;
+  displayOrder: number;
+  active: boolean;
 }
 
 export const ProductService = {
@@ -113,9 +134,37 @@ export const ProductService = {
         throw new Error(
           `Lỗi tạo sản phẩm: ${response.status} ${response.statusText}`
         );
+      } // Parse and log the response
+      const responseData = await response.json();
+      console.log("API Response from createProduct:", responseData);
+
+      // The backend returns productId instead of id, so normalize it here
+      if (!responseData.id && responseData.productId) {
+        console.log(
+          "Normalizing API response: mapping productId to id",
+          responseData.productId
+        );
+        responseData.id = responseData.productId;
       }
 
-      return await response.json();
+      // Additional fallback checks
+      if (!responseData.id) {
+        console.error("Missing product ID in API response:", responseData);
+        // Look for ID in other fields
+        const possibleProduct = responseData.product || {};
+        const productId =
+          responseData.id ||
+          responseData.productId ||
+          possibleProduct.id ||
+          possibleProduct.productId;
+
+        if (productId) {
+          console.log("Found product ID in alternate location:", productId);
+          responseData.id = productId;
+        }
+      }
+
+      return responseData;
     } catch (error) {
       console.error("Error creating product:", error);
       throw error;
@@ -211,7 +260,7 @@ export const ProductService = {
     }
   },
 
-  // layá thông tin các biến thể của sản phẩm theo id product
+  // lấy thông tin các biến thể của sản phẩm theo id product
   getProductVariants: async (id: string | number) => {
     try {
       const response = await fetch(`${API_BASE_URL}/products/variants/${id}`);
@@ -262,9 +311,8 @@ export const ProductService = {
       });
       if (product.subtypeId !== null && product.subtypeId !== undefined) {
         formData.append("subtypeId", product.subtypeId.toString());
-      }
-
-      // Gửi request đến API
+      } // Gửi request đến API
+      console.log("Sending request to create product with images");
       const response = await fetch(`${API_BASE_URL}/products/`, {
         method: "POST",
         headers: {
@@ -282,7 +330,37 @@ export const ProductService = {
         throw new Error(errorData.message || "Lỗi tạo sản phẩm");
       }
 
-      return await response.json();
+      // Parse and log the response
+      const responseData = await response.json();
+      console.log("API Response from createProductWithImages:", responseData);
+
+      // The backend returns productId instead of id, so normalize it here
+      if (!responseData.id && responseData.productId) {
+        console.log(
+          "Normalizing API response: mapping productId to id",
+          responseData.productId
+        );
+        responseData.id = responseData.productId;
+      }
+
+      // Additional fallback checks
+      if (!responseData.id) {
+        console.error("Missing product ID in API response:", responseData);
+        // Look for ID in other fields
+        const possibleProduct = responseData.product || {};
+        const productId =
+          responseData.id ||
+          responseData.productId ||
+          possibleProduct.id ||
+          possibleProduct.productId;
+
+        if (productId) {
+          console.log("Found product ID in alternate location:", productId);
+          responseData.id = productId;
+        }
+      }
+
+      return responseData;
     } catch (error) {
       console.error("Error creating product with images:", error);
       throw error;
@@ -325,6 +403,7 @@ export const ProductService = {
       throw new Error("An unknown error occurred");
     }
   },
+
   // Cập nhật tồn kho sản phẩm
   updateProductInventory: async (
     productId: string | number,
@@ -403,54 +482,148 @@ export const ProductService = {
 
     return await response.json();
   },
-
   removeProductImages: async (
     productId: string | number,
     imageIds: number[]
   ) => {
-    const token = sessionStorage.getItem("authToken");
-    if (!token) throw new Error("Token không hợp lệ");
-
-    const response = await fetch(
-      `${API_BASE_URL}/products/${productId}/images`,
-      {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ imageIds }),
-      }
+    console.log(
+      `Attempting to delete images: ${JSON.stringify(
+        imageIds
+      )} from product ${productId}`
     );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Lỗi khi xóa hình ảnh: ${errorText}`);
+    // Validate inputs
+    if (!imageIds || imageIds.length === 0) {
+      console.warn("No image IDs provided for deletion");
+      return { message: "No images to delete", removedCount: 0 };
     }
 
-    return await response.json();
-  },
+    // Filter out any non-numeric or invalid IDs
+    const validImageIds = imageIds.filter(
+      (id) => typeof id === "number" && id > 0
+    );
 
+    if (validImageIds.length === 0) {
+      console.warn("No valid image IDs in the provided array");
+      return { message: "No valid images to delete", removedCount: 0 };
+    }
+
+    console.log(
+      `Proceeding with deletion of ${
+        validImageIds.length
+      } valid images: ${JSON.stringify(validImageIds)}`
+    );
+
+    const token = sessionStorage.getItem("authToken");
+    if (!token) throw new Error("Token không hợp lệ");
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/products/${productId}/images`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ imageIds: validImageIds }), // Use filtered valid IDs
+        }
+      );
+
+      console.log(`Delete images response status: ${response.status}`);
+
+      if (!response.ok) {
+        let errorMsg = `Lỗi khi xóa hình ảnh: ${response.status} ${response.statusText}`;
+
+        try {
+          const errorData = await response.json();
+          console.error("Image deletion error:", errorData);
+          if (errorData && errorData.message) {
+            errorMsg = errorData.message;
+          }
+        } catch {
+          const errorText = await response.text();
+          console.error("Image deletion error text:", errorText);
+          errorMsg = `Lỗi khi xóa hình ảnh: ${errorText}`;
+        }
+
+        throw new Error(errorMsg);
+      }
+
+      const result = await response.json();
+      console.log("Image deletion successful:", result);
+      return result;
+    } catch (error) {
+      console.error("Error removing product images:", error);
+      throw error;
+    }
+  },
   setMainProductImage: async (productId: string | number, imageId: number) => {
     const token = sessionStorage.getItem("authToken");
     if (!token) throw new Error("Token không hợp lệ");
 
-    const response = await fetch(
-      `${API_BASE_URL}/products/${productId}/images/${imageId}/main`,
-      {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+    try {
+      console.log(`Setting image ${imageId} as main for product ${productId}`);
+
+      const response = await fetch(
+        `${API_BASE_URL}/products/${productId}/images/${imageId}/main`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 401) {
+        throw new Error("Bạn chưa đăng nhập hoặc phiên làm việc đã hết hạn.");
       }
-    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Lỗi khi đặt ảnh chính: ${errorText}`);
+      if (!response.ok) {
+        let errorMsg = `Lỗi khi đặt ảnh chính: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          if (errorData && errorData.message) errorMsg = errorData.message;
+        } catch {
+          const errorText = await response.text();
+          errorMsg = `Lỗi khi đặt ảnh chính: ${
+            errorText || response.statusText
+          }`;
+        }
+        throw new Error(errorMsg);
+      }
+
+      const result = await response.json();
+      console.log("Set main image response:", result);
+      return result;
+    } catch (error) {
+      console.error("Error setting main image:", error);
+      throw error;
     }
+  },
+  // Lấy danh sách kích thước
+  getSizes: async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/products/sizes`);
+      if (!response.ok) throw new Error("Network response was not ok");
+      return await response.json();
+    } catch (error) {
+      console.error("Error fetching sizes:", error);
+      throw error;
+    }
+  },
 
-    return await response.json();
+  // Lấy kích thước theo danh mục sản phẩm
+  getSizesByCategory: async (categoryId: string | number) => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/products/by-category?categoryId=${categoryId}`
+      );
+      if (!response.ok) throw new Error("Network response was not ok");
+      return await response.json();
+    } catch (error) {
+      console.error(`Error fetching sizes for category ${categoryId}:`, error);
+      throw error;
+    }
   },
 
   // Cập nhật biến thể sản phẩm
@@ -460,6 +633,7 @@ export const ProductService = {
   ) => {
     const token = sessionStorage.getItem("authToken");
     if (!token) throw new Error("Token không hợp lệ");
+
     try {
       const response = await fetch(
         `${API_BASE_URL}/products/${productId}/variants`,
@@ -472,115 +646,253 @@ export const ProductService = {
           body: JSON.stringify({ variants }),
         }
       );
+
       if (!response.ok) {
         let errorMsg = "Có lỗi khi cập nhật biến thể.";
         try {
           const errorData = await response.json();
-          if (errorData && errorData.message) errorMsg = errorData.message;
+          if (errorData && errorData.message) {
+            // Cải thiện thông báo lỗi nếu là lỗi xác thực
+            if (errorData.message.includes("Validation error")) {
+              errorMsg =
+                "Lỗi xác thực: Có thể bạn đang thêm biến thể với màu sắc và kích thước trùng lặp.";
+            } else {
+              errorMsg = errorData.message;
+            }
+          }
         } catch {}
         throw new Error(errorMsg);
       }
+
       return await response.json();
     } catch (error) {
       if (error instanceof Error) throw error;
-      throw new Error("An unknown error occurred");
+      throw new Error(
+        "Đã xảy ra lỗi không xác định khi cập nhật biến thể sản phẩm"
+      );
     }
   },
 
-  // Thêm phương thức mới để lấy sản phẩm theo slug
-  getProductsByCategorySlug: async (
-    categorySlug: string,
-    page: number = 1,
-    limit: number = 12,
-    filters: Record<string, string | number | boolean | string[]> = {}
+  // Xóa biến thể sản phẩm
+  removeProductDetails: async (
+    detailIds: number[]
+  ): Promise<{ success: boolean; detailId: number }[]> => {
+    const token = sessionStorage.getItem("authToken");
+    if (!token) throw new Error("Token không hợp lệ");
+
+    const results = [];
+
+    for (const detailId of detailIds) {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/product-details/${detailId}`,
+          {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        if (!response.ok) {
+          let errorMsg = `Lỗi khi xóa biến thể ${detailId}.`;
+          try {
+            const errorData = await response.json();
+            if (errorData && errorData.message) errorMsg = errorData.message;
+          } catch {}
+          throw new Error(errorMsg);
+        }
+        const result = await response.json();
+        results.push(result);
+      } catch (error) {
+        if (error instanceof Error) throw error;
+        throw new Error("An unknown error occurred");
+      }
+    }
+
+    return results;
+  },
+
+  // Cập nhật toàn bộ sản phẩm
+  updateProduct: async (
+    productId: string | number,
+    productData: Partial<FormattedProduct>,
+    removedData: {
+      removedImageIds: number[];
+      removedDetailIds: number[];
+    }
   ) => {
     try {
-      const queryParams = new URLSearchParams();
+      const token = sessionStorage.getItem("authToken");
+      if (!token) throw new Error("Token không hợp lệ");
 
-      // Đảm bảo rằng mọi filter được truyền đúng
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          if (Array.isArray(value)) {
-            if (value.length > 0) {
-              queryParams.append(key, value.join(","));
+      // 1. Cập nhật thông tin cơ bản
+      const basicInfoData = {
+        name: productData.name,
+        sku: productData.sku,
+        description: productData.description,
+        brand: productData.brand,
+        material: productData.material,
+        featured: productData.featured,
+        status: productData.status,
+        tags: productData.tags,
+        suitabilities: productData.suitabilities?.map(
+          (s: { id: number }) => s.id
+        ),
+        categories: productData.categories?.map((c: { id: number }) => c.id),
+      };
+
+      // 2. Chuẩn bị dữ liệu tồn kho
+      const inventoryData = productData.details?.map(
+        (detail: ProductDetailType) => ({
+          id: detail.id,
+          color: detail.color,
+          price: detail.price,
+          originalPrice: detail.originalPrice,
+          sizes: detail.inventories?.map(
+            (inv: { size: string; stock: number }) => ({
+              size: inv.size,
+              stock: inv.stock,
+            })
+          ),
+        })
+      );
+
+      // Kiểm tra dữ liệu inventory có hợp lệ không
+      if (inventoryData) {
+        // Kiểm tra trùng lặp màu sắc + size
+        const colorSizeCombos = new Set();
+        let hasDuplicate = false;
+        let duplicateInfo = "";
+
+        for (const detail of inventoryData) {
+          if (detail.sizes) {
+            for (const sizeInfo of detail.sizes) {
+              const combo = `${detail.color}-${sizeInfo.size}`;
+              if (colorSizeCombos.has(combo)) {
+                hasDuplicate = true;
+                duplicateInfo = `Màu ${detail.color} và size ${sizeInfo.size}`;
+                break;
+              }
+              colorSizeCombos.add(combo);
             }
-          } else {
-            queryParams.append(key, value.toString());
           }
+          if (hasDuplicate) break;
         }
-      });
 
-      // Thêm page và limit
-      if (!filters.page) queryParams.append("page", page.toString());
-      if (!filters.limit) queryParams.append("limit", limit.toString());
-
-      // Log để kiểm tra URL
-      console.log(
-        `API URL: ${API_BASE_URL}/categories/slug/${categorySlug}/products?${queryParams.toString()}`
-      );
-
-      const response = await fetch(
-        `${API_BASE_URL}/categories/slug/${categorySlug}/products?${queryParams.toString()}`
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
+        if (hasDuplicate) {
+          throw new Error(`Phát hiện biến thể trùng lặp: ${duplicateInfo}`);
+        }
       }
 
-      return await response.json();
-    } catch (error) {
-      console.error("Lỗi khi lấy sản phẩm theo danh mục:", error);
-      throw error;
-    }
-  },
+      // 3. Biến thể sản phẩm (sử dụng dữ liệu tương tự như inventory data)
+      const variantData = [...(inventoryData || [])];
 
-  // Lấy tất cả kích thước
-  getSizes: async (): Promise<
-    {
-      id: number;
-      value: string;
-      displayName: string;
-      categoryId: number;
-      active: boolean;
-      displayOrder: number;
-    }[]
-  > => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/products/sizes`);
-      if (!response.ok) {
-        throw new Error("Không thể lấy danh sách kích thước");
-      }
-      return await response.json();
-    } catch (error) {
-      console.error("Lỗi khi lấy kích thước:", error);
-      return [];
-    }
-  },
+      // Thực hiện lần lượt các thao tác cập nhật để có thể xử lý lỗi tốt hơn
+      try {
+        // Cập nhật thông tin cơ bản trước
+        await ProductService.updateProductBasicInfo(productId, basicInfoData);
 
-  // lấy kích thước theo danh mục
-  getSizesByCategory: async (
-    categoryId: string
-  ): Promise<
-    {
-      id: number;
-      value: string;
-      displayName: string;
-      categoryId: number;
-      active: boolean;
-      displayOrder: number;
-    }[]
-  > => {
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/products/by-category?categoryId=${categoryId}`
-      );
-      if (!response.ok) {
-        throw new Error("Không thể lấy danh sách kích thước theo danh mục");
+        // Cập nhật tồn kho và biến thể nếu có
+        if (inventoryData && inventoryData.length > 0) {
+          try {
+            await ProductService.updateProductInventory(
+              productId,
+              inventoryData
+            );
+          } catch (error) {
+            console.error("Lỗi khi cập nhật tồn kho:", error);
+            if (error instanceof Error) {
+              throw new Error(`Lỗi khi cập nhật tồn kho: ${error.message}`);
+            }
+            throw new Error("Lỗi không xác định khi cập nhật tồn kho");
+          }
+
+          try {
+            await ProductService.updateProductVariants(productId, variantData);
+          } catch (error) {
+            console.error("Lỗi khi cập nhật biến thể:", error);
+            if (error instanceof Error) {
+              throw new Error(`Lỗi khi cập nhật biến thể: ${error.message}`);
+            }
+            throw new Error("Lỗi không xác định khi cập nhật biến thể");
+          }
+        } // Xóa hình ảnh nếu có
+        if (
+          removedData.removedImageIds &&
+          removedData.removedImageIds.length > 0
+        ) {
+          console.log(
+            `Processing image deletion: ${
+              removedData.removedImageIds.length
+            } images to remove: ${JSON.stringify(removedData.removedImageIds)}`
+          );
+          try {
+            // Check if we have valid numeric image IDs before attempting to delete
+            const validImageIds = removedData.removedImageIds.filter(
+              (id) => typeof id === "number" && id > 0
+            );
+
+            if (validImageIds.length > 0) {
+              console.log(
+                `Sending ${
+                  validImageIds.length
+                } valid image IDs for deletion: ${JSON.stringify(
+                  validImageIds
+                )}`
+              );
+
+              // Call our removeProductImages method directly with the valid IDs
+              const result = await ProductService.removeProductImages(
+                productId,
+                validImageIds
+              );
+
+              console.log("Image deletion result:", result);
+
+              // You could add additional processing here if needed
+              if (result && result.removedCount) {
+                console.log(
+                  `Successfully deleted ${result.removedCount} images`
+                );
+              }
+            } else {
+              console.log("No valid image IDs to delete");
+            }
+          } catch (imgError) {
+            console.error("Failed to delete images:", imgError);
+            throw new Error(
+              `Lỗi khi xóa hình ảnh: ${
+                imgError instanceof Error ? imgError.message : "Không xác định"
+              }`
+            );
+          }
+        } else {
+          console.log("No images to delete");
+        }
+
+        // Xóa chi tiết sản phẩm nếu có
+        if (removedData.removedDetailIds.length > 0) {
+          await ProductService.removeProductDetails(
+            removedData.removedDetailIds
+          );
+        }
+      } catch (error) {
+        console.error("Error during product update operations:", error);
+        throw error;
       }
-      return await response.json();
+
+      return {
+        success: true,
+        message: "Cập nhật sản phẩm thành công",
+        productId,
+      };
     } catch (error) {
-      console.error("Lỗi khi lấy kích thước theo danh mục:", error);
-      return [];
+      console.error("Error updating product:", error);
+      if (error instanceof Error) {
+        throw new Error(`Lỗi cập nhật sản phẩm: ${error.message}`);
+      }
+      throw new Error("Đã xảy ra lỗi không xác định khi cập nhật sản phẩm");
     }
   },
 
@@ -658,78 +970,6 @@ export const ProductService = {
     } catch (error) {
       console.error("Lỗi khi xóa kích thước:", error);
       throw error;
-    }
-  },
-
-  // Xóa biến thể sản phẩm
-  removeProductDetails: async (
-    detailIds: number[]
-  ): Promise<{ success: boolean; detailId: number }[]> => {
-    const token = sessionStorage.getItem("authToken");
-    if (!token) throw new Error("Token không hợp lệ");
-
-    const results = [];
-
-    for (const detailId of detailIds) {
-      try {
-        const response = await fetch(
-          `${API_BASE_URL}/product-details/${detailId}`,
-          {
-            method: "DELETE",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-        if (!response.ok) {
-          let errorMsg = `Lỗi khi xóa biến thể ${detailId}.`;
-          try {
-            const errorData = await response.json();
-            if (errorData && errorData.message) errorMsg = errorData.message;
-          } catch {}
-          throw new Error(errorMsg);
-        }
-        const result = await response.json();
-        results.push(result);
-      } catch (error) {
-        if (error instanceof Error) throw error;
-        throw new Error("An unknown error occurred");
-      }
-    }
-
-    return results;
-  },
-
-  // Lấy đường dẫn breadcrumb cho sản phẩm
-  async getProductBreadcrumb(productId: string): Promise<BreadcrumbItem[]> {
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/products/${productId}/breadcrumb`
-      );
-      if (!response.ok) {
-        throw new Error("Failed to fetch product breadcrumb");
-      }
-      return await response.json();
-    } catch (error) {
-      console.error("Error fetching product breadcrumb:", error);
-      return [];
-    }
-  },
-
-  // Lấy đường dẫn breadcrumb cho danh mục
-  async getCategoryBreadcrumb(slug: string): Promise<BreadcrumbItem[]> {
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/categories/${slug}/breadcrumb`
-      );
-      if (!response.ok) {
-        throw new Error("Failed to fetch category breadcrumb");
-      }
-      return await response.json();
-    } catch (error) {
-      console.error("Error fetching category breadcrumb:", error);
-      return [];
     }
   },
 };

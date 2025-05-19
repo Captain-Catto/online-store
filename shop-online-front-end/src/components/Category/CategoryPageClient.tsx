@@ -404,6 +404,15 @@ export default function CategoryPageClient({ slug }: CategoryClientProps) {
       void fetchCategoryFromSlug();
     }
   }, [categorySlug]);
+  // Define the ProductSize interface for sizes returned from API
+  interface ProductSize {
+    id: number;
+    value: string;
+    displayName: string;
+    categoryId: number;
+    active: boolean;
+    displayOrder: number;
+  }
 
   // Trong useEffect của CategoryDetailPage
   useEffect(() => {
@@ -421,8 +430,8 @@ export default function CategoryPageClient({ slug }: CategoryClientProps) {
         console.log("sizesData", sizesData);
 
         const availableSizeValues = sizesData
-          .filter((size) => size.active)
-          .map((size) => size.value);
+          .filter((size: ProductSize) => size.active)
+          .map((size: ProductSize) => size.value);
 
         setAvailableSizes(availableSizeValues);
       } catch (error) {

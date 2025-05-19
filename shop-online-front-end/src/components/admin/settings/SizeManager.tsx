@@ -5,6 +5,16 @@ import ConfirmModal from "@/components/admin/shared/ConfirmModal";
 import { CategoryService } from "@/services/CategoryService";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
+// Define the ProductSize interface based on the API response
+interface ProductSize {
+  id: number;
+  value: string;
+  displayName: string;
+  categoryId: number;
+  active: boolean;
+  displayOrder: number;
+}
+
 interface Size {
   id: number;
   value: string;
@@ -53,7 +63,7 @@ const SizeManager: React.FC = () => {
     try {
       const data = await ProductService.getSizes();
       setSizes(
-        data.map((size) => ({
+        data.map((size: ProductSize) => ({
           ...size,
           categoryId: size.categoryId.toString(),
         }))

@@ -1,37 +1,37 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
-import Breadcrumb from "@/components/admin/shared/Breadcrumb";
 import { ProductService } from "@/services/ProductService";
 import { CategoryService } from "@/services/CategoryService";
 import { useToast } from "@/utils/useToast";
-import BasicInfoForm from "./BasicInfoForm";
-import AttributesTab from "./AttributesTab";
-import InventoryTab from "./InventoryTab";
-import ImagesTab from "./ImagesTab";
+import { validateProductData } from "@/utils/validateProductData";
+import { FormattedProduct } from "./types";
 
-// Các interface giữ nguyên...
-interface SizeOption {
-  value: string;
-  label: string;
-}
+// Import context provider
+import { ProductProvider, useProductContext } from "./context/ProductContext";
 
-export interface ColorImage {
+// Define types used in the file
+interface ProductSize {
   id: number;
-  file: File;
-  url: string;
-  isMain: boolean;
+  value: string;
+  displayName: string;
+  categoryId: number;
+  active: boolean;
+  displayOrder: number;
 }
 
-interface ProductVariant {
-  color: string;
-  size: string;
-  stock: number;
-}
+// Import components
+import Breadcrumb from "@/components/admin/shared/Breadcrumb";
+import TabContainer from "./components/TabContainer";
+import BasicInfoTab from "./components/BasicInfoTab";
+import AttributesTab from "./components/AttributesTab";
+import InventoryTab from "./components/InventoryTab";
+import ImagesTab from "./components/ImagesTab";
+import DeleteConfirmationModal from "./components/DeleteConfirmationModal";
 
+// Define types for categories
 interface Category {
   id: number | string;
   name: string;
@@ -42,786 +42,684 @@ interface Category {
   isActive?: boolean;
 }
 
-interface Product {
-  name: string;
-  sku: string;
-  description: string;
-  category: string;
-  categoryName: string;
-  brand: string;
-  subtype: string;
-  subtypeName: string;
-  material: string;
-  price: number;
-  originalPrice: number;
-  suitability: string[];
-  stock: {
-    total: number;
-    variants: ProductVariant[];
-  };
-  colors: string[];
-  sizes: string[];
-  status: string;
-  statusLabel: string;
-  statusClass: string;
-  featured: boolean;
-  tags: string[];
-}
+// Empty product template
+const emptyProduct: Partial<FormattedProduct> = {
+  name: "",
+  sku: "",
+  description: "",
+  brand: "",
+  material: "",
+  featured: false,
+  status: "draft",
+  tags: [],
+  categories: [],
+  suitabilities: [],
+  details: [],
+};
 
-export default function AddProductPage() {
+// Main component content (will be wrapped with ProductProvider)
+const AddProductPageContent: React.FC = () => {
   const router = useRouter();
   const { showToast, Toast } = useToast();
-  const [activeTab, setActiveTab] = useState("info");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedColor, setSelectedColor] = useState<string>("");
-  const [tagInput, setTagInput] = useState("");
 
-  // Sử dụng refs để theo dõi các thay đổi thực sự
-  const prevCategoryRef = useRef<string | null>(null);
-  const prevColorsRef = useRef<string[]>([]);
-  const updatingProductRef = useRef(false);
+  // State from context
+  const { state, dispatch } = useProductContext();
 
-  // State cho danh mục từ API
+  // Local component state
   const [categoryList, setCategoryList] = useState<Category[]>([]);
-  const [categoryLoading, setCategoryLoading] = useState<boolean>(false);
-
-  // State cho danh mục con từ API
   const [subtypes, setSubtypes] = useState<Category[]>([]);
-  const [subtypeLoading, setSubtypeLoading] = useState<boolean>(false);
-
-  // State cho suitabilities
   const [suitabilities, setSuitabilities] = useState<
-    { id: number; name: string }[]
+    Array<{ id: number; name: string }>
   >([]);
-  const [suitabilityLoading, setSuitabilityLoading] = useState(false);
-  const [availableSizeOptions, setAvailableSizeOptions] = useState<
-    SizeOption[]
-  >([]);
-
-  // State cho sản phẩm mới
-  const [product, setProduct] = useState<Product>({
-    name: "",
-    sku: "",
-    description: "",
-    category: "",
-    categoryName: "",
-    brand: "Shop Online",
-    subtype: "",
-    subtypeName: "",
-    material: "",
-    price: 0,
-    originalPrice: 0,
-    suitability: [],
-    stock: {
-      total: 0,
-      variants: [],
-    },
-    colors: [],
-    sizes: [],
-    status: "draft",
-    statusLabel: "Nháp",
-    statusClass: "bg-secondary",
-    featured: false,
-    tags: [],
+  const [imageDeleteConfirmation, setImageDeleteConfirmation] = useState({
+    isOpen: false,
+    imageId: null as number | string | null,
+    imageColor: "",
   });
 
-  // State cho hình ảnh theo từng màu sắc
-  const [colorImages, setColorImages] = useState<Record<string, ColorImage[]>>(
-    {}
-  );
+  // Available colors and sizes
+  const availableColors = [
+    { key: "black", label: "Đen" },
+    { key: "white", label: "Trắng" },
+    { key: "red", label: "Đỏ" },
+    { key: "blue", label: "Xanh dương" },
+    { key: "green", label: "Xanh lá" },
+    { key: "yellow", label: "Vàng" },
+    { key: "grey", label: "Xám" },
+  ];
 
-  // State cho variant tạm khi thêm mới
-  const [newVariant, setNewVariant] = useState<ProductVariant>({
-    color: "",
-    size: "",
-    stock: 0,
-  });
+  const [availableSizes, setAvailableSizes] = useState<
+    Array<{ value: string; label: string }>
+  >([
+    { value: "S", label: "S" },
+    { value: "M", label: "M" },
+    { value: "L", label: "L" },
+    { value: "XL", label: "XL" },
+    { value: "XXL", label: "XXL" },
+  ]);
 
-  // Breadcrumb items
-  const breadcrumbItems = useMemo(
-    () => [
-      { label: "Trang chủ", href: "/admin" },
-      { label: "Sản phẩm", href: "/admin/products" },
-      { label: "Thêm sản phẩm mới", active: true },
-    ],
-    []
-  );
-
-  // Danh sách màu sắc và kích thước mẫu (đã có useMemo trong code gốc)
-  const availableColors = useMemo(
-    () => [
-      { key: "black", label: "Đen" },
-      { key: "white", label: "Trắng" },
-      { key: "red", label: "Đỏ" },
-      { key: "blue", label: "Xanh dương" },
-      { key: "green", label: "Xanh lá" },
-      { key: "yellow", label: "Vàng" },
-      { key: "grey", label: "Xám" },
-    ],
-    []
-  );
-
-  // Lấy danh sách danh mục khi component mount
+  // Initialize empty product on component mount
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        setCategoryLoading(true);
-        const data = await CategoryService.getAllCategories();
-        const parentCategories = data.filter((cat) => cat.parentId === null);
-        setCategoryList(parentCategories);
+    dispatch({ type: "SET_LOADING", payload: true });
+    dispatch({
+      type: "SET_PRODUCT",
+      payload: emptyProduct as FormattedProduct,
+    });
+    dispatch({ type: "SET_EDITING", payload: true });
+    dispatch({ type: "SET_LOADING", payload: false });
+  }, [dispatch]);
 
-        // Chỉ cập nhật nếu category hiện tại trống và chưa từng được cập nhật
-        if (parentCategories.length > 0 && !product.category) {
-          setProduct((prev) => ({
-            ...prev,
-            category: parentCategories[0].id.toString(),
-            categoryName: parentCategories[0].name,
-          }));
-        }
-      } catch (error) {
-        console.error("Error fetching categories:", error);
-        showToast("Không thể tải danh mục sản phẩm", { type: "error" });
-      } finally {
-        setCategoryLoading(false);
-      }
-    };
+  // Fetch categories and other data
+  const fetchCategories = useCallback(async () => {
+    try {
+      const [categories, suitData] = await Promise.all([
+        CategoryService.getAllCategories(),
+        ProductService.getSuitabilities(),
+      ]);
 
-    fetchCategories();
-  }, [product.category, showToast]); // Chạy lại khi product.category hoặc showToast thay đổi
-
-  // Lấy danh mục con khi danh mục cha thay đổi
-  useEffect(() => {
-    // Kiểm tra xem danh mục đã thực sự thay đổi chưa
-    if (product.category === prevCategoryRef.current) return;
-    prevCategoryRef.current = product.category;
-
-    const fetchSubtypes = async () => {
-      if (!product.category) {
-        setSubtypes([]);
-        return;
-      }
-
-      try {
-        setSubtypeLoading(true);
-        const childCategories = await CategoryService.getChildCategories(
-          product.category
-        );
-        setSubtypes(childCategories);
-
-        // Xử lý bất đồng bộ an toàn hơn
-        if (
-          !updatingProductRef.current &&
-          (product.subtype !== "" || product.subtypeName !== "")
-        ) {
-          updatingProductRef.current = true;
-          setProduct((prev) => {
-            updatingProductRef.current = false;
-            return {
-              ...prev,
-              subtype: "",
-              subtypeName: "",
-            };
-          });
-        }
-      } catch (error) {
-        console.error("Error fetching subtypes:", error);
-        showToast("Không thể tải loại sản phẩm", { type: "error" });
-        setSubtypes([]);
-      } finally {
-        setSubtypeLoading(false);
-      }
-    };
-
-    if (product.category) {
-      fetchSubtypes();
-    }
-  }, [product.category, product.subtype, product.subtypeName, showToast]);
-
-  // Theo dõi màu sắc được chọn (sử dụng useCallback và tránh setState không cần thiết)
-  useEffect(() => {
-    // So sánh sâu để xác định thay đổi thực sự
-    const currentColors = product.colors || [];
-    const areColorsSame =
-      currentColors.length === prevColorsRef.current.length &&
-      currentColors.every((color, i) => color === prevColorsRef.current[i]);
-
-    if (areColorsSame) return;
-
-    // Cập nhật ref danh sách màu hiện tại để so sánh trong lần sau
-    prevColorsRef.current = [...currentColors];
-
-    let newSelectedColor = selectedColor;
-    let needsUpdate = false;
-
-    if (currentColors.length > 0) {
-      if (!selectedColor || !currentColors.includes(selectedColor)) {
-        newSelectedColor = currentColors[0];
-        needsUpdate = true;
-      }
-    } else if (selectedColor !== "") {
-      newSelectedColor = "";
-      needsUpdate = true;
-    }
-
-    // Chỉ cập nhật khi thực sự cần thiết
-    if (needsUpdate) {
-      setSelectedColor(newSelectedColor);
-    }
-  }, [product.colors, selectedColor]);
-
-  // Tải suitabilities - chỉ chạy một lần khi component mount
-  useEffect(() => {
-    const fetchSuitabilities = async () => {
-      try {
-        setSuitabilityLoading(true);
-        const data = await ProductService.getSuitabilities();
-        setSuitabilities(data);
-      } catch (error) {
-        console.error("Error fetching suitabilities:", error);
-        showToast("Không thể tải danh sách phù hợp cho sản phẩm", {
-          type: "error",
-        });
-      } finally {
-        setSuitabilityLoading(false);
-      }
-    };
-
-    fetchSuitabilities();
-  }, [showToast]); // Đã thêm showToast vào dependency array
-
-  // Tải kích thước dựa trên danh mục
-  useEffect(() => {
-    if (!product.category || categoryList.length === 0) {
-      return;
-    }
-
-    const loadSizes = async () => {
-      try {
-        // Tải tất cả các kích thước từ API
-        const sizes = await ProductService.getSizes();
-        console.log("All sizes loaded:", sizes);
-
-        // Chuyển category ID về dạng số để so sánh
-        const selectedCategoryId = parseInt(product.category);
-        console.log("Selected Category ID:", selectedCategoryId);
-
-        // Lọc size theo categoryId thực tế, không dùng getSizeCategory nữa
-        const sizeOptions = sizes
-          .filter(
-            (size) => size.active && size.categoryId === selectedCategoryId
-          )
-          .sort((a, b) => a.displayOrder - b.displayOrder)
-          .map((size) => ({
-            value: size.value,
-            label: size.displayName || size.value,
-          }));
-
-        console.log("Filtered size options:", sizeOptions);
-        setAvailableSizeOptions(sizeOptions);
-
-        // Kiểm tra các size đã chọn, giữ lại những gì vẫn hợp lệ với danh mục mới
-        const validSelectedSizes = product.sizes.filter((selectedSize) =>
-          sizeOptions.some((option) => option.value === selectedSize)
-        );
-
-        // Kiểm tra xem có sự thay đổi thực sự nào không
-        const sizesChanged =
-          validSelectedSizes.length !== product.sizes.length ||
-          !validSelectedSizes.every((size) => product.sizes.includes(size));
-
-        // Nếu sizes thay đổi, cập nhật cả sizes và variants
-        if (sizesChanged) {
-          setProduct((prev) => {
-            // Lọc ra các biến thể có size vẫn còn hợp lệ
-            const validVariants = prev.stock.variants.filter((variant) =>
-              validSelectedSizes.includes(variant.size)
-            );
-
-            // Tính lại tổng tồn kho
-            const newTotal = validVariants.reduce(
-              (sum, variant) => sum + variant.stock,
-              0
-            );
-
-            // Hiển thị thông báo nếu có variants bị xóa
-            if (validVariants.length < prev.stock.variants.length) {
-              showToast(
-                "Một số biến thể đã bị xóa do không còn phù hợp với danh mục mới",
-                { type: "warning" }
-              );
-            }
-
-            return {
-              ...prev,
-              sizes: validSelectedSizes,
-              stock: {
-                ...prev.stock,
-                variants: validVariants,
-                total: newTotal,
-              },
-            };
-          });
-        }
-      } catch (error) {
-        console.error("Không thể tải danh sách kích thước:", error);
-        showToast("Không thể tải danh sách kích thước", { type: "error" });
-        setAvailableSizeOptions([]);
-      }
-    };
-
-    loadSizes();
-  }, [product.category, showToast, categoryList, product.sizes]);
-
-  // Các hàm xử lý hình ảnh
-  const handleImageChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      e.preventDefault();
-
-      const files = e.target.files;
-      if (!files || files.length === 0 || !selectedColor) return;
-
-      const currentImages = colorImages[selectedColor] || [];
-      const remainingSlots = 10 - currentImages.length;
-
-      if (remainingSlots <= 0) {
-        showToast("Mỗi màu chỉ được phép tải lên tối đa 10 hình ảnh", {
-          type: "warning",
-        });
-        return;
-      }
-
-      const selectedFiles = Array.from(files).slice(0, remainingSlots);
-      const newImages = [...currentImages];
-
-      selectedFiles.forEach((file, index) => {
-        const uniqueId = Date.now() + index;
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (typeof reader.result === "string") {
-            const newImage: ColorImage = {
-              id: uniqueId,
-              file,
-              url: reader.result,
-              isMain: currentImages.length === 0 && index === 0,
-            };
-            newImages.push(newImage);
-            setColorImages((prev) => ({
-              ...prev,
-              [selectedColor]: [...newImages],
-            }));
-          }
-        };
-        reader.readAsDataURL(file);
-      });
-
-      e.target.value = "";
-    },
-    [selectedColor, colorImages, showToast]
-  );
-
-  const handleSetMainImage = useCallback(
-    (imageId: number) => {
-      if (!selectedColor || !colorImages[selectedColor]) return;
-
-      const updatedImages = colorImages[selectedColor].map((img) => ({
-        ...img,
-        isMain: img.id === imageId,
-      }));
-
-      setColorImages((prev) => ({
-        ...prev,
-        [selectedColor]: updatedImages,
-      }));
-    },
-    [selectedColor, colorImages]
-  );
-
-  const handleRemoveImage = useCallback(
-    (imageId: number) => {
-      if (!selectedColor || !colorImages[selectedColor]) return;
-
-      const updatedImages = colorImages[selectedColor].filter(
-        (img) => img.id !== imageId
-      );
-
-      if (
-        updatedImages.length > 0 &&
-        !updatedImages.some((img) => img.isMain)
-      ) {
-        updatedImages[0].isMain = true;
-      }
-
-      setColorImages((prev) => ({
-        ...prev,
-        [selectedColor]: updatedImages,
-      }));
-    },
-    [selectedColor, colorImages]
-  );
-
-  // Các hàm validateProductData và handleSaveProduct
-  const validateProductData = useCallback((): boolean => {
-    if (!product.name) {
-      showToast("Vui lòng nhập tên sản phẩm", { type: "error" });
-      setActiveTab("info");
-      return false;
-    }
-
-    if (!product.sku) {
-      showToast("Vui lòng nhập mã SKU", { type: "error" });
-      setActiveTab("info");
-      return false;
-    }
-
-    if (!product.category) {
-      showToast("Vui lòng chọn danh mục sản phẩm", { type: "error" });
-      setActiveTab("info");
-      return false;
-    }
-
-    if (product.price <= 0) {
-      showToast("Giá bán phải lớn hơn 0", { type: "error" });
-      setActiveTab("info");
-      return false;
-    }
-
-    if (product.originalPrice > 0 && product.price > product.originalPrice) {
-      showToast("Giá bán phải thấp hơn hoặc bằng giá gốc", { type: "error" });
-      setActiveTab("info");
-      return false;
-    }
-
-    if (product.colors.length === 0) {
-      showToast("Vui lòng chọn ít nhất một màu sắc", { type: "error" });
-      setActiveTab("attributes");
-      return false;
-    }
-
-    if (product.sizes.length === 0) {
-      showToast("Vui lòng chọn ít nhất một kích thước", { type: "error" });
-      setActiveTab("attributes");
-      return false;
-    }
-
-    if (product.stock.variants.length === 0) {
-      showToast("Vui lòng thêm ít nhất một biến thể sản phẩm", {
+      setCategoryList(categories.filter((cat: Category) => !cat.parentId));
+      setSuitabilities(suitData);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      showToast("Không thể tải dữ liệu danh mục hoặc kích thước", {
         type: "error",
       });
-      setActiveTab("inventory");
-      return false;
     }
+  }, [showToast]);
 
-    const colorsWithoutImages = product.colors.filter(
-      (color) => !colorImages[color] || colorImages[color].length === 0
-    );
+  // Load data on component mount
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
 
-    if (colorsWithoutImages.length > 0) {
-      showToast(
-        `Các màu sau chưa có hình ảnh: ${colorsWithoutImages.join(", ")}`,
-        { type: "error" }
-      );
-      setActiveTab("images");
-      return false;
+  // Handle subtypes when category changes
+  useEffect(() => {
+    if (state.product?.categories && state.product.categories.length > 0) {
+      const parentId = state.product.categories[0].id;
+      CategoryService.getChildCategories(parentId)
+        .then((data) => {
+          setSubtypes(data);
+        })
+        .catch((error) => {
+          console.error("Error fetching subtypes:", error);
+          showToast("Không thể tải dữ liệu loại sản phẩm", { type: "error" });
+        });
     }
+  }, [state.product?.categories, showToast]);
 
-    const colorsWithoutMainImage = product.colors.filter(
-      (color) => !colorImages[color]?.some((img) => img.isMain)
-    );
+  // Fetch sizes based on category
+  useEffect(() => {
+    if (state.product?.categories && state.product.categories.length > 0) {
+      const categoryId = state.product.categories[0].id;
+      const loadSizes = async () => {
+        try {
+          // Load all sizes from API
+          const sizes = await ProductService.getSizes();
+          console.log("Sizes loaded:", sizes);
 
-    if (colorsWithoutMainImage.length > 0) {
-      showToast(
-        `Các màu sau chưa có hình ảnh chính: ${colorsWithoutMainImage.join(
-          ", "
-        )}`,
-        { type: "error" }
-      );
-      setActiveTab("images");
-      return false;
+          // Filter sizes by categoryId
+          const sizeOptions = sizes
+            .filter(
+              (size: ProductSize) =>
+                size.active && size.categoryId === categoryId
+            )
+            .sort(
+              (a: ProductSize, b: ProductSize) =>
+                a.displayOrder - b.displayOrder
+            )
+            .map((size: ProductSize) => ({
+              value: size.value,
+              label: size.displayName || size.value,
+            }));
+
+          setAvailableSizes(
+            sizeOptions.length > 0
+              ? sizeOptions
+              : [
+                  { value: "S", label: "S" },
+                  { value: "M", label: "M" },
+                  { value: "L", label: "L" },
+                  { value: "XL", label: "XL" },
+                  { value: "XXL", label: "XXL" },
+                ]
+          );
+        } catch (error) {
+          console.error("Error loading sizes:", error);
+          showToast("Không thể tải dữ liệu kích thước", { type: "error" });
+        }
+      };
+
+      loadSizes();
     }
+  }, [state.product?.categories, showToast]);
 
-    return true;
-  }, [product, colorImages, showToast, setActiveTab]);
-
-  const handleSaveProduct = useCallback(async () => {
-    if (!validateProductData()) return;
-    setIsSubmitting(true);
+  // Handler for saving product
+  const handleSaveProduct = async () => {
+    if (!state.product) return;
 
     try {
-      // Tạo mảng categories bao gồm cả category chính và subtype (nếu có)
-      const categories = [];
+      dispatch({ type: "SET_SUBMITTING", payload: true });
 
-      if (product.category) {
-        categories.push(parseInt(product.category));
-      }
-
-      if (product.subtype) {
-        categories.push(parseInt(product.subtype));
-      }
-
-      const productData = {
-        name: product.name,
-        sku: product.sku,
-        description: product.description,
-        brand: product.brand,
-        material: product.material,
-        featured: product.featured,
-        status: product.status,
-        tags: product.tags,
-        suitability: product.suitability,
-        categories: categories,
-        details: [] as Array<{
-          color: string;
-          price: number;
-          originalPrice: number;
-          sizes: Array<{ size: string; stock: number }>;
-        }>,
+      // Create a ProductData object with the required price property
+      const productDataForValidation = {
+        name: state.product.name,
+        sku: state.product.sku,
+        categories: state.product.categories.map((c) => c.name), // Use category names
+        price:
+          state.product.details.length > 0 ? state.product.details[0].price : 0, // Use first detail's price
+        details: state.product.details.map((detail) => ({
+          id: detail.id,
+          color: detail.color,
+          price: detail.price,
+          originalPrice: detail.originalPrice,
+          sizes: detail.inventories.map((inv) => ({
+            size: inv.size,
+            stock: inv.stock,
+          })),
+        })),
       };
-      console.log("suitability to be saved:", productData.suitability);
-      console.log("product subtype to be saved:", productData.subtype);
 
-      const colorGroups: Record<
-        string,
-        {
-          color: string;
-          price: number;
-          originalPrice: number;
-          sizes: Array<{ size: string; stock: number }>;
-        }
-      > = {};
+      // Validate product data before submitting
+      const validation = validateProductData(productDataForValidation);
 
-      product.stock.variants.forEach((variant) => {
-        if (!colorGroups[variant.color]) {
-          colorGroups[variant.color] = {
-            color: variant.color,
-            price: product.price,
-            originalPrice: product.originalPrice,
-            sizes: [],
-          };
-        }
+      if (!validation.isValid) {
+        // Display the first error message
+        const errorMessage =
+          validation.errors[0].message || "Dữ liệu sản phẩm không hợp lệ";
+        showToast(errorMessage, { type: "error" });
 
-        colorGroups[variant.color].sizes.push({
-          size: variant.size,
-          stock: variant.stock,
-        });
-      });
+        // Log all errors for debugging
+        console.error("Product validation errors:", validation.errors);
+        dispatch({ type: "SET_SUBMITTING", payload: false });
+        return;
+      } // Prepare data for API
+      const productData = {
+        name: state.product.name,
+        sku: state.product.sku,
+        description: state.product.description,
+        brand: state.product.brand,
+        material: state.product.material,
+        featured: state.product.featured,
+        status: state.product.status || "draft",
+        tags: state.product.tags || [],
+        suitability: state.product.suitabilities.map((s) => s.id), // Note: ProductCreate uses suitability not suitabilities
+        categories: state.product.categories.map((c) => c.id),
+        subtypeId: state.product.subtype?.id || null,
+        details: state.product.details.map((detail) => ({
+          color: detail.color,
+          price: detail.price,
+          originalPrice: detail.originalPrice,
+          sizes: detail.inventories.map((inv) => ({
+            size: inv.size,
+            stock: inv.stock,
+          })),
+        })),
+      };
 
-      productData.details = Object.values(colorGroups);
+      // Check if we have images to upload
+      if (state.newImages.length > 0) {
+        // Group images by color
+        const imageFiles: File[] = [];
+        const imageColorMapping: Record<number, string> = {};
+        const imageMainMapping: Record<number, boolean> = {};
 
-      const imageFiles: File[] = [];
-      const imageColorMapping: Record<number, string> = {};
-      let fileIndex = 0;
-      const imageMainMapping: Record<number, boolean> = {};
-
-      Object.entries(colorImages).forEach(([color, images]) => {
-        images.forEach((img) => {
+        state.newImages.forEach((img, index) => {
           imageFiles.push(img.file);
-          imageColorMapping[fileIndex] = color;
-          imageMainMapping[fileIndex] = img.isMain;
-          fileIndex++;
+          imageColorMapping[index] = img.color;
+          imageMainMapping[index] = img.isMain;
         });
-      });
 
-      console.log("Sending product data:", {
-        ...productData,
-        categories: productData.categories,
-        subtype: product.subtype,
-        category: product.category,
-      });
+        // Create product with images
+        const result = await ProductService.createProductWithImages(
+          productData,
+          imageFiles,
+          imageColorMapping,
+          imageMainMapping
+        );
 
-      const result = await ProductService.createProductWithImages(
-        productData,
-        imageFiles,
-        imageColorMapping,
-        imageMainMapping
-      );
+        // Log the entire response to see its structure
+        console.log("API Response for product creation:", result);
 
-      showToast("Thêm sản phẩm thành công!", { type: "success" });
-      router.push(`/admin/products/${result.productId}`);
+        // Check if we have a product ID in the response
+        if (!result || !result.id) {
+          console.error("No product ID in response:", result);
+          showToast("Sản phẩm đã được tạo, nhưng không lấy được ID sản phẩm", {
+            type: "warning",
+          });
+          // Redirect to product listing if we can't get an ID
+          router.push("/admin/products");
+          return;
+        }
+
+        showToast("Sản phẩm đã được tạo thành công", { type: "success" });
+
+        // Redirect to product detail page with correct product ID
+        console.log("Redirecting to product detail page with ID:", result.id);
+        router.push(`/admin/products/${result.id}`);
+      } else {
+        // Create product without images
+        const result = await ProductService.createProduct(productData);
+        console.log("Product created:", result);
+        showToast(
+          "Sản phẩm đã được tạo thành công. Hãy thêm hình ảnh cho sản phẩm.",
+          { type: "success" }
+        );
+
+        // Redirect to product listing or the new product detail page
+        router.push(`/admin/products/${result.id}`);
+      }
     } catch (error) {
-      console.error("Lỗi khi thêm sản phẩm:", error);
+      console.error("Error creating product:", error);
       showToast(
-        `Có lỗi xảy ra: ${
-          error instanceof Error ? error.message : "Vui lòng thử lại"
-        }`,
+        error instanceof Error
+          ? error.message
+          : "Có lỗi xảy ra khi tạo sản phẩm",
         { type: "error" }
       );
     } finally {
-      setIsSubmitting(false);
+      dispatch({ type: "SET_SUBMITTING", payload: false });
     }
-  }, [product, colorImages, validateProductData, router, showToast]);
+  }; // Handle image upload
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileInput = e.target;
 
-  // Component JSX giữ nguyên
+    // Validate that we have files and a selected color
+    if (!fileInput.files) {
+      showToast("Không có tập tin nào được chọn", { type: "error" });
+      return;
+    }
+
+    // Make sure our product is loaded
+    if (!state.product) {
+      showToast("Không tìm thấy sản phẩm", { type: "error" });
+      fileInput.value = "";
+      return;
+    }
+
+    // Make sure we have product details (colors) before proceeding
+    if (state.product.details.length === 0) {
+      showToast(
+        "Vui lòng thêm ít nhất một màu sắc trong tab Thuộc tính trước khi tải lên hình ảnh",
+        { type: "error" }
+      );
+      fileInput.value = "";
+      return;
+    }
+
+    // If no color is selected but we have colors available, auto-select the first color
+    if (!state.selectedImageColor && state.product.details.length > 0) {
+      const firstColor = state.product.details[0].color;
+      console.log("Auto-selecting first color:", firstColor);
+      dispatch({ type: "SET_SELECTED_IMAGE_COLOR", payload: firstColor });
+
+      // Show a notice to the user
+      showToast(`Đã tự động chọn màu ${firstColor} - vui lòng thử lại`, {
+        type: "info",
+      });
+      fileInput.value = "";
+      return;
+    }
+
+    // When we reach here, we should have a selectedImageColor
+    if (!state.selectedImageColor) {
+      showToast("Vui lòng chọn một màu sắc trước khi tải hình ảnh", {
+        type: "error",
+      });
+      fileInput.value = "";
+      return;
+    }
+
+    // Get detail index for the selected color
+    const detailIndex = state.product.details.findIndex(
+      (d) => d.color === state.selectedImageColor
+    );
+
+    // Log for debugging
+    console.log("Selected Color:", state.selectedImageColor);
+    console.log(
+      "Available Colors:",
+      state.product.details.map((d) => d.color)
+    );
+    console.log("Detail Index:", detailIndex);
+
+    // Handle case when detailIndex is -1 (selected color doesn't exist in details)
+    if (detailIndex < 0) {
+      showToast(
+        `Màu sắc đã chọn (${state.selectedImageColor}) không tồn tại trong sản phẩm`,
+        { type: "error" }
+      );
+
+      // Reset selection and select first available color
+      if (state.product.details.length > 0) {
+        const firstColor = state.product.details[0].color;
+        console.log("Switching to first available color:", firstColor);
+        dispatch({ type: "SET_SELECTED_IMAGE_COLOR", payload: firstColor });
+        showToast(`Đã chuyển sang màu ${firstColor} - vui lòng thử lại`, {
+          type: "info",
+        });
+      }
+
+      fileInput.value = "";
+      return;
+    }
+
+    const selectedFiles = Array.from(fileInput.files);
+    const currentColorImages = state.product.details[detailIndex].images || [];
+    console.log("Current Color Images:", currentColorImages);
+
+    // Check if adding these images would exceed the limit of 10
+    if (currentColorImages.length + selectedFiles.length > 10) {
+      showToast(
+        `Không thể tải lên quá 10 hình ảnh cho mỗi màu sắc (${currentColorImages.length} ảnh hiện tại)`,
+        { type: "error" }
+      );
+      fileInput.value = "";
+      return;
+    }
+
+    // Process each file
+    selectedFiles.forEach((file) => {
+      // Create a unique temporary ID for this image
+      const tempId = `temp_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
+      const objectURL = URL.createObjectURL(file);
+
+      // Determine if this is the main image
+      const isMain = currentColorImages.length === 0;
+
+      // Add the new image to the state
+      dispatch({
+        type: "ADD_NEW_IMAGE",
+        payload: {
+          file,
+          color: state.selectedImageColor,
+          isMain,
+        },
+      });
+
+      // Also update the product details so the image appears in the UI
+      const updatedDetails = [...state.product!.details];
+      const existingDetail = updatedDetails[detailIndex];
+
+      updatedDetails[detailIndex] = {
+        ...existingDetail,
+        images: [
+          ...existingDetail.images,
+          {
+            id: tempId,
+            productDetailId: existingDetail.id,
+            url: objectURL,
+            isMain,
+          },
+        ],
+      };
+
+      dispatch({
+        type: "UPDATE_PRODUCT",
+        payload: {
+          ...state.product,
+          details: updatedDetails,
+        },
+      });
+    });
+
+    // Clear the file input
+    fileInput.value = "";
+  };
+
+  // Handle image deletion
+  const handleImageDeleteRequest = (imageId: number | string) => {
+    if (!state.selectedImageColor) return;
+
+    setImageDeleteConfirmation({
+      isOpen: true,
+      imageId,
+      imageColor: state.selectedImageColor,
+    });
+  };
+
+  const confirmImageDelete = () => {
+    if (!imageDeleteConfirmation.imageId || !imageDeleteConfirmation.imageColor)
+      return;
+
+    // Find detail index for this color
+    const detailIndex = state.product!.details.findIndex(
+      (d) => d.color === imageDeleteConfirmation.imageColor
+    );
+
+    if (detailIndex >= 0) {
+      // Remove image from detail
+      const detail = state.product!.details[detailIndex];
+      const imageIndex = detail.images.findIndex(
+        (img) => img.id === imageDeleteConfirmation.imageId
+      );
+
+      if (imageIndex >= 0) {
+        const isMainImage = detail.images[imageIndex].isMain;
+        const updatedImages = detail.images.filter(
+          (img) => img.id !== imageDeleteConfirmation.imageId
+        );
+
+        // If we removed the main image and there are other images, set a new main
+        if (isMainImage && updatedImages.length > 0) {
+          updatedImages[0].isMain = true;
+        }
+
+        // Create updated details array with the new images list
+        const updatedDetails = state.product!.details.map((detail, idx) =>
+          idx === detailIndex ? { ...detail, images: updatedImages } : detail
+        );
+
+        // Use updateProduct for consistency
+        dispatch({
+          type: "UPDATE_PRODUCT",
+          payload: {
+            ...state.product,
+            details: updatedDetails,
+          },
+        });
+
+        // Remove image from newImages list if it was a temp image
+        if (typeof imageDeleteConfirmation.imageId === "string") {
+          // It's a temp image, no need to add to removedImageIds
+          // Just filter it from the newImages array
+          const newImages = state.newImages.filter((img) => {
+            const imgObjectURL = URL.createObjectURL(img.file);
+            const tempImageUrls = detail.images
+              .filter((img) => typeof img.id === "string")
+              .map((img) => img.url);
+            return !tempImageUrls.includes(imgObjectURL);
+          });
+
+          if (newImages.length !== state.newImages.length) {
+            dispatch({ type: "RESET_NEW_IMAGES" });
+            newImages.forEach((img) => {
+              dispatch({ type: "ADD_NEW_IMAGE", payload: img });
+            });
+          }
+        }
+      }
+    }
+
+    // Close modal
+    setImageDeleteConfirmation({
+      isOpen: false,
+      imageId: null,
+      imageColor: "",
+    });
+  };
+
+  // Handler for setting main product image
+  const handleSetMainImage = (imageId: number | string) => {
+    if (!state.product || !state.selectedImageColor) return;
+
+    // Find detail index for this color
+    const detailIndex = state.product.details.findIndex(
+      (d) => d.color === state.selectedImageColor
+    );
+    if (detailIndex < 0) return;
+
+    // Update images to mark the selected one as main
+    const updatedImages = state.product.details[detailIndex].images.map(
+      (img) => ({
+        ...img,
+        isMain: img.id === imageId,
+      })
+    );
+
+    // Create updated details with the new images
+    const updatedDetails = [...state.product.details];
+    updatedDetails[detailIndex] = {
+      ...updatedDetails[detailIndex],
+      images: updatedImages,
+    };
+
+    // Use updateProduct for consistency
+    dispatch({
+      type: "UPDATE_PRODUCT",
+      payload: {
+        ...state.product,
+        details: updatedDetails,
+      },
+    });
+
+    // Also update the newImages array for files that haven't been uploaded yet
+    const newImages = state.newImages.map((img) => {
+      if (img.color === state.selectedImageColor) {
+        // If this image matches the one we want to set as main by URL comparison
+        const matchesMainImage = updatedImages.some(
+          (updatedImg) =>
+            updatedImg.id === imageId &&
+            typeof updatedImg.id === "string" &&
+            updatedImg.url === URL.createObjectURL(img.file)
+        );
+
+        return {
+          ...img,
+          isMain: matchesMainImage,
+        };
+      }
+      return img;
+    });
+
+    dispatch({ type: "RESET_NEW_IMAGES" });
+    newImages.forEach((img) => {
+      dispatch({ type: "ADD_NEW_IMAGE", payload: img });
+    });
+  };
+
+  // Breadcrumb items
+  const breadcrumbItems = [
+    { label: "Trang chủ", href: "/admin" },
+    { label: "Sản phẩm", href: "/admin/products" },
+    { label: "Thêm sản phẩm mới", active: true },
+  ];
+
   return (
     <AdminLayout title="Thêm sản phẩm mới">
-      {/* Content Header */}
-      <div className="content-header">
-        <div className="container-fluid">
-          <div className="row mb-2">
-            <div className="col-sm-6">
-              <h1 className="m-0">Thêm sản phẩm mới</h1>
-            </div>
-            <div className="col-sm-6">
-              <Breadcrumb items={breadcrumbItems} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main content */}
       <section className="content">
         <div className="container-fluid">
-          {/* Action buttons */}
-          <div className="mb-3">
-            <Link href="/admin/products" className="btn btn-secondary mr-2">
-              <i className="fas fa-arrow-left mr-1"></i> Quay lại
-            </Link>
-            <button
-              className="btn btn-success mr-2"
-              onClick={handleSaveProduct}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <>
-                  <i className="fas fa-spinner fa-spin mr-1"></i> Đang lưu...
-                </>
-              ) : (
-                <>
-                  <i className="fas fa-save mr-1"></i> Lưu sản phẩm
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Basic Info Card */}
-          <BasicInfoForm
-            product={product}
-            setProduct={setProduct}
-            categoryList={categoryList}
-            subtypes={subtypes}
-            categoryLoading={categoryLoading}
-            subtypeLoading={subtypeLoading}
-          />
-
-          {/* Tabs for additional info */}
-          <div className="card card-primary card-outline card-tabs">
-            <div className="card-header p-0 pt-1 border-bottom-0">
-              <ul className="nav nav-tabs" role="tablist">
-                <li className="nav-item">
-                  <a
-                    className={`nav-link ${
-                      activeTab === "attributes" ? "active" : ""
-                    }`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setActiveTab("attributes");
-                    }}
-                    href="#"
-                  >
-                    <i className="fas fa-tags mr-1"></i>
-                    Thuộc tính
-                  </a>
-                </li>
-                <li className="nav-item">
-                  <a
-                    className={`nav-link ${
-                      activeTab === "inventory" ? "active" : ""
-                    }`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setActiveTab("inventory");
-                    }}
-                    href="#"
-                  >
-                    <i className="fas fa-box mr-1"></i>
-                    Tồn kho
-                  </a>
-                </li>
-                <li className="nav-item">
-                  <a
-                    className={`nav-link ${
-                      activeTab === "images" ? "active" : ""
-                    }`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setActiveTab("images");
-                    }}
-                    href="#"
-                  >
-                    <i className="fas fa-images mr-1"></i>
-                    Hình ảnh
-                  </a>
-                </li>
-              </ul>
-            </div>
-            <div className="card-body">
-              <div className="tab-content">
-                {/* Attributes Tab */}
-                {activeTab === "attributes" && (
-                  <AttributesTab
-                    product={product}
-                    setProduct={setProduct}
-                    suitabilities={suitabilities}
-                    suitabilityLoading={suitabilityLoading}
-                    availableColors={availableColors}
-                    availableSizes={availableSizeOptions}
-                    tagInput={tagInput}
-                    setTagInput={setTagInput}
-                  />
-                )}
-
-                {/* Inventory Tab */}
-                {activeTab === "inventory" && (
-                  <InventoryTab
-                    product={product}
-                    setProduct={setProduct}
-                    availableSizes={availableSizeOptions}
-                    availableColors={availableColors}
-                    newVariant={newVariant}
-                    setNewVariant={setNewVariant}
-                  />
-                )}
-
-                {/* Images Tab */}
-                {activeTab === "images" && (
-                  <ImagesTab
-                    productColors={product.colors}
-                    selectedColor={selectedColor}
-                    setSelectedColor={setSelectedColor}
-                    colorImages={colorImages}
-                    setColorImages={setColorImages}
-                    availableColors={availableColors}
-                    handleImageChange={handleImageChange}
-                    handleSetMainImage={handleSetMainImage}
-                    handleRemoveImage={handleRemoveImage}
-                  />
-                )}
+          <div className="content-header">
+            <div className="container-fluid">
+              <div className="row mb-2">
+                <div className="col-sm-6">
+                  <h1 className="m-0">Thêm sản phẩm mới</h1>
+                </div>
+                <div className="col-sm-6">
+                  <Breadcrumb items={breadcrumbItems} />
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Save button at the bottom */}
-          <div className="text-center mb-4">
+          <div className="mb-3">
             <button
-              className="btn btn-lg btn-success"
-              onClick={handleSaveProduct}
-              disabled={isSubmitting}
+              className="btn btn-secondary mr-2"
+              onClick={() => router.push("/admin/products")}
             >
-              {isSubmitting ? (
+              <i className="fas fa-arrow-left mr-1" /> Quay lại
+            </button>
+            <button
+              className="btn btn-success mr-2"
+              onClick={handleSaveProduct}
+              disabled={state.isSubmitting}
+            >
+              {state.isSubmitting ? (
                 <>
-                  <i className="fas fa-spinner fa-spin mr-1"></i> Đang lưu...
+                  <i className="fas fa-spinner fa-spin mr-1" /> Đang lưu...
                 </>
               ) : (
                 <>
-                  <i className="fas fa-save mr-1"></i> Lưu sản phẩm
+                  <i className="fas fa-save mr-1" /> Lưu sản phẩm
                 </>
               )}
             </button>
           </div>
+
+          {/* Tabs container */}
+          <TabContainer>
+            {/* Info Tab */}
+            <BasicInfoTab
+              categoryList={categoryList}
+              subtypes={subtypes}
+              categoryLoading={false}
+              subtypeLoading={false}
+            />
+
+            {/* Attributes/Variants Tab */}
+            <AttributesTab
+              suitabilities={suitabilities}
+              suitabilityLoading={false}
+              availableColors={availableColors}
+              availableSizes={availableSizes}
+            />
+
+            {/* Inventory Tab */}
+            <InventoryTab
+              availableColors={availableColors}
+              availableSizes={availableSizes}
+            />
+
+            {/* Images Tab */}
+            <ImagesTab
+              availableColors={availableColors}
+              handleImageChange={handleImageChange}
+              handleRemoveImage={handleImageDeleteRequest}
+              handleSetMainImage={handleSetMainImage}
+            />
+          </TabContainer>
+
+          {/* Confirmation Modals */}
+          <DeleteConfirmationModal
+            isOpen={imageDeleteConfirmation.isOpen}
+            title="Xác nhận xóa hình ảnh"
+            message="Bạn có chắc chắn muốn xóa hình ảnh này không?"
+            onConfirm={confirmImageDelete}
+            onCancel={() =>
+              setImageDeleteConfirmation({
+                isOpen: false,
+                imageId: null,
+                imageColor: "",
+              })
+            }
+          />
+
+          {/* Toast notifications */}
+          {Toast}
         </div>
       </section>
-
-      {/* Toast notifications */}
-      {Toast}
     </AdminLayout>
   );
-}
+};
+
+// Wrapper component with context provider
+const AddProductPage: React.FC = () => {
+  return (
+    <ProductProvider>
+      <AddProductPageContent />
+    </ProductProvider>
+  );
+};
+
+export default AddProductPage;
