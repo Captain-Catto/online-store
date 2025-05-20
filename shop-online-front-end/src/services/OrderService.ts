@@ -31,7 +31,6 @@ export const OrderService = {
       throw error;
     }
   },
-
   getOrderById: async (orderId: number): Promise<Order> => {
     try {
       console.log(`Getting order details for order ID ${orderId}...`);
@@ -67,11 +66,11 @@ export const OrderService = {
       throw error;
     }
   },
-
   placeOrder: async (orderData: OrderCreate): Promise<OrderFullResponse> => {
     try {
       console.log("Sending order data:", JSON.stringify(orderData));
 
+      // Use AuthClient.fetchWithAuth to include authentication token if user is logged in
       const response = await fetch(`${API_BASE_URL}/orders`, {
         method: "POST",
         headers: {

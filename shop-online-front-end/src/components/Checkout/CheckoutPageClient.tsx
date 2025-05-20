@@ -105,6 +105,9 @@ export default function CheckoutPage() {
   // state cho cart items
   const { cartItems, loading: cartLoading, clearCart } = useCart();
 
+  // State cho user ID
+  const [userId, setUserId] = useState<number | null>(null);
+
   // State cho tính phí vận chuyển
   const [calculatingShippingFee, setCalculatingShippingFee] = useState(false);
 
@@ -134,6 +137,23 @@ export default function CheckoutPage() {
 
     checkAuth();
   }, [router, searchParams]);
+
+  // Retrieve and set the userId when the component mounts if user is logged in
+  useEffect(() => {
+    if (isLoggedIn && !loading) {
+      try {
+        const userStr = localStorage.getItem("user");
+        if (userStr) {
+          const userData = JSON.parse(userStr);
+          if (userData && userData.id) {
+            setUserId(Number(userData.id));
+          }
+        }
+      } catch (error) {
+        console.error("Error retrieving user data:", error);
+      }
+    }
+  }, [isLoggedIn, loading]);
 
   // Fetch địa chỉ người dùng khi component được mount
   useEffect(() => {
@@ -378,6 +398,7 @@ export default function CheckoutPage() {
         shippingWard: shippingInfo.ward,
         shippingDistrict: shippingInfo.district,
         shippingCity: shippingInfo.city,
+        userId: userId, // Include the userId in the order payload
       };
       console.log("Order payload:", orderPayload);
 

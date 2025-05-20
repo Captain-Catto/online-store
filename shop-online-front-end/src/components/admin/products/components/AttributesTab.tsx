@@ -13,10 +13,17 @@ interface AttributesTabProps {
   suitabilityLoading: boolean;
   availableColors: { key: string; label: string }[];
   availableSizes: Array<{ value: string; label: string }>;
+  sizesLoading?: boolean;
 }
 
 const AttributesTab: React.FC<AttributesTabProps> = memo(
-  ({ suitabilities, suitabilityLoading, availableColors, availableSizes }) => {
+  ({
+    suitabilities,
+    suitabilityLoading,
+    availableColors,
+    availableSizes,
+    sizesLoading = false,
+  }) => {
     const { state, updateProduct, dispatch } = useProductContext();
     const { product, isEditing } = state;
     const [tagInput, setTagInput] = useState<string>("");
@@ -170,6 +177,7 @@ const AttributesTab: React.FC<AttributesTabProps> = memo(
       checked: boolean
     ): void => {
       let updatedSuitabilities;
+      console.log("suitabilityid hiện tại", suitabilityId);
       if (checked) {
         updatedSuitabilities = [
           ...product.suitabilities,
@@ -343,29 +351,36 @@ const AttributesTab: React.FC<AttributesTabProps> = memo(
               <div className="card mt-4">
                 <div className="card-header">
                   <h3 className="card-title">Kích thước</h3>
-                </div>
+                </div>{" "}
                 <div className="card-body">
-                  <div className="d-flex flex-wrap">
-                    {availableSizes.map((size) => (
-                      <div key={size.value} className="form-check mb-2 mr-4">
-                        <input
-                          className="form-check-input"
-                          type="checkbox"
-                          id={`size-${size.value}`}
-                          checked={sizeExists(size.value)}
-                          onChange={(e) =>
-                            handleSizeChange(size.value, e.target.checked)
-                          }
-                        />
-                        <label
-                          className="form-check-label"
-                          htmlFor={`size-${size.value}`}
-                        >
-                          {size.label}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
+                  {sizesLoading ? (
+                    <div className="text-center">
+                      <i className="fas fa-spinner fa-spin" /> Đang tải kích
+                      thước...
+                    </div>
+                  ) : (
+                    <div className="d-flex flex-wrap">
+                      {availableSizes.map((size) => (
+                        <div key={size.value} className="form-check mb-2 mr-4">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id={`size-${size.value}`}
+                            checked={sizeExists(size.value)}
+                            onChange={(e) =>
+                              handleSizeChange(size.value, e.target.checked)
+                            }
+                          />
+                          <label
+                            className="form-check-label"
+                            htmlFor={`size-${size.value}`}
+                          >
+                            {size.label}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -488,7 +503,6 @@ const AttributesTab: React.FC<AttributesTabProps> = memo(
                   )}
                 </div>
               </div>
-
               {/* Display price information in view mode */}
               {product.details.length > 0 && (
                 <div className="card mt-4">
@@ -545,13 +559,17 @@ const AttributesTab: React.FC<AttributesTabProps> = memo(
                     </div>
                   </div>
                 </div>
-              )}
-
+              )}{" "}
               <div className="card mt-4">
                 <div className="card-header">Kích thước</div>
                 <div className="card-body">
-                  {product.details.length > 0 &&
-                  product.details[0].inventories.length > 0 ? (
+                  {sizesLoading ? (
+                    <div className="text-center">
+                      <i className="fas fa-spinner fa-spin" /> Đang tải kích
+                      thước...
+                    </div>
+                  ) : product.details.length > 0 &&
+                    product.details[0].inventories.length > 0 ? (
                     <div className="d-flex flex-wrap">
                       {[
                         ...new Set(

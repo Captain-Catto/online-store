@@ -116,6 +116,7 @@ export interface OrderCreate {
   shippingWard: string;
   shippingDistrict: string;
   shippingCity: string;
+  userId?: number | null; // Make userId optional to support both logged-in and anonymous orders
 }
 
 export interface OrderItem {

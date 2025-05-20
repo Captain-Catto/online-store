@@ -24,6 +24,7 @@ export const createProductWithDetails = async (
   req: Request,
   res: Response
 ): Promise<void> => {
+  console.log("data nhận vào", req.body);
   const t = await sequelize.transaction();
 
   // Get uploaded files
@@ -83,48 +84,69 @@ export const createProductWithDetails = async (
 
     // Map to track which images belong to which color
     const colorImageMap = new Map();
-
+    // Xử lý suitability đúng cách
+    let suitabilityIds = [];
     if (suitability) {
-      const suitabilityNames =
-        typeof suitability === "string"
-          ? JSON.parse(suitability)
-          : Array.isArray(suitability)
-          ? suitability
-          : [];
+      try {
+        suitabilityIds =
+          typeof suitability === "string"
+            ? JSON.parse(suitability)
+            : Array.isArray(suitability)
+            ? suitability
+            : [];
+      } catch (e) {
+        console.error("Error parsing suitability:", e);
+        suitabilityIds = [];
+      }
 
-      for (const suitName of suitabilityNames) {
-        // Tìm hoặc tạo suitability
-        const [suitabilityRecord] = await Suitability.findOrCreate({
-          where: { name: suitName },
-          defaults: { name: suitName },
+      for (const suitId of suitabilityIds) {
+        // Tìm suitability theo ID thay vì tạo mới
+        const existingSuitability = await Suitability.findByPk(suitId, {
           transaction: t,
         });
 
-        // Thêm liên kết
-        await ProductSuitability.create(
-          {
-            productId: newProduct.id,
-            suitabilityId: suitabilityRecord.id,
-          },
-          { transaction: t }
-        );
+        if (existingSuitability) {
+          await ProductSuitability.create(
+            {
+              productId: newProduct.id,
+              suitabilityId: existingSuitability.id,
+            },
+            { transaction: t }
+          );
+        }
       }
     }
 
     // Process uploaded files if any - group by color
     if (files && files.length > 0) {
       // Extract color information from the form
-      const imageColors = JSON.parse(req.body.imageColors || "{}");
+      let imageColors: { [key: string]: string } = {};
+      let imageIsMain: { [key: string]: boolean | string } = {};
+      try {
+        imageColors =
+          typeof req.body.imageColors === "string"
+            ? JSON.parse(req.body.imageColors)
+            : req.body.imageColors || {};
+
+        imageIsMain =
+          typeof req.body.imageIsMain === "string"
+            ? JSON.parse(req.body.imageIsMain)
+            : req.body.imageIsMain || {};
+      } catch (e) {
+        console.error("Error parsing image metadata:", e);
+      }
 
       // Group images by color
       files.forEach((file, index) => {
-        const color = imageColors[index] || "default";
+        const indexKey = index.toString();
+        const color = imageColors[indexKey] || "default";
         if (!colorImageMap.has(color)) {
           colorImageMap.set(color, []);
         }
         colorImageMap.get(color).push({
           url: file.location,
-          isMain: imageIsMain[index] === true || imageIsMain[index] === "true",
+          isMain:
+            imageIsMain[indexKey] === true || imageIsMain[indexKey] === "true",
           displayOrder: colorImageMap.get(color).length,
         });
       });
@@ -482,8 +504,6 @@ export const getProductsWithVariants = async (
           statusClass = "warning";
           break;
       }
-
-      console.log("Suitabilities in product:", product.suitabilities);
 
       // Return formatted product
       return {

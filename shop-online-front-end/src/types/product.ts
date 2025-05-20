@@ -40,6 +40,15 @@ export interface Product {
   material: string[];
 }
 
+export interface ProductSize {
+  id: number;
+  value: string;
+  displayName: string;
+  categoryId: number;
+  active: boolean;
+  displayOrder: number;
+}
+
 export interface ProductAdminResponse {
   id: number;
   name: string;

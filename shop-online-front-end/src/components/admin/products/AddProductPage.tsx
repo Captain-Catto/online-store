@@ -11,15 +11,7 @@ import { FormattedProduct } from "./types";
 
 // Import context provider
 import { ProductProvider, useProductContext } from "@/contexts/ProductContext";
-// Define types used in the file
-interface ProductSize {
-  id: number;
-  value: string;
-  displayName: string;
-  categoryId: number;
-  active: boolean;
-  displayOrder: number;
-}
+import { ProductSize } from "@/types/product";
 
 // Import components
 import Breadcrumb from "@/components/admin/shared/Breadcrumb";
@@ -94,7 +86,7 @@ const AddProductPageContent: React.FC = () => {
     { value: "M", label: "M" },
     { value: "L", label: "L" },
     { value: "XL", label: "XL" },
-    { value: "XXL", label: "XXL" },
+    { value: "2XL", label: "2XL" },
   ]);
 
   // Initialize empty product on component mount
@@ -145,52 +137,66 @@ const AddProductPageContent: React.FC = () => {
         });
     }
   }, [state.product?.categories, showToast]);
+  // State for tracking size loading
+  const [sizesLoading, setSizesLoading] = useState<boolean>(false);
+
+  // Function to fetch sizes by category
+  const fetchSizeByCategory = useCallback(
+    async (categoryId: number | string) => {
+      try {
+        setSizesLoading(true);
+
+        const sizes = await ProductService.getSizesByCategory(categoryId);
+
+        // Transform API data to expected format { value, label }
+        const formattedSizes = sizes.map((size: ProductSize) => ({
+          value: size.value,
+          label: size.displayName || size.value,
+        }));
+
+        setAvailableSizes(
+          formattedSizes.length > 0
+            ? formattedSizes
+            : [
+                { value: "S", label: "S" },
+                { value: "M", label: "M" },
+                { value: "L", label: "L" },
+                { value: "XL", label: "XL" },
+                { value: "2XL", label: "2XL" },
+              ]
+        );
+
+        if (formattedSizes.length === 0) {
+          showToast(
+            "Không tìm thấy kích thước cho danh mục này, sử dụng kích thước mặc định",
+            { type: "warning" }
+          );
+        }
+      } catch (error) {
+        console.error("Error fetching sizes:", error);
+        showToast("Không thể tải dữ liệu kích thước", { type: "error" });
+        // Fall back to default sizes if there's an error
+        setAvailableSizes([
+          { value: "S", label: "S" },
+          { value: "M", label: "M" },
+          { value: "L", label: "L" },
+          { value: "XL", label: "XL" },
+          { value: "2XL", label: "2XL" },
+        ]);
+      } finally {
+        setSizesLoading(false);
+      }
+    },
+    [showToast]
+  );
 
   // Fetch sizes based on category
   useEffect(() => {
     if (state.product?.categories && state.product.categories.length > 0) {
       const categoryId = state.product.categories[0].id;
-      const loadSizes = async () => {
-        try {
-          // Load all sizes from API
-          const sizes = await ProductService.getSizes();
-          console.log("Sizes loaded:", sizes);
-
-          // Filter sizes by categoryId
-          const sizeOptions = sizes
-            .filter(
-              (size: ProductSize) =>
-                size.active && size.categoryId === categoryId
-            )
-            .sort(
-              (a: ProductSize, b: ProductSize) =>
-                a.displayOrder - b.displayOrder
-            )
-            .map((size: ProductSize) => ({
-              value: size.value,
-              label: size.displayName || size.value,
-            }));
-
-          setAvailableSizes(
-            sizeOptions.length > 0
-              ? sizeOptions
-              : [
-                  { value: "S", label: "S" },
-                  { value: "M", label: "M" },
-                  { value: "L", label: "L" },
-                  { value: "XL", label: "XL" },
-                  { value: "XXL", label: "XXL" },
-                ]
-          );
-        } catch (error) {
-          console.error("Error loading sizes:", error);
-          showToast("Không thể tải dữ liệu kích thước", { type: "error" });
-        }
-      };
-
-      loadSizes();
+      fetchSizeByCategory(categoryId);
     }
-  }, [state.product?.categories, showToast]);
+  }, [state.product?.categories, fetchSizeByCategory]);
 
   // Handler for saving product
   const handleSaveProduct = async () => {
@@ -268,6 +274,7 @@ const AddProductPageContent: React.FC = () => {
           imageMainMapping[index] = img.isMain;
         });
 
+        console.log("data đang gửi đi", productData);
         // Create product with images
         const result = await ProductService.createProductWithImages(
           productData,
@@ -414,26 +421,37 @@ const AddProductPageContent: React.FC = () => {
       );
       fileInput.value = "";
       return;
-    }
+    } // Check if this is the first set of images for this color
+    const isFirstUpload = currentColorImages.length === 0;
 
-    // Process each file
-    selectedFiles.forEach((file) => {
-      // Create a unique temporary ID for this image
+    // Create temporary IDs and object URLs for all files
+    const newImageData = selectedFiles.map((file, index) => {
       const tempId = `temp_${Date.now()}_${Math.random()
         .toString(36)
-        .substr(2, 9)}`;
+        .substr(2, 9)}_${index}`;
       const objectURL = URL.createObjectURL(file);
 
-      // Determine if this is the main image
-      const isMain = currentColorImages.length === 0;
+      // Only the first image is main if this is the first upload for this color
+      const isMain = isFirstUpload && index === 0;
 
+      return {
+        file,
+        tempId,
+        objectURL,
+        isMain,
+        color: state.selectedImageColor,
+      };
+    });
+
+    // Process each file
+    newImageData.forEach((imageData) => {
       // Add the new image to the state
       dispatch({
         type: "ADD_NEW_IMAGE",
         payload: {
-          file,
-          color: state.selectedImageColor,
-          isMain,
+          file: imageData.file,
+          color: imageData.color,
+          isMain: imageData.isMain,
         },
       });
 
@@ -446,10 +464,10 @@ const AddProductPageContent: React.FC = () => {
         images: [
           ...existingDetail.images,
           {
-            id: tempId,
+            id: imageData.tempId,
             productDetailId: existingDetail.id,
-            url: objectURL,
-            isMain,
+            url: imageData.objectURL,
+            isMain: imageData.isMain,
           },
         ],
       };
@@ -665,21 +683,19 @@ const AddProductPageContent: React.FC = () => {
               categoryLoading={false}
               subtypeLoading={false}
             />
-
-            {/* Attributes/Variants Tab */}
+            {/* Attributes/Variants Tab */}{" "}
             <AttributesTab
               suitabilities={suitabilities}
               suitabilityLoading={false}
               availableColors={availableColors}
               availableSizes={availableSizes}
+              sizesLoading={sizesLoading}
             />
-
             {/* Inventory Tab */}
             <InventoryTab
               availableColors={availableColors}
               availableSizes={availableSizes}
             />
-
             {/* Images Tab */}
             <ImagesTab
               availableColors={availableColors}

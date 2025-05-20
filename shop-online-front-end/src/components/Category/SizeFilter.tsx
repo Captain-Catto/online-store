@@ -19,7 +19,7 @@ export default function SizeFilter({
   const sizes =
     availableSizes.length > 0
       ? availableSizes
-      : ["XS", "S", "M", "L", "XL", "XXL"]; // Fallback nếu không có kích thước
+      : ["XS", "S", "M", "L", "XL", "2XL"]; // Fallback nếu không có kích thước
 
   return (
     <div className="mb-6">

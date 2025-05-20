@@ -29,11 +29,11 @@ export const createOrder = async (
       shippingWard,
       shippingDistrict,
       shippingCity,
+      userId,
     } = req.body;
     console.log("bắt đầu tạo đơn hàng");
     // đổi flow, người dùng không đăng nhập vẫn có thể đặt hàng
-    // Lấy user ID từ token
-    const userId = req.user?.id || null;
+    // Lấy user ID từ body
     console.log("userId", userId);
 
     if (!items || !items.length) {

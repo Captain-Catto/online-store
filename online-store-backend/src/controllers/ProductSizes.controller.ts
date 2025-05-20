@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
-import { ProductSize } from "../models/ProductSize";
+import ProductSize from "../models/ProductSize";
 import sequelize from "../config/db";
+import { Op } from "sequelize";
 
 // Lấy tất cả kích thước
 export const getAllSizes = async (
@@ -75,15 +76,20 @@ export const createSize = async (
   try {
     const { value, displayName, categoryId, displayOrder } = req.body;
 
-    // Kiểm tra kích thước đã tồn tại chưa
+    // Kiểm tra kích thước đã tồn tại trong cùng danh mục chưa
     const existingSize = await ProductSize.findOne({
-      where: { value },
+      where: {
+        value,
+        categoryId: Number(categoryId),
+      },
       transaction: t,
     });
 
     if (existingSize) {
       await t.rollback();
-      res.status(400).json({ message: "Kích thước này đã tồn tại" });
+      res.status(400).json({
+        message: `Kích thước "${value}" đã tồn tại trong danh mục này`,
+      });
       return;
     }
 
@@ -102,7 +108,11 @@ export const createSize = async (
     res.status(201).json(newSize);
   } catch (error: any) {
     await t.rollback();
-    res.status(500).json({ message: error.message });
+    console.error("Lỗi khi tạo kích thước mới:", error);
+    res.status(500).json({
+      message: "Có lỗi xảy ra khi tạo kích thước mới",
+      error: error.message,
+    });
   }
 };
 
@@ -114,7 +124,7 @@ export const updateSize = async (
   const t = await sequelize.transaction();
   try {
     const { id } = req.params;
-    const { value, displayName, category, displayOrder, active } = req.body;
+    const { value, displayName, categoryId, displayOrder, active } = req.body;
 
     const size = await ProductSize.findByPk(id, { transaction: t });
     if (!size) {
@@ -123,11 +133,36 @@ export const updateSize = async (
       return;
     }
 
+    // Nếu thay đổi value hoặc categoryId, kiểm tra xem có trùng không
+    if (
+      (value && value !== size.getDataValue("value")) ||
+      (categoryId && categoryId !== size.getDataValue("categoryId"))
+    ) {
+      const existingSize = await ProductSize.findOne({
+        where: {
+          id: { [Op.ne]: id }, // Không phải chính nó
+          value: value || size.getDataValue("value"),
+          categoryId: categoryId || size.getDataValue("categoryId"),
+        },
+        transaction: t,
+      });
+
+      if (existingSize) {
+        await t.rollback();
+        res.status(400).json({
+          message: `Kích thước "${
+            value || size.getDataValue("value")
+          }" đã tồn tại trong danh mục này`,
+        });
+        return;
+      }
+    }
+
     await size.update(
       {
         value: value || size.getDataValue("value"),
         displayName: displayName || size.getDataValue("displayName"),
-        category: category || size.getDataValue("category"),
+        categoryId: categoryId || size.getDataValue("categoryId"),
         displayOrder:
           displayOrder !== undefined
             ? displayOrder
@@ -141,7 +176,11 @@ export const updateSize = async (
     res.status(200).json(size);
   } catch (error: any) {
     await t.rollback();
-    res.status(500).json({ message: error.message });
+    console.error("Lỗi khi cập nhật kích thước:", error);
+    res.status(500).json({
+      message: "Có lỗi xảy ra khi cập nhật kích thước",
+      error: error.message,
+    });
   }
 };
 

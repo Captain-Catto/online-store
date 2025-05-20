@@ -21,7 +21,6 @@ ProductSize.init(
     value: {
       type: DataTypes.STRING(20),
       allowNull: false,
-      unique: true,
     },
     displayName: {
       type: DataTypes.STRING(30),
@@ -50,6 +49,13 @@ ProductSize.init(
     sequelize,
     tableName: "product_sizes",
     timestamps: true,
+    indexes: [
+      {
+        unique: true,
+        fields: ["value", "categoryId"],
+        name: "value_category_unique",
+      },
+    ],
   }
 );
 

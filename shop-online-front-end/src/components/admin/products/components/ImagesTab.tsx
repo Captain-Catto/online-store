@@ -190,15 +190,21 @@ const ImagesTab: React.FC<ImagesTabProps> = memo(
                         className="col-lg-2 col-md-3 col-sm-4 col-6 mb-4"
                         key={image.id}
                       >
+                        {" "}
                         <div
                           className={`card h-100 ${
-                            image.isMain ? "bg-light" : ""
+                            image.isMain ? "bg-light border-primary" : ""
                           }`}
                         >
                           <div
                             className="image-container position-relative"
                             style={{ height: "200px" }}
                           >
+                            {image.isMain && (
+                              <div className="position-absolute top-0 right-0 bg-primary text-white p-1 z-10 rounded-bl">
+                                <i className="fas fa-star mr-1"></i> Ảnh chính
+                              </div>
+                            )}
                             <Image
                               src={image.url}
                               alt="Product"
@@ -261,13 +267,22 @@ const ImagesTab: React.FC<ImagesTabProps> = memo(
                             className="col-lg-2 col-md-3 col-sm-4 col-6 mb-4"
                             key={`new-${idx}`}
                           >
+                            {" "}
                             <div
-                              className={`card ${img.isMain ? "bg-light" : ""}`}
+                              className={`card h-100 ${
+                                img.isMain ? "bg-light border-primary" : ""
+                              }`}
                             >
                               <div
                                 className="image-container position-relative"
                                 style={{ height: "200px" }}
                               >
+                                {img.isMain && (
+                                  <div className="position-absolute top-0 right-0 bg-primary text-white p-1 z-10 rounded-bl">
+                                    <i className="fas fa-star mr-1"></i> Ảnh
+                                    chính
+                                  </div>
+                                )}
                                 <Image
                                   src={URL.createObjectURL(img.file)}
                                   alt="Product preview"

@@ -276,15 +276,41 @@ const productReducer = (
           );
           return state;
         }
-      }
-
-      // Nếu là ảnh đầu tiên hoặc được đánh dấu là isMain, cập nhật tất cả các ảnh khác
+      } // Nếu ảnh này được đánh dấu là isMain, cập nhật tất cả ảnh khác cùng màu thành không phải main
       if (action.payload.isMain) {
-        // Cập nhật state.newImages để đánh dấu tất cả các ảnh khác không phải là ảnh chính
+        // Cập nhật state.newImages để đánh dấu tất cả các ảnh cùng màu không phải là ảnh chính
         const updatedNewImages = state.newImages.map((img) => ({
           ...img,
           isMain: img.color === action.payload.color ? false : img.isMain,
         }));
+
+        // Cũng cần cập nhật ảnh trong product.details
+        if (state.product) {
+          const updatedDetails = state.product.details.map((detail) => {
+            if (detail.color === action.payload.color) {
+              return {
+                ...detail,
+                images: detail.images.map((img) => ({
+                  ...img,
+                  isMain: false,
+                })),
+              };
+            }
+            return detail;
+          });
+
+          // Cập nhật state
+          return {
+            ...state,
+            product: state.product
+              ? {
+                  ...state.product,
+                  details: updatedDetails,
+                }
+              : null,
+            newImages: [...updatedNewImages, action.payload],
+          };
+        }
 
         return {
           ...state,
@@ -299,15 +325,43 @@ const productReducer = (
       };
     }
     case "SET_NEW_IMAGE_AS_MAIN": {
+      // Cập nhật ảnh mới, đảm bảo chỉ có một ảnh là ảnh chính cho mỗi màu
+      const updatedNewImages = state.newImages.map((img, idx) => ({
+        ...img,
+        isMain:
+          img.color === action.payload.color
+            ? idx === action.payload.index
+            : img.isMain && img.color !== action.payload.color,
+      }));
+
+      // Cập nhật ảnh trong product.details để đảm bảo không có ảnh nào đã lưu là ảnh chính
+      if (state.product) {
+        const updatedDetails = state.product.details.map((detail) => {
+          if (detail.color === action.payload.color) {
+            return {
+              ...detail,
+              images: detail.images.map((img) => ({
+                ...img,
+                isMain: false,
+              })),
+            };
+          }
+          return detail;
+        });
+
+        return {
+          ...state,
+          product: {
+            ...state.product,
+            details: updatedDetails,
+          },
+          newImages: updatedNewImages,
+        };
+      }
+
       return {
         ...state,
-        newImages: state.newImages.map((img, idx) => ({
-          ...img,
-          isMain:
-            img.color === action.payload.color
-              ? idx === action.payload.index
-              : img.isMain && img.color !== action.payload.color,
-        })),
+        newImages: updatedNewImages,
       };
     }
 

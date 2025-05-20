@@ -9,6 +9,7 @@ import { useToast } from "@/utils/useToast";
 import { FormattedProduct } from "./types";
 import { validateProductData } from "@/utils/validateProductData";
 import { getProductErrorMessage } from "@/utils/productErrorHandler";
+import { ProductSize } from "@/types/product";
 
 // Import context provider
 import { ProductProvider, useProductContext } from "@/contexts/ProductContext";
@@ -65,12 +66,14 @@ const ProductDetailPageContent: React.FC = () => {
     { key: "grey", label: "Xám" },
   ];
 
-  const [availableSizes] = useState<Array<{ value: string; label: string }>>([
+  const [availableSizes, setAvailableSizes] = useState<
+    Array<{ value: string; label: string }>
+  >([
     { value: "S", label: "S" },
     { value: "M", label: "M" },
     { value: "L", label: "L" },
     { value: "XL", label: "XL" },
-    { value: "XXL", label: "XXL" },
+    { value: "2XL", label: "2XL" },
   ]);
 
   // Fetch product data
@@ -117,6 +120,56 @@ const ProductDetailPageContent: React.FC = () => {
       });
     }
   }, [showToast]);
+  // State for tracking size loading
+  const [sizesLoading, setSizesLoading] = useState<boolean>(false);
+
+  // fetch size theo category được chọn
+  const fetchSizeByCategory = useCallback(
+    async (categoryId: number | string) => {
+      try {
+        setSizesLoading(true);
+
+        const sizes = await ProductService.getSizesByCategory(categoryId);
+        const formattedSizes = sizes.map((size: ProductSize) => ({
+          value: size.value,
+          label: size.displayName || size.value,
+        }));
+
+        setAvailableSizes(
+          formattedSizes.length > 0
+            ? formattedSizes
+            : [
+                { value: "S", label: "S" },
+                { value: "M", label: "M" },
+                { value: "L", label: "L" },
+                { value: "XL", label: "XL" },
+                { value: "2XL", label: "2XL" },
+              ]
+        );
+
+        if (formattedSizes.length === 0) {
+          showToast(
+            "Không tìm thấy kích thước cho danh mục này, sử dụng kích thước mặc định",
+            { type: "warning" }
+          );
+        }
+      } catch (error) {
+        console.error("Error fetching sizes:", error);
+        showToast("Không thể tải dữ liệu kích thước", { type: "error" });
+        // Fall back to default sizes if there's an error
+        setAvailableSizes([
+          { value: "S", label: "S" },
+          { value: "M", label: "M" },
+          { value: "L", label: "L" },
+          { value: "XL", label: "XL" },
+          { value: "2XL", label: "2XL" },
+        ]);
+      } finally {
+        setSizesLoading(false);
+      }
+    },
+    [showToast]
+  );
 
   // Load data on component mount
   useEffect(() => {
@@ -136,8 +189,11 @@ const ProductDetailPageContent: React.FC = () => {
           console.error("Error fetching subtypes:", error);
           showToast("Không thể tải dữ liệu loại sản phẩm", { type: "error" });
         });
+
+      // fetch sizee cho category được chọn
+      fetchSizeByCategory(parentId);
     }
-  }, [state.product?.categories, showToast]);
+  }, [state.product?.categories, showToast, fetchSizeByCategory]);
   // Handler for saving product
   const handleSaveProduct = async () => {
     if (!state.product) return;
@@ -340,16 +396,14 @@ const ProductDetailPageContent: React.FC = () => {
       );
       fileInput.value = "";
       return;
-    }
-
-    // Xử lý tất cả các tập tin được chọn
-    let firstMainImage = true; // Đặt ảnh đầu tiên làm ảnh chính nếu chưa có ảnh chính
+    } // Xử lý tất cả các tập tin được chọn
     const isFirstUploadForColor = currentImageCount === 0;
 
     // Thêm từng file vào state
-    newFiles.forEach((file) => {
-      const isMain = isFirstUploadForColor && firstMainImage;
-      if (isMain) firstMainImage = false;
+    newFiles.forEach((file, index) => {
+      // Chỉ đặt hình ảnh đầu tiên làm ảnh chính khi là lần tải đầu tiên
+      // Các hình ảnh khác sẽ không được đánh dấu là ảnh chính
+      const isMain = isFirstUploadForColor && index === 0;
 
       dispatch({
         type: "ADD_NEW_IMAGE",
@@ -540,12 +594,13 @@ const ProductDetailPageContent: React.FC = () => {
               categoryLoading={false}
               subtypeLoading={false}
             />
-            {/* Attributes/Variants Tab */}
+            {/* Attributes/Variants Tab */}{" "}
             <AttributesTab
               suitabilities={suitabilities}
               suitabilityLoading={false}
               availableColors={availableColors}
               availableSizes={availableSizes}
+              sizesLoading={sizesLoading}
             />
             {/* Inventory Tab */}
             <InventoryTab

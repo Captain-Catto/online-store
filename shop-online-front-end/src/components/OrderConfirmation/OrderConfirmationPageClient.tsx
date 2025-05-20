@@ -176,7 +176,7 @@ export default function OrderConfirmationPage() {
                   Đặt hàng thành công!
                 </h2>
                 {/* nếu ng dùng đăng nhập thì hiển thị */}
-                {orderData.userId ? (
+                {orderData.id ? (
                   <p className="text-gray-600">
                     Cảm ơn bạn đã mua hàng. Đơn hàng của bạn đang được xử lý.
                   </p>
