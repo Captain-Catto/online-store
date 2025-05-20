@@ -27,6 +27,12 @@ type LowStockProduct = {
   totalVariants: number;
 };
 
+interface ProductSaleResult {
+  productId: number;
+  totalQuantity: string;
+  totalRevenue: string;
+}
+
 // Get summary stats for dashboard
 // data đầu vào: dateRange, nếu không có thì mặc định là 7 ngày
 // nếu là custom thì có thêm fromDate và toDate
@@ -446,7 +452,7 @@ type ProductReport = {
   sku: string;
   name: string;
   category: string;
-  subCategory: string;
+  subCategory: string[];
   sales: number;
   revenue: number;
   stock: number;
@@ -503,15 +509,17 @@ export const getTopProductsReport = async (req: Request, res: Response) => {
       }
     }
 
-    // Truy vấn tổng hợp order_details
-    const orderDetails = await OrderDetail.findAll({
+    // Thay thế đoạn truy vấn từ dòng 506-550 bằng đoạn code sau:
+
+    // Bước 1: Lấy dữ liệu tổng hợp bán hàng theo sản phẩm
+    const productSales = (await OrderDetail.findAll({
       where: {
         orderId: {
           [Op.in]: sequelize.literal(`(
-            SELECT id FROM orders 
-            WHERE createdAt BETWEEN '${startDate.toISOString()}' AND '${endDate.toISOString()}'
-            AND status != 'cancelled'
-          )`),
+    SELECT id FROM orders 
+    WHERE createdAt BETWEEN '${startDate.toISOString()}' AND '${endDate.toISOString()}'
+    AND status != 'cancelled'
+  )`),
         },
       },
       attributes: [
@@ -522,51 +530,57 @@ export const getTopProductsReport = async (req: Request, res: Response) => {
           "totalRevenue",
         ],
       ],
-      group: ["productId", "OrderDetail.id"],
+      group: ["productId"],
+      raw: true,
+    })) as unknown as ProductSaleResult[];
+
+    // Bước 2: Lấy thông tin chi tiết sản phẩm riêng biệt
+    const productIds = productSales.map((item: any) => item.productId);
+
+    const products = await Product.findAll({
+      where: {
+        id: { [Op.in]: productIds },
+      },
+      attributes: ["id", "name", "sku"],
       include: [
         {
-          model: Product,
-          as: "product",
-          attributes: ["id", "name", "sku"],
+          model: Category,
+          as: "categories",
+          attributes: ["id", "name"],
+          through: { attributes: [] },
+        },
+        {
+          model: ProductDetail,
+          as: "details",
+          attributes: ["id"],
           include: [
             {
-              model: Category,
-              as: "categories",
-              attributes: ["id", "name"],
-              through: { attributes: [] },
-            },
-            {
-              model: ProductDetail,
-              as: "details",
-              attributes: ["id"], // Include id để truy vấn inventories
-              include: [
-                {
-                  model: ProductInventory,
-                  as: "inventories",
-                  attributes: ["stock"],
-                },
-              ],
-            },
-            {
-              model: Suitability,
-              as: "suitabilities",
-              attributes: ["id", "name"],
-              through: { attributes: [] },
+              model: ProductInventory,
+              as: "inventories",
+              attributes: ["stock"],
             },
           ],
+        },
+        {
+          model: Suitability,
+          as: "suitabilities",
+          attributes: ["id", "name"],
+          through: { attributes: [] },
         },
       ],
     });
 
-    // Xử lý dữ liệu báo cáo
-    const productData: ProductReport[] = orderDetails
-      .map((detail: any) => {
-        const product = detail.product;
-        if (!product) {
-          console.warn(`OrderDetail ${detail.id} không có product liên kết`);
+    // Bước 3: Xử lý dữ liệu báo cáo - kết hợp dữ liệu
+    const productData = productIds
+      .map((productId: number) => {
+        const salesInfo = productSales.find(
+          (item: any) => item.productId === productId
+        );
+        const product = products.find((p) => p.id === productId);
+
+        if (!product || !salesInfo) {
           return null;
         }
-        console.log("Product:", JSON.stringify(product, null, 2));
 
         // Lấy danh mục chính
         const mainCategory =
@@ -604,23 +618,20 @@ export const getTopProductsReport = async (req: Request, res: Response) => {
             : [];
 
         return {
-          id: detail.productId,
-          sku:
-            product.sku || `SP${detail.productId.toString().padStart(3, "0")}`,
+          id: productId,
+          sku: product.sku || `SP${productId.toString().padStart(3, "0")}`,
           name: product.name || "Không xác định",
           category: mainCategory,
           subCategory: subCategories,
-          sales: parseInt(detail.getDataValue("totalQuantity")) || 0,
-          revenue: parseFloat(detail.getDataValue("totalRevenue")) || 0,
+          sales: parseInt(salesInfo.totalQuantity) || 0,
+          revenue: parseFloat(salesInfo.totalRevenue) || 0,
           stock,
           suitabilities,
         };
       })
-      .filter(
-        (item: ProductReport | null): item is ProductReport => item !== null
-      );
+      .filter((item): item is ProductReport => item !== null);
 
-    // Sắp xếp và lấy top 5 sản phẩm theo doanh thu
+    // Sort and get top products
     const topProducts = productData
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 5);
