@@ -145,7 +145,7 @@ export default function OrderConfirmationPage() {
                   Về trang chủ
                 </Link>
                 <Link
-                  href="/account?tab=orders"
+                  href="/account/orders"
                   className="px-6 py-2 border border-black rounded hover:bg-gray-100 transition"
                 >
                   Xem đơn hàng của tôi
@@ -208,7 +208,7 @@ export default function OrderConfirmationPage() {
                   {/* nếu có người dùng trả về ở response mới hiển thị xem tất cả đơn hàng*/}
                   {orderData.userId && (
                     <Link
-                      href="/account?tab=orders"
+                      href="/account/orders"
                       className="px-6 py-3 border border-black rounded hover:bg-gray-100 transition"
                     >
                       Xem tất cả đơn hàng

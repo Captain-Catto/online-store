@@ -18,14 +18,35 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
 }) => {
   const { addToCart } = useCart();
 
+  // Hàm sắp xếp kích thước theo thứ tự chuẩn
+  // Thứ tự hiển thị: nhỏ -> lớn (S -> M -> L -> XL -> 2XL)
+  const sortSizes = (sizes: string[]) => {
+    const sizeOrder: { [key: string]: number } = {
+      XS: 1,
+      S: 2,
+      M: 3,
+      L: 4,
+      XL: 5,
+      "2XL": 6,
+      "3XL": 7,
+    };
+
+    return [...sizes].sort((a, b) => {
+      const orderA = sizeOrder[a] || 99;
+      const orderB = sizeOrder[b] || 99;
+      return orderA - orderB;
+    });
+  };
+
   // Lấy variant dựa trên selectedColor
   const variant =
     product.variants && selectedColor in product.variants
       ? product.variants[selectedColor]
       : null;
 
-  // Lấy danh sách kích thước từ variant
-  const availableSizes = variant?.availableSizes ?? [];
+  // Lấy danh sách kích thước từ variant và sắp xếp
+  const availableSizes = sortSizes(variant?.availableSizes ?? []);
+  console.log("Available Sizes:", availableSizes);
 
   // State để theo dõi size được thêm gần đây nhất
   const [addedSize, setAddedSize] = useState<string | null>(null);

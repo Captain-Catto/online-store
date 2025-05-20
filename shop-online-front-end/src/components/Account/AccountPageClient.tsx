@@ -211,7 +211,7 @@ export default function AccountPageClient() {
       case "orders":
         setBreadcrumbs([
           ...baseBreadcrumbs,
-          { label: "Đơn hàng của tôi", href: "/account?tab=orders" },
+          { label: "Đơn hàng của tôi", href: "/account/orders" },
         ]);
         break;
       case "addresses":

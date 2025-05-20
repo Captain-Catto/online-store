@@ -85,7 +85,7 @@ app.use("/api/reports", reportsRoutes);
 // Middleware xử lý lỗi
 
 // Kết nối DB
-sequelize.sync({ force: false, alter: true }).then(() => {
+sequelize.sync({ force: false }).then(() => {
   console.log("Database connected!");
   console.log(`Server running with db name ${process.env.DB_NAME}`);
 });

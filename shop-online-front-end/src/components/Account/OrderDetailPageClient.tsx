@@ -256,7 +256,7 @@ export default function OrderDetailPageClient({
           items={[
             { label: "Trang chủ", href: "/" },
             { label: "Tài khoản", href: "/account" },
-            { label: "Đơn hàng của tôi", href: "/account?tab=orders" },
+            { label: "Đơn hàng của tôi", href: "/account/orders" },
             {
               label: `Chi tiết đơn hàng ${order ? `#${order.id}` : ""}`,
               href: `/account/orders/${orderId}`,
@@ -276,7 +276,7 @@ export default function OrderDetailPageClient({
               {error || "Không tìm thấy thông tin đơn hàng"}
             </p>
             <Link
-              href="/account?tab=orders"
+              href="/account/orders"
               className="mt-4 inline-block px-4 py-2 bg-black text-white rounded"
             >
               Quay lại trang tài khoản
@@ -432,7 +432,7 @@ export default function OrderDetailPageClient({
             {/* Actions */}
             <div className="mt-6 flex justify-between items-center">
               <Link
-                href="/account?tab=orders"
+                href="/account/orders"
                 className="px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
               >
                 Quay lại
