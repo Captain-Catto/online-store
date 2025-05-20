@@ -24,9 +24,11 @@ const SortableTableRow = ({
   onDelete,
   onToggleExpand,
 }: SortableTableRowProps) => {
+  // Sử dụng useSortable để tạo sortable row
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({ id: item.id.toString() });
 
+  // Kiểm tra xem item có đang được kéo hay không
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -34,11 +36,16 @@ const SortableTableRow = ({
   };
 
   return (
+    // Sử dụng ref từ useSortable để tạo sortable row
     <tr ref={setNodeRef} style={style} className={isChild ? "bg-light" : ""}>
+      {/* Cột kéo thả */}
       <td {...attributes} {...listeners} style={{ cursor: "grab" }}>
         <i className="fas fa-grip-vertical text-muted"></i>
       </td>
       <td>
+        {/* Hiển thị tên item */}
+        {/* Nếu là item con, chỉ hiển thị tên mà không có nút mở rộng */}
+        {/* Nếu là item cha, hiển thị nút mở rộng nếu có */}
         {isChild ? (
           <span className="ml-4">└─ {item.name}</span>
         ) : (
@@ -63,6 +70,8 @@ const SortableTableRow = ({
           </div>
         )}
       </td>
+
+      {/* Hiển thị đường dẫn */}
       <td>
         {item.link || (item.categoryId ? `Danh mục: ${item.categoryId}` : "")}
       </td>

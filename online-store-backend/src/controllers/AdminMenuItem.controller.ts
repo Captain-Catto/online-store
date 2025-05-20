@@ -118,14 +118,14 @@ export const updateAdminMenuItem = async (req: Request, res: Response) => {
   try {
     const item = await AdminMenuItem.findByPk(id);
     if (!item) {
-      res.status(404).json({ message: "Menu item not found" }); // Bỏ return
+      res.status(404).json({ message: "Menu item not found" });
       return;
     }
 
     const validParentId = parentId ? Number(parentId) : null;
 
     if (validParentId === Number(id)) {
-      res.status(400).json({ message: "Cannot set item as its own parent" }); // Bỏ return
+      res.status(400).json({ message: "Cannot set item as its own parent" });
       return;
     }
 
@@ -149,7 +149,7 @@ export const deleteAdminMenuItem = async (req: Request, res: Response) => {
   try {
     const item = await AdminMenuItem.findByPk(id);
     if (!item) {
-      res.status(404).json({ message: "Menu item not found" }); // Bỏ return
+      res.status(404).json({ message: "Menu item not found" });
       return;
     }
 
@@ -158,15 +158,15 @@ export const deleteAdminMenuItem = async (req: Request, res: Response) => {
       res.status(400).json({
         message:
           "Cannot delete item with children. Please delete or reassign children first.",
-      }); // Bỏ return
+      });
       return;
     }
 
     await item.destroy();
-    res.status(204).send(); // Bỏ return
+    res.status(204).send();
   } catch (error) {
     console.error("Error deleting admin menu item:", error);
-    res.status(500).json({ message: "Failed to delete menu item" }); // Bỏ return
+    res.status(500).json({ message: "Failed to delete menu item" });
   }
 };
 

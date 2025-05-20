@@ -565,6 +565,29 @@ class UserService {
 
     return response.json().then((data) => data.address);
   }
+
+  // Admin: Lấy tổng số người dùng
+  static async getTotalUsers(): Promise<number> {
+    try {
+      const params = new URLSearchParams();
+      params.append("page", "1");
+      params.append("limit", "1");
+
+      const response = await AuthClient.fetchWithAuth(
+        `${API_BASE_URL}/users?${params.toString()}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Error fetching users: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.pagination.total || 0;
+    } catch (error) {
+      console.error("Error fetching total users:", error);
+      return 0;
+    }
+  }
 }
 
 export { UserService };

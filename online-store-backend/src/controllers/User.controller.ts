@@ -548,6 +548,71 @@ export const updateUser = async (
   }
 };
 
+// Đổi mật khẩu
+export const changePassword = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: "Không được phép, vui lòng đăng nhập" });
+      return;
+    }
+
+    const userId = req.user.id;
+    const { currentPassword, newPassword } = req.body;
+
+    // Kiểm tra dữ liệu đầu vào
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({ message: "Vui lòng nhập đầy đủ thông tin" });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      res.status(400).json({ message: "Mật khẩu mới phải có ít nhất 6 ký tự" });
+      return;
+    }
+
+    // Tìm người dùng trong database
+    const user = await Users.findByPk(userId);
+    if (!user) {
+      res.status(404).json({ message: "Không tìm thấy người dùng" });
+      return;
+    }
+
+    // Kiểm tra mật khẩu hiện tại
+    const isPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.password
+    );
+    if (!isPasswordValid) {
+      res.status(400).json({ message: "Mật khẩu hiện tại không đúng" });
+      return;
+    }
+
+    // nếu mật khẩu mới giống mật khẩu cũ thì không cần cập nhật
+    if (currentPassword === newPassword) {
+      res
+        .status(400)
+        .json({ message: "Mật khẩu mới không được giống mật khẩu cũ" });
+      return;
+    }
+
+    // Băm mật khẩu mới
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Cập nhật mật khẩu
+    await user.update({ password: hashedPassword });
+
+    res.status(200).json({ message: "Đổi mật khẩu thành công" });
+  } catch (error: any) {
+    console.error("Error changing password:", error);
+    res
+      .status(500)
+      .json({ message: error.message || "Đã xảy ra lỗi khi đổi mật khẩu" });
+  }
+};
+
 // Quên mật khẩu
 export const forgotPassword = async (
   req: Request,

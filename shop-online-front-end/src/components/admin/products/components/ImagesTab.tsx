@@ -28,9 +28,11 @@ const ImagesTab: React.FC<ImagesTabProps> = memo(
     const { state, dispatch } = useProductContext();
     const { product, isEditing, selectedImageColor } = state;
 
-    // Use useEffect for initialization - this will run once after component mounts
+    // sử dụng useEffect để tự động chọn màu đầu tiên nếu chưa có màu nào được chọn
+    // và sản phẩm đã được tải
     React.useEffect(() => {
-      // Only set a color if product is loaded, no color is selected yet, and colors are available
+      // chỉ tự động chọn màu đầu tiên nếu sản phẩm đã được tải
+      // chưa có màu nào được chọn và có màu sắc khả dụng
       if (product && !selectedImageColor && product.details.length > 0) {
         const firstAvailableColor = product.details[0].color;
         dispatch({
@@ -41,12 +43,14 @@ const ImagesTab: React.FC<ImagesTabProps> = memo(
       }
     }, [product, selectedImageColor, dispatch]);
 
-    // Return early if product is not loaded
+    // trả vè null nếu không có sản phẩm
     if (!product) return null;
 
     const productColors = product.details.map((d) => d.color);
 
-    // Get images for the selected color
+    // lấy tất cả hình ảnh cho màu đã chọn
+    // và lưu vào một đối tượng để dễ dàng truy cập
+    // sử dụng Record<string, ColorImage[]> để lưu trữ hình ảnh theo màu
     const colorImages: Record<string, ColorImage[]> = {};
     product.details.forEach((detail) => {
       colorImages[detail.color] = detail.images.map((img) => ({
@@ -56,7 +60,7 @@ const ImagesTab: React.FC<ImagesTabProps> = memo(
       }));
     });
     const handleColorSelect = (color: string) => {
-      // Verify the color exists in product details before setting it
+      // xác nhận màu sắc có tồn tại trong chi tiết sản phẩm trước khi thiết lập
       const colorExists = product.details.some(
         (detail) => detail.color === color
       );
@@ -64,7 +68,9 @@ const ImagesTab: React.FC<ImagesTabProps> = memo(
         dispatch({ type: "SET_SELECTED_IMAGE_COLOR", payload: color });
         console.log(`Selected color changed to: ${color}`);
 
-        // Find the display name of this color for logging
+        // tìm tên hiển thị của màu sắc này để ghi lại
+        // nếu không tìm thấy, sử dụng chính màu sắc làm tên hiển thị
+        // sử dụng find để tìm màu sắc trong availableColors
         const colorLabel =
           availableColors.find((c) => c.key === color)?.label || color;
         console.log(`Color display name: ${colorLabel}`);
@@ -73,37 +79,42 @@ const ImagesTab: React.FC<ImagesTabProps> = memo(
       }
     };
 
-    // Use the provided handleSetMainImage prop if available, otherwise use the local implementation
+    // sử dụng prop handleSetMainImage nếu có, nếu không thì sử dụng hàm cục bộ
+    // để cập nhật trạng thái cục bộ
+    // hàm này sẽ được gọi khi người dùng nhấn nút "Đặt làm ảnh chính"
     const handleSetMainImage = (imageId: number | string) => {
       if (propHandleSetMainImage) {
-        // Use the prop function if provided (handles API calls)
         propHandleSetMainImage(imageId);
         return;
       }
 
-      // Default implementation for local state updates only
+      // kiểm tra xem có màu sắc nào được chọn không
       if (!selectedImageColor) return;
 
-      // Find the detail for this color
+      // tìm chỉ số của chi tiết sản phẩm có màu sắc đã chọn
       const detailIndex = product.details.findIndex(
         (d) => d.color === selectedImageColor
       );
+
+      // nếu không tìm thấy, thoát hàm
+      // không cần phải kiểm tra vì đã có màu sắc được chọn
       if (detailIndex < 0) return;
 
-      // Update images to mark the selected one as main
+      // cập nhật hình ảnh chính trong chi tiết sản phẩm
       const updatedImages = product.details[detailIndex].images.map((img) => ({
         ...img,
         isMain: img.id === imageId,
       }));
 
-      // Create updated details with the new images
+      // cập nhật chi tiết sản phẩm với hình ảnh mới
       const updatedDetails = [...product.details];
       updatedDetails[detailIndex] = {
         ...updatedDetails[detailIndex],
         images: updatedImages,
       };
 
-      // Use updateProduct for consistency
+      // cập nhật trạng thái sản phẩm với chi tiết mới
+      // sử dụng dispatch để cập nhật trạng thái
       dispatch({
         type: "UPDATE_PRODUCT",
         payload: {

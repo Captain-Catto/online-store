@@ -3,7 +3,7 @@ import Suitability from "../models/Suitability";
 import ProductSuitability from "../models/ProductSuitability";
 import sequelize from "../config/db";
 
-// Tạo mới một suitability
+// Tạo mới một phù hợp sản phẩm
 export const createSuitability = async (
   req: Request,
   res: Response
@@ -21,6 +21,7 @@ export const createSuitability = async (
   }
 };
 
+// Cập nhật thứ tự sắp xếp
 export const updateSuitabilityOrder = async (
   req: Request,
   res: Response
@@ -36,7 +37,7 @@ export const updateSuitabilityOrder = async (
       return;
     }
 
-    // Sử dụng bulkCreate với updateOnDuplicate để hiệu quả hơn
+    // Sử dụng bulkCreate với updateOnDuplicate để tối ưu hiệu năng
     await Suitability.bulkCreate(
       items.map((item) => ({
         id: item.id,
@@ -57,6 +58,7 @@ export const updateSuitabilityOrder = async (
   }
 };
 
+// Lấy danh sách tất cả phù hợp sản phẩm
 export const getAllSuitabilities = async (
   req: Request,
   res: Response
@@ -74,7 +76,7 @@ export const getAllSuitabilities = async (
   }
 };
 
-// Cập nhật suitability
+// Cập nhật thông tin phù hợp sản phẩm
 export const updateSuitability = async (
   req: Request,
   res: Response
@@ -85,7 +87,7 @@ export const updateSuitability = async (
     const suitability = await Suitability.findByPk(id);
 
     if (!suitability) {
-      res.status(404).json({ message: "Suitability không tồn tại" });
+      res.status(404).json({ message: "Không tìm thấy phù hợp sản phẩm" });
       return;
     }
 
@@ -96,7 +98,7 @@ export const updateSuitability = async (
   }
 };
 
-// Xóa suitability
+// Xóa phù hợp sản phẩm
 export const deleteSuitability = async (
   req: Request,
   res: Response
@@ -106,7 +108,7 @@ export const deleteSuitability = async (
     const suitability = await Suitability.findByPk(id);
 
     if (!suitability) {
-      res.status(404).json({ message: "Suitability không tồn tại" });
+      res.status(404).json({ message: "Không tìm thấy phù hợp sản phẩm" });
       return;
     }
 

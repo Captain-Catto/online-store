@@ -6,7 +6,7 @@ class UserAddress extends Model {
   public id!: number;
   public userId!: number;
   public fullName!: string; // Tên người nhận
-  public phoneNumber!: string; // Số điện thoại (quan trọng cho giao hàng VN)
+  public phoneNumber!: string; // Số điện thoại
   public streetAddress!: string; // Số nhà, tên đường
   public ward!: string; // Phường/Xã
   public district!: string; // Quận/Huyện

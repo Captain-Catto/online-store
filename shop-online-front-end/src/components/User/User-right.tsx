@@ -14,6 +14,7 @@ import { formatCurrency } from "@/utils/currencyUtils";
 import { WishlistItem, WishlistPagination } from "@/types/wishlist";
 import { WishlistService } from "@/services/WishlistService";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
+import { ChangePasswordForm } from "./ChangePasswordForm";
 
 // Empty state component
 const EmptyState: React.FC<{ message: string }> = ({ message }) => (
@@ -2056,9 +2057,8 @@ export const UserRight: React.FC<UserRightProps> = ({
       </div>
     );
   }
-
   if (hasError) {
-    return <ErrorState message={errorMessage} />;
+    return <ErrorState message={errorMessage} onRetry={onRetryFetch} />;
   }
 
   function handleRetry() {
@@ -2066,10 +2066,14 @@ export const UserRight: React.FC<UserRightProps> = ({
       onRetryFetch();
     }
   }
-
   return (
     <div className="p-4 bg-gray-100 rounded-lg h-full">
-      {activeTab === "account" && <AccountInfo data={accountData} />}
+      {activeTab === "account" && (
+        <div className="space-y-6">
+          <AccountInfo data={accountData} onRetry={handleRetry} />
+          <ChangePasswordForm onSuccess={handleRetry} />
+        </div>
+      )}
       {activeTab === "orders" && (
         <MyOrders data={ordersData} onPageChange={onPageChange} />
       )}

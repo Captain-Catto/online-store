@@ -10,6 +10,7 @@ import { ProductAdminResponse } from "@/types/product";
 import { useToast } from "@/utils/useToast";
 import { CategoryService } from "@/services/CategoryService";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
+import { formatDateDisplay } from "@/utils/dateUtils";
 
 export default function ProductsPage() {
   const [role, setRole] = useState<number | null>(null);
@@ -388,7 +389,7 @@ export default function ProductsPage() {
                             {product.statusLabel}
                           </span>
                         </td>
-                        <td>{product.createdAt}</td>
+                        <td>{formatDateDisplay(product.createdAt)}</td>
                         <td>
                           <div className="btn-group">
                             <Link

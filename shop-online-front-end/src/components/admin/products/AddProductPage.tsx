@@ -22,7 +22,6 @@ import InventoryTab from "./components/InventoryTab";
 import ImagesTab from "./components/ImagesTab";
 import DeleteConfirmationModal from "./components/DeleteConfirmationModal";
 
-// Define types for categories
 interface Category {
   id: number | string;
   name: string;
@@ -33,7 +32,8 @@ interface Category {
   isActive?: boolean;
 }
 
-// Empty product template
+// Sản phẩm rỗng để khởi tạo state
+// khi thêm sản phẩm mới
 const emptyProduct: Partial<FormattedProduct> = {
   name: "",
   sku: "",
@@ -48,27 +48,32 @@ const emptyProduct: Partial<FormattedProduct> = {
   details: [],
 };
 
-// Main component content (will be wrapped with ProductProvider)
+// Component này sử dụng context để quản lý trạng thái sản phẩm
+// và các hành động liên quan đến sản phẩm
 const AddProductPageContent: React.FC = () => {
   const router = useRouter();
   const { showToast, Toast } = useToast();
 
-  // State from context
+  // State và dispatch từ context
+  // để quản lý trạng thái sản phẩm
   const { state, dispatch } = useProductContext();
 
-  // Local component state
+  // Các state để quản lý danh sách danh mục, loại sản phẩm con,
+  // và các thuộc tính khác
   const [categoryList, setCategoryList] = useState<Category[]>([]);
   const [subtypes, setSubtypes] = useState<Category[]>([]);
   const [suitabilities, setSuitabilities] = useState<
     Array<{ id: number; name: string }>
   >([]);
+
+  // State xác nhận xóa ảnh
   const [imageDeleteConfirmation, setImageDeleteConfirmation] = useState({
     isOpen: false,
     imageId: null as number | string | null,
     imageColor: "",
   });
 
-  // Available colors and sizes
+  // Màu sắc và kích thước có sẵn
   const availableColors = [
     { key: "black", label: "Đen" },
     { key: "white", label: "Trắng" },
@@ -79,6 +84,7 @@ const AddProductPageContent: React.FC = () => {
     { key: "grey", label: "Xám" },
   ];
 
+  // State cho kích thước có sẵn
   const [availableSizes, setAvailableSizes] = useState<
     Array<{ value: string; label: string }>
   >([
@@ -89,7 +95,8 @@ const AddProductPageContent: React.FC = () => {
     { value: "2XL", label: "2XL" },
   ]);
 
-  // Initialize empty product on component mount
+  // thiết lập trạng thái sản phẩm ban đầu
+  // và trạng thái chỉnh sửa
   useEffect(() => {
     dispatch({ type: "SET_LOADING", payload: true });
     dispatch({
@@ -100,7 +107,8 @@ const AddProductPageContent: React.FC = () => {
     dispatch({ type: "SET_LOADING", payload: false });
   }, [dispatch]);
 
-  // Fetch categories and other data
+  // hàm lấy danh sách danh mục và kích thước
+  // từ API khi component được mount
   const fetchCategories = useCallback(async () => {
     try {
       const [categories, suitData] = await Promise.all([
@@ -118,12 +126,13 @@ const AddProductPageContent: React.FC = () => {
     }
   }, [showToast]);
 
-  // Load data on component mount
+  // load data khi component được mount
+  // và khi có sự thay đổi trong danh sách danh mục
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
 
-  // Handle subtypes when category changes
+  // load danh sách loại sản phẩm con
   useEffect(() => {
     if (state.product?.categories && state.product.categories.length > 0) {
       const parentId = state.product.categories[0].id;
@@ -137,10 +146,10 @@ const AddProductPageContent: React.FC = () => {
         });
     }
   }, [state.product?.categories, showToast]);
-  // State for tracking size loading
+
   const [sizesLoading, setSizesLoading] = useState<boolean>(false);
 
-  // Function to fetch sizes by category
+  // hàm lấy kích thước theo danh mục
   const fetchSizeByCategory = useCallback(
     async (categoryId: number | string) => {
       try {
@@ -148,7 +157,8 @@ const AddProductPageContent: React.FC = () => {
 
         const sizes = await ProductService.getSizesByCategory(categoryId);
 
-        // Transform API data to expected format { value, label }
+        // chuyển đổi kích thước thành định dạng label-value
+        // để sử dụng trong select
         const formattedSizes = sizes.map((size: ProductSize) => ({
           value: size.value,
           label: size.displayName || size.value,
@@ -175,7 +185,8 @@ const AddProductPageContent: React.FC = () => {
       } catch (error) {
         console.error("Error fetching sizes:", error);
         showToast("Không thể tải dữ liệu kích thước", { type: "error" });
-        // Fall back to default sizes if there's an error
+        // chuyển về kích thước mặc định nếu không tìm thấy
+        // hoặc có lỗi
         setAvailableSizes([
           { value: "S", label: "S" },
           { value: "M", label: "M" },
@@ -190,7 +201,8 @@ const AddProductPageContent: React.FC = () => {
     [showToast]
   );
 
-  // Fetch sizes based on category
+  // hàm lấy size theo danh mục
+  // khi danh mục sản phẩm thay đổi
   useEffect(() => {
     if (state.product?.categories && state.product.categories.length > 0) {
       const categoryId = state.product.categories[0].id;
@@ -198,7 +210,7 @@ const AddProductPageContent: React.FC = () => {
     }
   }, [state.product?.categories, fetchSizeByCategory]);
 
-  // Handler for saving product
+  // hàm lưu sản phẩm
   const handleSaveProduct = async () => {
     if (!state.product) return;
 

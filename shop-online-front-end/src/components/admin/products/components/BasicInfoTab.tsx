@@ -93,7 +93,7 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = memo(
                       (cat) => cat.id.toString() === categoryId
                     )?.name;
 
-                    // Update categories array with new value
+                    // update mảng categories với danh mục mới
                     const updatedCategories = [...product.categories];
                     if (updatedCategories.length === 0) {
                       updatedCategories.push({
@@ -140,7 +140,9 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = memo(
                       (sub) => sub.id.toString() === subtypeId
                     )?.name;
 
-                    // Update categories array with new subtype
+                    // update mảng categories với loại sản phẩm mới
+                    // Nếu không có loại sản phẩm nào thì thêm mới
+                    // Nếu có loại sản phẩm thì cập nhật lại
                     const updatedCategories = [...product.categories];
                     if (updatedCategories.length <= 1) {
                       updatedCategories.push({

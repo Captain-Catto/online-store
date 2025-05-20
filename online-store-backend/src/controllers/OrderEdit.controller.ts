@@ -8,28 +8,44 @@ import ProductDetail from "../models/ProductDetail";
 import PaymentStatus from "../models/PaymentStatus";
 import Product from "../models/Product";
 import Users from "../models/Users";
+
 /**
- * Update order status (admin only)
+ * Cập nhật trạng thái đơn hàng (chỉ dành cho admin)
+ *
+ * Quy trình:
+ * 1. Tạo transaction để đảm bảo tính toàn vẹn dữ liệu
+ * 2. Tìm đơn hàng theo ID
+ * 3. Kiểm tra điều kiện:
+ *    - Đơn hàng phải tồn tại
+ *    - Không thể thay đổi trạng thái của đơn hàng đã hủy
+ * 4. Cập nhật trạng thái mới và trạng thái thanh toán
+ * 5. Lưu thay đổi và commit transaction
+ *
+ * @param req - Request chứa ID đơn hàng và trạng thái mới
+ * @param res - Response trả về kết quả cập nhật
  */
 export const updateOrderStatus = async (
   req: Request,
   res: Response
 ): Promise<void> => {
+  // Khởi tạo transaction để đảm bảo tính nhất quán của dữ liệu
   const t = await sequelize.transaction();
 
   try {
     const { id } = req.params;
     const { status, paymentStatusId } = req.body;
 
+    // Tìm đơn hàng theo ID trong database
     const order = await Order.findByPk(id, { transaction: t });
 
+    // Kiểm tra nếu đơn hàng không tồn tại
     if (!order) {
       await t.rollback();
       res.status(404).json({ message: "Đơn hàng không tồn tại" });
       return;
     }
 
-    // Không cho phép thay đổi trạng thái từ cancelled
+    // Kiểm tra điều kiện: không cho phép thay đổi trạng thái của đơn hàng đã hủy
     if (
       order.getDataValue("status") === "cancelled" &&
       status !== "cancelled"
@@ -41,7 +57,7 @@ export const updateOrderStatus = async (
       return;
     }
 
-    // Cập nhật trạng thái
+    // Tiến hành cập nhật trạng thái mới cho đơn hàng
     await order.update(
       {
         status: status || order.getDataValue("status"),
@@ -51,31 +67,50 @@ export const updateOrderStatus = async (
       { transaction: t }
     );
 
+    // Commit transaction nếu mọi thứ thành công
     await t.commit();
 
+    // Trả về kết quả thành công
     res.status(200).json({
       message: "Cập nhật trạng thái đơn hàng thành công",
       order,
     });
   } catch (error: any) {
+    // Rollback transaction nếu có lỗi
     await t.rollback();
     res.status(500).json({ message: error.message });
   }
 };
 
 /**
- * Cancel order (admin override)
+ * Hủy đơn hàng (chỉ dành cho admin)
+ *
+ * Quy trình:
+ * 1. Tạo transaction để đảm bảo tính toàn vẹn dữ liệu
+ * 2. Tìm đơn hàng và chi tiết đơn hàng theo ID
+ * 3. Kiểm tra điều kiện:
+ *    - Đơn hàng phải tồn tại
+ *    - Không thể hủy đơn hàng đã hủy trước đó
+ *    - Không thể hủy đơn hàng đã giao
+ * 4. Cập nhật trạng thái đơn hàng thành "cancelled"
+ * 5. Hoàn trả số lượng tồn kho cho các sản phẩm
+ * 6. Cập nhật trạng thái các sản phẩm
+ *
+ * @param req - Request chứa ID đơn hàng và ghi chú hủy đơn
+ * @param res - Response trả về kết quả hủy đơn
  */
 export const cancelOrder = async (
   req: Request,
   res: Response
 ): Promise<void> => {
+  // Khởi tạo transaction để đảm bảo tính nhất quán của dữ liệu
   const t = await sequelize.transaction();
 
   try {
     const { id } = req.params;
     const { cancelNote } = req.body;
 
+    // Tìm đơn hàng và bao gồm chi tiết đơn hàng
     const order = await Order.findByPk(id, {
       transaction: t,
       include: [
@@ -86,6 +121,7 @@ export const cancelOrder = async (
       ],
     });
 
+    // Kiểm tra nếu đơn hàng không tồn tại
     if (!order) {
       await t.rollback();
       res.status(404).json({ message: "Đơn hàng không tồn tại" });
@@ -207,14 +243,17 @@ export const cancelOrder = async (
       }
     }
 
+    // Commit transaction nếu mọi thứ thành công
     await t.commit();
 
+    // Trả về kết quả thành công
     res.status(200).json({
       message: "Hủy đơn hàng thành công",
       orderId: order.id,
       status: "cancelled",
     });
   } catch (error: any) {
+    // Rollback transaction nếu có lỗi
     await t.rollback();
     console.error("[ERROR] Lỗi khi hủy đơn hàng:", {
       message: error.message,
@@ -226,7 +265,18 @@ export const cancelOrder = async (
 };
 
 /**
- * Update payment status (admin only)
+ * Cập nhật trạng thái thanh toán (chỉ dành cho admin)
+ *
+ * Quy trình:
+ * 1. Tạo transaction
+ * 2. Kiểm tra trạng thái thanh toán mới có hợp lệ không
+ * 3. Kiểm tra đơn hàng tồn tại
+ * 4. Cập nhật trạng thái thanh toán
+ * 5. Nếu thanh toán thành công và đơn hàng đang ở trạng thái chờ,
+ *    thì chuyển sang trạng thái đang xử lý
+ *
+ * @param req - Request chứa ID đơn hàng và trạng thái thanh toán mới
+ * @param res - Response trả về kết quả cập nhật
  */
 export const updatePaymentStatus = async (
   req: Request,
@@ -339,7 +389,33 @@ export const updateShippingAddress = async (
 };
 
 /**
- * Get all orders (admin only)
+ * Lấy tất cả đơn hàng với chức năng lọc và tìm kiếm nâng cao (chỉ dành cho admin)
+ *
+ * Quy trình:
+ * 1. Xử lý tham số truy vấn:
+ *    - Phân trang (page, limit)
+ *    - Lọc theo trạng thái
+ *    - Tìm kiếm theo từ khóa
+ *    - Lọc theo khoảng thời gian
+ *
+ * 2. Xây dựng điều kiện tìm kiếm:
+ *    - Điều kiện cơ bản (trạng thái, thời gian)
+ *    - Tìm kiếm theo số điện thoại
+ *    - Tìm kiếm theo ID đơn hàng
+ *    - Tìm kiếm theo email người dùng
+ *    - Tìm kiếm theo tên hoặc SKU sản phẩm
+ *
+ * 3. Thực hiện truy vấn với các mối quan hệ:
+ *    - Chi tiết đơn hàng
+ *    - Thông tin sản phẩm
+ *    - Thông tin người dùng
+ *
+ * 4. Trả về kết quả:
+ *    - Danh sách đơn hàng
+ *    - Thông tin phân trang
+ *
+ * @param req - Request chứa các tham số tìm kiếm và phân trang
+ * @param res - Response trả về danh sách đơn hàng và thông tin phân trang
  */
 export const getAllOrders = async (
   req: Request,
@@ -354,14 +430,6 @@ export const getAllOrders = async (
       fromDate,
       toDate,
     } = req.query;
-    console.log("Query params:", {
-      page,
-      limit,
-      status,
-      search,
-      fromDate,
-      toDate,
-    });
 
     const offset = (Number(page) - 1) * Number(limit);
 
@@ -517,9 +585,6 @@ export const getAllOrders = async (
       }
     }
 
-    // Log điều kiện cuối cùng để debug
-    console.log("Final where condition:", JSON.stringify(where, null, 2));
-
     // Lấy danh sách đơn hàng
     const orders = await Order.findAll({
       where,
@@ -567,14 +632,28 @@ export const getAllOrders = async (
 };
 
 /**
- * Process refund (admin only)
+ * Xử lý hoàn tiền cho đơn hàng (chỉ dành cho admin)
+ *
+ * Quy trình:
+ * 1. Tạo transaction để đảm bảo tính toàn vẹn dữ liệu
+ * 2. Kiểm tra điều kiện:
+ *    - Số tiền hoàn trả phải hợp lệ (> 0)
+ *    - Đơn hàng phải tồn tại
+ *    - Chỉ hoàn tiền cho đơn hàng đã thanh toán (paymentStatusId = 2)
+ * 3. Cập nhật đơn hàng:
+ *    - Đổi trạng thái thanh toán thành "refunded" (paymentStatusId = 4)
+ *    - Lưu số tiền hoàn trả
+ *    - Lưu lý do hoàn tiền
+ * 4. Commit transaction và trả về thông tin hoàn tiền
+ *
+ * @param req - Request chứa ID đơn hàng, số tiền và lý do hoàn tiền
+ * @param res - Response trả về kết quả xử lý hoàn tiền
  */
 export const processRefund = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   const t = await sequelize.transaction();
-  console.log("processRefund called");
   try {
     const { id } = req.params;
     const { amount, reason } = req.body;

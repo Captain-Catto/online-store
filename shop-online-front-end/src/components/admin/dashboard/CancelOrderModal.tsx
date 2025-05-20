@@ -177,5 +177,5 @@ const CancelOrderModal: React.FC<CancelOrderModalProps> = ({
   );
 };
 
-// Bọc component trong React.memo
+// Bọc component trong React.memo đê tối ưu hóa hiệu suất
 export default memo(CancelOrderModal);

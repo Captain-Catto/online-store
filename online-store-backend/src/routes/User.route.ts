@@ -6,6 +6,7 @@ import {
   updateUser,
   toggleUserStatus,
   updateUserByAdmin,
+  changePassword,
 } from "../controllers/User.controller";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import {
@@ -21,6 +22,9 @@ router.get("/me", authMiddleware, getCurrentUser);
 
 // Cập nhật thông tin người dùng
 router.put("/me", authMiddleware, updateUser);
+
+// Đổi mật khẩu
+router.put("/change-password", authMiddleware, changePassword);
 
 // Lấy danh sách người dùng (admin only)
 router.get("/", authMiddleware, roleMiddleware([1, 2]), getAllUsers);

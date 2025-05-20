@@ -49,7 +49,7 @@ const AttributesTab: React.FC<AttributesTabProps> = memo(
     };
     const handleColorChange = (colorKey: string, checked: boolean): void => {
       if (checked) {
-        // Add new color detail
+        // thêm màu sắc mới vào danh sách chi tiết sản phẩm
         const newDetail: ProductDetailType = {
           id: 0,
           productId: product.id,
@@ -66,26 +66,26 @@ const AttributesTab: React.FC<AttributesTabProps> = memo(
           images: [],
         };
 
-        // Update product with new color
+        // update thông tin sản phẩm với chi tiết mới
         updateProduct({
           ...product,
           details: [...product.details, newDetail],
         });
 
-        // Also update the selected image color to this newly added color
+        // đồng thời cập nhật selectedImageColor trong state
         dispatch({ type: "SET_SELECTED_IMAGE_COLOR", payload: colorKey });
       } else {
-        // Find the detail to be removed (for tracking its ID)
+        // tìm kiếm chi tiết để xóa (để theo dõi ID của nó)
         const detailToRemove = product.details.find(
           (detail) => detail.color === colorKey
         );
 
-        // Remove color from details
+        // Xóa màu sắc khỏi danh sách chi tiết sản phẩm
         const updatedDetails = product.details.filter(
           (detail) => detail.color !== colorKey
         );
 
-        // Add ID to removedDetailIds if it's a saved detail (has an ID > 0)
+        // Chỉ thêm ID vào removedDetailIds nếu chi tiết đã được lưu (có ID > 0)
         if (detailToRemove && detailToRemove.id > 0) {
           dispatch({
             type: "ADD_REMOVED_DETAIL_ID",
@@ -93,13 +93,13 @@ const AttributesTab: React.FC<AttributesTabProps> = memo(
           });
         }
 
-        // Update product with filtered details
+        // Cập nhật lại thông tin sản phẩm với danh sách chi tiết đã xóa màu sắc
         updateProduct({
           ...product,
           details: updatedDetails,
         });
 
-        // If the removed color was the selected color, select another color if available
+        // nếu màu sắc đã xóa là màu sắc đang được chọn, chọn màu sắc khác nếu có
         if (
           state.selectedImageColor === colorKey &&
           updatedDetails.length > 0
@@ -113,7 +113,7 @@ const AttributesTab: React.FC<AttributesTabProps> = memo(
     };
     const handleSizeChange = (size: string, checked: boolean): void => {
       if (checked) {
-        // Add the size to all color variants
+        // thêm kích thước mới vào tất cả các chi tiết sản phẩm
         const updatedDetails = product.details.map((detail) => ({
           ...detail,
           inventories: [
@@ -127,19 +127,19 @@ const AttributesTab: React.FC<AttributesTabProps> = memo(
           ],
         }));
 
-        // Update product with new details
+        // update thông tin sản phẩm với danh sách chi tiết đã cập nhật
         updateProduct({
           ...product,
           details: updatedDetails,
         });
       } else {
-        // Remove the size from all color variants
+        // xóa kích thước khỏi tất cả các chi tiết sản phẩm
         const updatedDetails = product.details.map((detail) => ({
           ...detail,
           inventories: detail.inventories.filter((inv) => inv.size !== size),
         }));
 
-        // Update product with new details
+        // update thông tin sản phẩm với danh sách chi tiết đã cập nhật
         updateProduct({
           ...product,
           details: updatedDetails,
@@ -199,30 +199,36 @@ const AttributesTab: React.FC<AttributesTabProps> = memo(
       });
     };
 
-    // Handler for price and originalPrice changes
+    // hàm để xử lý thay đổi giá bán và giá gốc
     const handlePriceChange = (
       detailIndex: number,
       field: string,
       value: number | string
     ): void => {
-      // Ensure value is a positive number or empty string
+      // đảm bảo giá trị là số
       let numValue = typeof value === "string" ? parseFloat(value) : value;
 
-      // If conversion fails or value is negative, default to 0
+      // nếu giá trị không hợp lệ hoặc nhỏ hơn 0, đặt lại về 0
       if (isNaN(numValue) || numValue < 0) {
         numValue = 0;
       }
 
-      // Get current details
+      // sao chép danh sách chi tiết sản phẩm hiện tại
+      // để không làm thay đổi trực tiếp state
       const updatedDetails = [...product.details];
 
-      // Update the specific field for the chosen color variant
+      // cập nhật giá trị tương ứng trong danh sách chi tiết
+      // sử dụng detailIndex để xác định chi tiết nào cần cập nhật
       updatedDetails[detailIndex] = {
         ...updatedDetails[detailIndex],
         [field]: numValue,
       };
 
-      // Update product with modified details
+      // cập nhật lại thông tin sản phẩm với danh sách chi tiết đã thay đổi
+      // sử dụng updateProduct để cập nhật
+      // và truyền vào danh sách chi tiết đã thay đổi
+      // để không làm thay đổi trực tiếp state
+      // và chỉ cập nhật những gì cần thiết
       updateProduct({
         ...product,
         details: updatedDetails,
@@ -263,7 +269,7 @@ const AttributesTab: React.FC<AttributesTabProps> = memo(
                 </div>
               </div>
 
-              {/* Price settings for each color variant */}
+              {/* Giá theo màu sắc */}
               {product.details.length > 0 && (
                 <div className="card mt-4">
                   <div className="card-header">

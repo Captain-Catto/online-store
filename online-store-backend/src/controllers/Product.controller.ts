@@ -17,14 +17,38 @@ interface ExtendedFindOptions extends FindOptions {
 interface S3File extends Express.Multer.File {
   location: string;
 }
+
 /**
- * Create a product with details and inventory
+ * Tạo mới sản phẩm với chi tiết và tồn kho
+ *
+ * Quy trình:
+ * 1. Nhận thông tin cơ bản của sản phẩm:
+ *    - Thông tin chung: tên, mã SKU, mô tả, thương hiệu, chất liệu
+ *    - Trạng thái: nổi bật, trạng thái sản phẩm
+ *    - Tags và phân loại: tags, phù hợp với, danh mục
+ *
+ * 2. Xử lý hình ảnh:
+ *    - Upload hình ảnh lên S3
+ *    - Phân loại hình ảnh theo màu sắc
+ *    - Đánh dấu hình ảnh chính
+ *
+ * 3. Tạo chi tiết sản phẩm cho từng màu:
+ *    - Tạo biến thể màu sắc
+ *    - Thiết lập giá và giá gốc
+ *    - Tạo tồn kho cho từng size
+ *    - Liên kết hình ảnh với biến thể
+ *
+ * 4. Xử lý phân loại:
+ *    - Liên kết với danh mục
+ *    - Liên kết với độ phù hợp (suitability)
+ *
+ * @param req - Request chứa thông tin sản phẩm và files
+ * @param res - Response trả về kết quả tạo sản phẩm
  */
 export const createProductWithDetails = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  console.log("data nhận vào", req.body);
   const t = await sequelize.transaction();
 
   // Get uploaded files
@@ -95,7 +119,7 @@ export const createProductWithDetails = async (
             ? suitability
             : [];
       } catch (e) {
-        console.error("Error parsing suitability:", e);
+        // Nếu không parse được, gán là mảng rỗng
         suitabilityIds = [];
       }
 
@@ -117,9 +141,9 @@ export const createProductWithDetails = async (
       }
     }
 
-    // Process uploaded files if any - group by color
+    // quá trình upload file lên S3
     if (files && files.length > 0) {
-      // Extract color information from the form
+      // lấy thông tin màu sắc từ form
       let imageColors: { [key: string]: string } = {};
       let imageIsMain: { [key: string]: boolean | string } = {};
       try {
@@ -136,7 +160,7 @@ export const createProductWithDetails = async (
         console.error("Error parsing image metadata:", e);
       }
 
-      // Group images by color
+      // group các hình ảnh theo màu sắc
       files.forEach((file, index) => {
         const indexKey = index.toString();
         const color = imageColors[indexKey] || "default";
@@ -152,9 +176,9 @@ export const createProductWithDetails = async (
       });
     }
 
-    // Create product details with their respective inventories and prices
+    // tạo thông tin chi tiết sản phẩm với tồn kho và giá cả tương ứng
     for (const detail of details) {
-      // Create product detail (color and price)
+      // tạo mới thông tin chi tiết sản phẩm
       const productDetail = await ProductDetail.create(
         {
           productId: newProduct.id,
@@ -165,7 +189,7 @@ export const createProductWithDetails = async (
         { transaction: t }
       );
 
-      // Add sizes and inventory for this detail
+      // thêm tồn kho cho từng size
       if (detail.sizes && detail.sizes.length > 0) {
         for (const sizeInfo of detail.sizes) {
           await ProductInventory.create(
@@ -179,7 +203,7 @@ export const createProductWithDetails = async (
         }
       }
 
-      // Add images for this detail if they exist in the map
+      // thêm hình ảnh cho từng chi tiết sản phẩm
       const colorImages = colorImageMap.get(detail.color) || [];
       for (const imageInfo of colorImages) {
         await ProductImage.create(
@@ -229,11 +253,10 @@ export const createProductWithDetails = async (
       productId: newProduct.id,
     });
   } catch (error: any) {
-    await t.rollback();
-    // Xóa các file đã upload lên S3 nếu có lỗi
+    await t.rollback(); // Xóa các file đã upload lên S3 nếu có lỗi
     if (files && files.length > 0) {
       try {
-        console.log("Cleaning up uploaded files from S3");
+        // Cleanup uploaded files from S3
         await Promise.all(
           files.map((file) => {
             const key = file.location.split("/").pop(); // Lấy key từ URL
@@ -252,7 +275,38 @@ export const createProductWithDetails = async (
   }
 };
 
-// Cập nhật cả phương thức getProductsWithVariants
+/**
+ * Lấy danh sách sản phẩm với đầy đủ biến thể và bộ lọc
+ *
+ * Quy trình:
+ * 1. Xử lý các tham số truy vấn:
+ *    - Phân trang (page, limit)
+ *    - Tìm kiếm (search: tên, SKU)
+ *    - Lọc theo danh mục, trạng thái, thương hiệu
+ *    - Lọc theo màu sắc, kích thước
+ *    - Lọc theo độ phù hợp (suitability)
+ *    - Sắp xếp (sort)
+ *
+ * 2. Xây dựng câu truy vấn:
+ *    - Điều kiện lọc cơ bản (where)
+ *    - Kết nối với các bảng liên quan (include)
+ *    - Thiết lập sắp xếp (order)
+ *
+ * 3. Định dạng dữ liệu trả về cho mỗi sản phẩm:
+ *    - Thông tin cơ bản
+ *    - Danh sách màu sắc và kích thước
+ *    - Tính toán tồn kho
+ *    - Định dạng biến thể (variants)
+ *    - Xử lý trạng thái hiển thị
+ *
+ * 4. Trả về kết quả:
+ *    - Danh sách sản phẩm đã định dạng
+ *    - Thông tin bộ lọc đã áp dụng
+ *    - Thông tin phân trang
+ *
+ * @param req - Request chứa các tham số tìm kiếm, lọc và phân trang
+ * @param res - Response trả về danh sách sản phẩm và metadata
+ */
 export const getProductsWithVariants = async (
   req: Request,
   res: Response
@@ -277,13 +331,6 @@ export const getProductsWithVariants = async (
     const sizes = sizeParam ? sizeParam.split(",") : [];
     const suitabilityParam = req.query.suitability as string;
     const suitabilities = suitabilityParam ? suitabilityParam.split(",") : [];
-    console.log("Suitabilities:", suitabilities);
-    console.log("Comparing suitabilities:", {
-      input: suitabilities,
-      dbValues: await Suitability.findAll({
-        attributes: ["id", "name", "slug"],
-      }).then((records) => records.map((r) => r.get({ plain: true }))),
-    });
     // thêm tham số để sort
     const sort = req.query.sort as string;
 
@@ -567,15 +614,33 @@ export const getProductsWithVariants = async (
     });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
-    console.error("GET PRODUCTS ERROR:", {
-      message: error.message,
-      stack: error.stack,
-      query: req.query,
-    });
   }
 };
 /**
- * Get product by ID with details, inventory, images and categories
+ * Lấy thông tin chi tiết của một sản phẩm theo ID
+ *
+ * Quy trình:
+ * 1. Tìm sản phẩm theo ID kèm theo:
+ *    - Chi tiết sản phẩm (ProductDetail)
+ *    - Tồn kho (ProductInventory)
+ *    - Hình ảnh (ProductImage)
+ *    - Danh mục (Category)
+ *    - Độ phù hợp (Suitability)
+ *
+ * 2. Xử lý và định dạng dữ liệu:
+ *    - Tổng hợp màu sắc và kích thước
+ *    - Tính toán tồn kho tổng và theo biến thể
+ *    - Tạo bản đồ biến thể (variantMap)
+ *    - Định dạng trạng thái hiển thị
+ *
+ * 3. Cấu trúc dữ liệu trả về:
+ *    - Thông tin cơ bản sản phẩm
+ *    - Danh sách biến thể với giá và tồn kho
+ *    - Hình ảnh theo màu sắc
+ *    - Thông tin phân loại và tags
+ *
+ * @param req - Request chứa ID sản phẩm
+ * @param res - Response trả về thông tin chi tiết sản phẩm
  */
 export const getProductById = async (
   req: Request,
@@ -760,7 +825,21 @@ export const getProductById = async (
 };
 
 /**
- * Delete a product and all associated details and inventory
+ * Xóa sản phẩm và tất cả dữ liệu liên quan
+ *
+ * Quy trình:
+ * 1. Tạo transaction để đảm bảo tính toàn vẹn dữ liệu
+ * 2. Kiểm tra sự tồn tại của sản phẩm
+ * 3. Xóa các dữ liệu liên quan theo thứ tự:
+ *    - Xóa hình ảnh trên S3 và trong database
+ *    - Xóa tồn kho (ProductInventory)
+ *    - Xóa chi tiết sản phẩm (ProductDetail)
+ *    - Xóa liên kết với danh mục (ProductCategory)
+ *    - Xóa sản phẩm chính
+ * 4. Commit transaction nếu thành công
+ *
+ * @param req - Request chứa ID sản phẩm cần xóa
+ * @param res - Response trả về kết quả xóa sản phẩm
  */
 export const deleteProduct = async (
   req: Request,
@@ -834,17 +913,38 @@ export const deleteProduct = async (
 };
 
 /**
- * Get products by category ID with pagination
- */
-/**
- * Get products by category ID with pagination
+ * Lấy danh sách sản phẩm theo danh mục
+ *
+ * Quy trình:
+ * 1. Xử lý tham số:
+ *    - ID danh mục chính và danh mục con
+ *    - Các bộ lọc: màu sắc, kích thước, độ phù hợp
+ *    - Thông số phân trang
+ *
+ * 2. Xử lý logic danh mục:
+ *    - Kiểm tra sự tồn tại của danh mục
+ *    - Xử lý danh mục cha-con
+ *    - Lấy danh sách danh mục con nếu cần
+ *
+ * 3. Xây dựng truy vấn:
+ *    - Điều kiện lọc theo danh mục
+ *    - Các bộ lọc bổ sung
+ *    - Kết nối với các bảng liên quan
+ *
+ * 4. Định dạng và trả về kết quả:
+ *    - Danh sách sản phẩm đã lọc
+ *    - Thông tin danh mục
+ *    - Danh mục con (nếu có)
+ *    - Thông tin phân trang
+ *
+ * @param req - Request chứa ID danh mục và các tham số lọc
+ * @param res - Response trả về danh sách sản phẩm theo danh mục
  */
 export const getProductsByCategory = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    console.log("Fetching products by category ID", req.params);
     const { categoryId } = req.params;
 
     // Pagination parameters
@@ -969,7 +1069,6 @@ export const getProductsByCategory = async (
 
     // Format sản phẩm (giữ nguyên phần này)
     const formattedProducts = products.map((product: any, index: number) => {
-      console.log(`Processing product ${index}:`, product.toJSON());
       const details = product.details || [];
 
       // Get all unique colors
@@ -1135,11 +1234,22 @@ export const getProductsByCategory = async (
       },
     });
   } catch (error: any) {
-    console.error("Error getting products by category:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
+/**
+ * Lấy danh sách độ phù hợp của sản phẩm
+ *
+ * Quy trình:
+ * 1. Truy vấn tất cả suitabilities
+ * 2. Sắp xếp theo:
+ *    - Thứ tự ưu tiên (sortOrder)
+ *    - Tên (name)
+ *
+ * @param req - Request
+ * @param res - Response trả về danh sách suitabilities đã sắp xếp
+ */
 export const getSuitabilities = async (
   req: Request,
   res: Response
@@ -1153,11 +1263,28 @@ export const getSuitabilities = async (
     });
     res.status(200).json(suitabilities);
   } catch (error: any) {
-    console.error("Error getting suitabilities:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
+/**
+ * Lấy danh sách subtypes của sản phẩm
+ *
+ * Quy trình:
+ * 1. Xử lý tham số:
+ *    - Lấy categoryId từ query parameters (nếu có)
+ *
+ * 2. Truy vấn sản phẩm:
+ *    - Nếu có categoryId: lọc theo danh mục
+ *    - Nếu không: lấy tất cả subtypes
+ *
+ * 3. Xử lý kết quả:
+ *    - Lọc các subtypes null
+ *    - Loại bỏ các giá trị trùng lặp
+ *
+ * @param req - Request có thể chứa categoryId
+ * @param res - Response trả về danh sách subtypes
+ */
 export const getSubtypes = async (
   req: Request,
   res: Response
@@ -1165,9 +1292,6 @@ export const getSubtypes = async (
   try {
     // Lấy category ID từ query parameters
     const categoryId = req.query.categoryId as string;
-
-    console.log("Fetching subtypes for category:", categoryId || "all");
-
     let products;
 
     if (categoryId) {
@@ -1201,18 +1325,10 @@ export const getSubtypes = async (
       });
     }
 
-    console.log("Products found:", products.length);
-    console.log(
-      "Product subtypes:",
-      products.map((p) => p.getDataValue("subtype"))
-    );
-
     // Tạo danh sách `subtypes` duy nhất
     const subtypes = [
       ...new Set(products.map((product) => product.getDataValue("subtype"))),
     ].filter(Boolean);
-
-    console.log("Unique subtypes:", subtypes);
 
     // Trả về danh sách `subtypes`
     res.status(200).json({
@@ -1221,12 +1337,28 @@ export const getSubtypes = async (
       count: subtypes.length,
     });
   } catch (error: any) {
-    console.error("Error fetching subtypes:", error);
     res.status(500).json({ message: "Lỗi khi lấy danh sách subtypes" });
   }
 };
 
-// hàm để lấy variant của sản phẩm theo id ở product
+/**
+ * Lấy thông tin chi tiết về biến thể của sản phẩm theo ID
+ *
+ * Quy trình:
+ * 1. Tìm sản phẩm theo ID kèm các quan hệ:
+ *    - Chi tiết sản phẩm (ProductDetail)
+ *    - Tồn kho (ProductInventory)
+ *    - Hình ảnh (ProductImage)
+ *    - Danh mục (Category)
+ *    - Độ phù hợp (Suitability)
+ *
+ * 2. Kiểm tra sự tồn tại của sản phẩm
+ *
+ * 3. Trả về thông tin chi tiết bao gồm tất cả biến thể
+ *
+ * @param req - Request chứa ID sản phẩm
+ * @param res - Response trả về thông tin biến thể của sản phẩm
+ */
 export const getProductVariantsById = async (
   req: Request,
   res: Response
@@ -1276,7 +1408,24 @@ export const getProductVariantsById = async (
 };
 
 /**
- * Update basic product information
+ * Cập nhật thông tin cơ bản của sản phẩm
+ *
+ * Quy trình:
+ * 1. Tạo transaction để đảm bảo tính toàn vẹn dữ liệu
+ *
+ * 2. Kiểm tra và cập nhật:
+ *    - Thông tin cơ bản (tên, SKU, mô tả, thương hiệu, chất liệu)
+ *    - Trạng thái (nổi bật, trạng thái hoạt động)
+ *    - Tags và thuộc tính khác
+ *
+ * 3. Cập nhật các mối quan hệ:
+ *    - Độ phù hợp (Suitabilities)
+ *    - Danh mục (Categories)
+ *
+ * 4. Commit hoặc rollback transaction tùy kết quả
+ *
+ * @param req - Request chứa thông tin cập nhật
+ * @param res - Response trả về kết quả cập nhật
  */
 export const updateProductBasicInfo = async (
   req: Request,
@@ -1298,7 +1447,7 @@ export const updateProductBasicInfo = async (
       suitabilities,
       categories,
     } = req.body;
-    console.log("suitabilities nhặn vào", suitabilities);
+
     // Check if product exists
     const product = await Product.findByPk(id, { transaction: t });
     if (!product) {
@@ -1938,7 +2087,30 @@ export const setMainProductImage = async (
 };
 
 /**
- * Update product variants
+ * Cập nhật biến thể sản phẩm
+ *
+ * Quy trình:
+ * 1. Kiểm tra và xác thực dữ liệu:
+ *    - Tồn tại của sản phẩm
+ *    - Cấu trúc dữ liệu biến thể
+ *    - Phát hiện màu sắc trùng lặp
+ *
+ * 2. Xử lý các trường hợp cập nhật:
+ *    - Cập nhật biến thể hiện có (có ID)
+ *    - Tạo mới biến thể (không có ID)
+ *    - Cập nhật biến thể hiện có theo màu sắc
+ *
+ * 3. Quản lý tồn kho:
+ *    - Cập nhật số lượng tồn kho hiện có
+ *    - Thêm kích thước mới cho biến thể
+ *    - Xóa kích thước không còn trong cập nhật
+ *
+ * 4. Xử lý giao dịch database:
+ *    - Đảm bảo tính toàn vẹn dữ liệu
+ *    - Rollback nếu có lỗi xảy ra
+ *
+ * @param req - Request chứa ID sản phẩm và danh sách biến thể cập nhật
+ * @param res - Response trả về kết quả cập nhật biến thể
  */
 export const updateProductVariants = async (
   req: Request,
@@ -1991,10 +2163,6 @@ export const updateProductVariants = async (
     existingDetails.forEach((detail) => {
       existingColorMap.set(detail.getDataValue("color"), detail);
     });
-
-    console.log(
-      `Found ${existingDetails.length} existing details for product ${id}`
-    );
 
     // Process each variant
     for (const variant of variants) {
@@ -2087,11 +2255,8 @@ export const updateProductVariants = async (
 
         // Check if a variant with this color already exists
         const existingDetail = existingColorMap.get(variant.color);
-
         if (existingDetail) {
           // Update existing detail with this color instead of creating a new one
-          console.log(`Updating existing detail for color ${variant.color}`);
-
           await existingDetail.update(
             {
               price: variant.price || existingDetail.getDataValue("price"),
@@ -2153,8 +2318,6 @@ export const updateProductVariants = async (
         } else if (variant.color) {
           // Only create if color is defined
           // Create new variant
-          console.log(`Creating new detail for color ${variant.color}`);
-
           const newVariant = await ProductDetail.create(
             {
               productId: Number(id),
@@ -2179,12 +2342,10 @@ export const updateProductVariants = async (
             }
           }
         } else {
-          // Skip creating variants with undefined color
-          console.log("[Warning] Skipping variant with undefined color");
+          // bỏ qua việc tạo biến thể nếu không có màu sắc
         }
       }
     }
-
     await t.commit();
     res.status(200).json({
       message: "Cập nhật biến thể sản phẩm thành công",
@@ -2206,7 +2367,24 @@ export const updateProductVariants = async (
 };
 
 /**
- * Get product breadcrumb path
+ * Lấy đường dẫn breadcrumb của sản phẩm
+ *
+ * Quy trình:
+ * 1. Tìm sản phẩm theo ID kèm các danh mục liên quan
+ *
+ * 2. Xây dựng đường dẫn breadcrumb:
+ *    - Bắt đầu với trang chủ
+ *    - Thêm danh mục cha (nếu có)
+ *    - Thêm danh mục hiện tại
+ *    - Kết thúc với tên sản phẩm
+ *
+ * 3. Định dạng breadcrumb cho frontend:
+ *    - Đường dẫn (href)
+ *    - Nhãn hiển thị (label)
+ *    - Trạng thái (isLast)
+ *
+ * @param req - Request chứa ID sản phẩm
+ * @param res - Response trả về mảng breadcrumb
  */
 export const getProductBreadcrumb = async (
   req: Request,

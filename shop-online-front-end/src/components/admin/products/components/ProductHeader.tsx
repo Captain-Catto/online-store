@@ -11,15 +11,12 @@ interface ProductHeaderProps {
   onSave?: () => void;
 }
 
+// component ProductHeader dùng để hiển thị tiêu đề và các nút hành động
+// cho trang chi tiết sản phẩm
 const ProductHeader: React.FC<ProductHeaderProps> = memo(
   ({ onDelete, onSave }) => {
     const { state, dispatch } = useProductContext();
     const { product, isEditing, isSubmitting } = state;
-
-    // Toggle edit mode
-    // const handleEditToggle = () => {
-    //   dispatch({ type: "SET_EDITING", payload: !isEditing });
-    // };
 
     return (
       <>

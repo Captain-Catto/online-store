@@ -33,7 +33,7 @@ export default function AccountLayout({
   // Xác định tab hiện tại từ pathname
   const getTabFromPathname = (path: string): string => {
     const segments = path.split("/");
-    // Nếu là /account thì trả về 'account', nếu không thì lấy segment cuối
+    // Nếu là /account thì trả về 'account', nếu không thì lấy phần tử cuối
     return segments.length <= 2 ? "account" : segments[segments.length - 1];
   };
 

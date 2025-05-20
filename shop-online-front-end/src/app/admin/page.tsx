@@ -11,6 +11,9 @@ import { useRouter } from "next/navigation";
 import { AuthService } from "@/services/AuthService";
 import { mapOrderStatus } from "@/utils/orderUtils";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
+import { ReportsService } from "@/services/ReportsService";
+import { formatCurrency } from "@/utils/currencyUtils";
+import { UserService } from "@/services/UserService";
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -26,12 +29,17 @@ export default function AdminDashboardPage() {
   >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pagination, setPagination] = useState({
-    currentPage: 1,
-    totalPages: 1,
-    totalItems: 0,
+  const [totalUsers, setTotalUsers] = useState(0);
+
+  // Dashboard summary data state
+  const [summaryData, setSummaryData] = useState({
+    totalRevenue: 0,
+    totalOrders: 0,
+    averageOrderValue: 0,
+    totalProducts: 0,
+    lowStockProducts: 0,
+    topCategory: "",
   });
-  const [, setTotalUsers] = useState(0);
 
   // Kiểm tra quyền admin
   useEffect(() => {
@@ -42,18 +50,13 @@ export default function AdminDashboardPage() {
 
   // Fetch dữ liệu đơn hàng từ API
   useEffect(() => {
-    const fetchOrders = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
+
+        // Fetch orders data
         const orders = await OrderService.getAdminOrders();
         console.log("Orders:", orders);
-
-        // setPagination để hiển thị cho stat card
-        setPagination({
-          currentPage: orders.pagination?.currentPage || 1,
-          totalPages: orders.pagination?.totalPages || 1,
-          totalItems: orders.pagination?.total || 0,
-        });
 
         // setTotalUsers để hiển thị cho stat card
         setTotalUsers(orders.pagination?.total || 0);
@@ -84,51 +87,63 @@ export default function AdminDashboardPage() {
             userId: order.userId || "Unknown",
             status: mapOrderStatus(order.status),
             statusClass: getStatusClass(order.status),
-            total: (order.total || 0).toLocaleString("vi-VN") + " VNĐ",
+            total: formatCurrency(order.total || 0),
             date: formatDate(order.createdAt),
           };
         });
 
-        setRecentOrders(formattedOrders);
+        setRecentOrders(formattedOrders); // Fetch summary data for dashboard stats
+        const summaryResponse = await ReportsService.getSummaryReport();
+        console.log("Summary Report Response:", summaryResponse);
+        setSummaryData({
+          totalRevenue: summaryResponse.totalRevenue || 0,
+          totalOrders: summaryResponse.totalOrders || 0,
+          averageOrderValue: summaryResponse.averageOrderValue || 0,
+          totalProducts: summaryResponse.totalProducts || 0,
+          lowStockProducts: summaryResponse.lowStockProducts || 0,
+          topCategory: summaryResponse.topCategory || "",
+        });
+
+        // Lấy tổng số người dùng từ API
+        const totalUsersCount = await UserService.getTotalUsers();
+        setTotalUsers(totalUsersCount);
       } catch (error) {
-        console.error("Error fetching orders:", error);
-        setError("Không thể tải dữ liệu đơn hàng");
+        console.error("Error fetching data:", error);
+        setError("Không thể tải dữ liệu");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchOrders();
+    fetchData();
   }, []);
-
   // Dữ liệu cho các thẻ thống kê
   const statsData = [
     {
-      title: "Đơn hàng mới",
-      value: "150",
+      title: "Tổng đơn hàng đã giao tuần này",
+      value: summaryData.totalOrders,
       icon: "fas fa-shopping-bag",
       color: "bg-info",
       link: "/admin/orders",
     },
     {
-      title: "Tăng trưởng",
-      value: "53",
-      suffix: "%",
-      icon: "fas fa-chart-line",
+      title: "Doanh thu tuần này",
+      value: formatCurrency(summaryData.totalRevenue),
+      icon: "fas fa-money-bill-wave",
       color: "bg-success",
-      link: "#",
+      link: "/admin/reports",
     },
     {
-      title: "Người dùng đăng ký",
-      value: pagination.totalItems,
+      title: "Tổng số người dùng",
+      value: totalUsers,
       icon: "fas fa-user-plus",
       color: "bg-warning",
       link: "/admin/users",
     },
     {
-      title: "Sản phẩm mới",
-      value: "65",
-      icon: "fas fa-tshirt",
+      title: "Sản phẩm hết hàng",
+      value: summaryData.lowStockProducts,
+      icon: "fas fa-exclamation-triangle",
       color: "bg-danger",
       link: "/admin/products",
     },
@@ -181,21 +196,19 @@ export default function AdminDashboardPage() {
           ) : (
             // Hiển thị nội dung khi đã tải xong và không có lỗi
             <>
-              {/* Small boxes (Stat box) */}
+              {/* Small boxes (Stat box) */}{" "}
               <div className="row">
                 {statsData.map((stat, index) => (
                   <StatCard
                     key={index}
                     title={stat.title}
                     value={stat.value}
-                    suffix={stat.suffix}
                     icon={stat.icon}
                     color={stat.color}
                     link={stat.link}
                   />
                 ))}
               </div>
-
               {/* Recent Orders */}
               <div className="row">
                 <div className="col-md-12">

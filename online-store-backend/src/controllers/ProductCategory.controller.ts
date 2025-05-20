@@ -3,7 +3,25 @@ import ProductCategory from "../models/ProductCategory";
 import Product from "../models/Product";
 import Category from "../models/Category";
 
-// Thêm danh mục vào sản phẩm
+/**
+ * Thêm danh mục vào sản phẩm
+ *
+ * Quy trình:
+ * 1. Kiểm tra đầu vào:
+ *    - Lấy productId và categoryId từ request body
+ *    - Xác thực sự tồn tại của sản phẩm và danh mục
+ *
+ * 2. Kiểm tra trùng lặp:
+ *    - Xác định xem danh mục đã được thêm vào sản phẩm chưa
+ *    - Ngăn chặn việc thêm danh mục trùng lặp
+ *
+ * 3. Tạo liên kết:
+ *    - Tạo mối quan hệ giữa sản phẩm và danh mục
+ *    - Trả về kết quả thành công
+ *
+ * @param req - Request chứa productId và categoryId
+ * @param res - Response trả về kết quả thêm danh mục
+ */
 export const addCategoryToProduct = async (
   req: Request,
   res: Response

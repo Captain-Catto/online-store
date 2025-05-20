@@ -34,7 +34,8 @@ const InventoryTab: React.FC<InventoryTabProps> = memo(
 
     if (!product) return null;
 
-    // Create flat view of variants for display
+    // sử dụng flatMap để tạo danh sách biến thể
+    // mỗi biến thể bao gồm màu sắc, kích thước, số lượng, id chi tiết và id tồn kho
     const variants = product.details.flatMap((detail) =>
       detail.inventories.map((inventory) => ({
         color: detail.color,
@@ -43,22 +44,27 @@ const InventoryTab: React.FC<InventoryTabProps> = memo(
         detailId: detail.id,
         inventoryId: inventory.id,
       }))
-    ); // Calculate total stock
+    );
+
+    // Tính tổng số lượng tồn kho
     const totalStock = product.details.reduce(
       (sum, detail) =>
         sum + detail.inventories.reduce((s, inv) => s + inv.stock, 0),
       0
     );
+
+    // Tạo một mảng các biến thể từ danh sách tồn kho
     const handleVariantChange = (
       detailIndex: number,
       inventoryIndex: number,
       field: string,
       value: string | number
     ) => {
-      // Create a deep copy of the product details
+      // tạo một bản sao của chi tiết sản phẩm
+      // để tránh thay đổi trực tiếp trạng thái
       const updatedDetails = [...product.details];
 
-      // Update the specific inventory item
+      // Chỉ cập nhật trường cụ thể (stock hoặc size)
       updatedDetails[detailIndex] = {
         ...updatedDetails[detailIndex],
         inventories: updatedDetails[detailIndex].inventories.map((inv, idx) =>
@@ -71,13 +77,15 @@ const InventoryTab: React.FC<InventoryTabProps> = memo(
         ),
       };
 
-      // Update the product with the new details
+      // Cập nhật sản phẩm với chi tiết mới
+      // và gọi hàm updateProduct từ context
       updateProduct({
         ...product,
         details: updatedDetails,
       });
     };
 
+    // Hàm thêm biến thể mới
     const handleAddVariant = () => {
       if (!newVariant.color || !newVariant.size) {
         showToast("Vui lòng chọn màu sắc và kích thước cho biến thể", {
@@ -86,11 +94,12 @@ const InventoryTab: React.FC<InventoryTabProps> = memo(
         return;
       }
 
-      // Check for duplicate
+      // Kiểm tra xem biến thể đã tồn tại chưa
       const isDuplicate = variants.some(
         (v) => v.color === newVariant.color && v.size === newVariant.size
       );
 
+      // Nếu đã tồn tại, hiển thị thông báo lỗi
       if (isDuplicate) {
         showToast("Biến thể này đã tồn tại!", {
           type: "error",
@@ -98,13 +107,14 @@ const InventoryTab: React.FC<InventoryTabProps> = memo(
         return;
       }
 
-      // Find existing detail with this color or create a new one
+      // Tìm kiếm chi tiết sản phẩm theo màu sắc
+      // Nếu không tìm thấy, tạo mới chi tiết
       const detailIndex = product.details.findIndex(
         (d) => d.color === newVariant.color
       );
 
+      // Nếu tìm thấy chi tiết, thêm tồn kho mới vào chi tiết đó
       if (detailIndex >= 0) {
-        // Add new inventory to existing detail
         const detail = product.details[detailIndex];
         const newInventory: ProductInventory = {
           id: 0,
@@ -113,20 +123,22 @@ const InventoryTab: React.FC<InventoryTabProps> = memo(
           stock: newVariant.stock,
         };
 
-        // Create updated details with the new inventory
+        // Cập nhật tồn kho mới vào chi tiết
+        // và tạo một bản sao của chi tiết để tránh thay đổi trực tiếp trạng thái
         const updatedDetails = [...product.details];
         updatedDetails[detailIndex] = {
           ...detail,
           inventories: [...detail.inventories, newInventory],
         };
 
-        // Update product with new details
+        // Cập nhật sản phẩm với chi tiết mới
+        // và gọi hàm updateProduct từ context
         updateProduct({
           ...product,
           details: updatedDetails,
         });
       } else {
-        // Create new detail with this color
+        // Nếu không tìm thấy chi tiết, tạo mới chi tiết với tồn kho mới
         const newDetail: ProductDetailType = {
           id: 0,
           productId: product.id,
@@ -144,7 +156,8 @@ const InventoryTab: React.FC<InventoryTabProps> = memo(
           images: [],
         };
 
-        // Update product with the new detail
+        // Cập nhật sản phẩm với chi tiết mới
+        // và gọi hàm updateProduct từ context
         updateProduct({
           ...product,
           details: [...product.details, newDetail],
@@ -289,7 +302,8 @@ const InventoryTab: React.FC<InventoryTabProps> = memo(
                               <button
                                 className="btn btn-sm btn-danger"
                                 onClick={() => {
-                                  // Remove inventory - filter out this inventory
+                                  // Xóa tồn kho
+                                  // Tạo một bản sao của chi tiết sản phẩm
                                   const updatedDetails = [...product.details];
                                   updatedDetails[detailIndex] = {
                                     ...detail,
@@ -298,7 +312,8 @@ const InventoryTab: React.FC<InventoryTabProps> = memo(
                                     ),
                                   };
 
-                                  // Update product with the modified details
+                                  // Cập nhật sản phẩm với chi tiết mới
+                                  // và gọi hàm updateProduct từ context
                                   updateProduct({
                                     ...product,
                                     details: updatedDetails,

@@ -26,6 +26,7 @@ import SortableSuitabilityRow from "@/components/admin/suitability/SortableSuita
 import ConfirmModal from "@/components/admin/shared/ConfirmModal";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
+// Định nghĩa interface cho đối tượng Suitability
 interface Suitability {
   id: number;
   name: string;
@@ -50,7 +51,8 @@ export default function SuitabilitiesManagement() {
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  // thêm state xử lý drag end
+
+  // Thêm state để xử lý kéo thả
   const [reordering, setReordering] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -156,11 +158,14 @@ export default function SuitabilitiesManagement() {
           }
         );
 
+        const data = await response.json();
         if (!response.ok) {
-          throw new Error("Lỗi khi cập nhật");
+          throw new Error(data.message || "Lỗi khi cập nhật");
         }
 
         showToast("Cập nhật thành công", { type: "success" });
+        resetForm();
+        fetchSuitabilities();
       } else {
         // Tạo mới
         const response = await AuthClient.fetchWithAuth(
@@ -172,16 +177,15 @@ export default function SuitabilitiesManagement() {
           }
         );
 
+        const data = await response.json();
         if (!response.ok) {
-          throw new Error("Lỗi khi thêm mới");
+          throw new Error(data.message || "Lỗi khi thêm mới");
         }
 
         showToast("Thêm mới thành công", { type: "success" });
+        resetForm();
+        fetchSuitabilities();
       }
-
-      // Làm mới dữ liệu và reset form
-      resetForm();
-      fetchSuitabilities();
     } catch (error) {
       console.error("Error submitting form:", error);
       showToast(error instanceof Error ? error.message : "Có lỗi xảy ra", {

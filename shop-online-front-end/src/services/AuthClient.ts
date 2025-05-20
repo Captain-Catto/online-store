@@ -156,7 +156,7 @@ export class AuthClient {
           if (newToken) {
             token = newToken;
           } else {
-            throw new Error("TOKEN_INVALID");
+            throw new Error("Token không hợp lệ và không thể refresh");
           }
         }
       } else if (AuthService.isLoggedIn()) {
@@ -166,10 +166,10 @@ export class AuthClient {
         if (newToken) {
           token = newToken;
         } else {
-          throw new Error("TOKEN_MISSING");
+          throw new Error("Thiếu token và không thể refresh");
         }
       } else {
-        throw new Error("NOT_AUTHENTICATED");
+        throw new Error("Không có quyền truy cập");
       }
 
       // Thêm token vào headers

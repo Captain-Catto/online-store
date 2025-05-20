@@ -23,13 +23,13 @@ export default function AdminLayout({
   // Automatically collapse sidebar on mobile
   useEffect(() => {
     if (isMobile) {
-      // On mobile: completely hide sidebar
+      // On mobile: hoàn toàn ẩn sidebar
       setSidebarCollapsed(true);
     } else if (isTablet) {
-      // On tablet: show icon-only sidebar
+      // On tablet: chỉ hiển thị icon sidebar
       setSidebarCollapsed(true);
     } else {
-      // On desktop: show full sidebar by default
+      // On desktop: hiển thị sidebar bình thường
       setSidebarCollapsed(false);
     }
   }, [isMobile, isTablet]);
