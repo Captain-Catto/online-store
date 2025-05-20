@@ -385,6 +385,7 @@ export const getAllUsers = async (
   res: Response
 ): Promise<void> => {
   try {
+    console.log("getAllUsers called");
     // Sử dụng req.user từ middleware xác thực
     if (!req.user || (req.user.role !== 1 && req.user.role !== 2)) {
       res.status(403).json({ message: "Không có quyền truy cập" });
@@ -425,19 +426,18 @@ export const getAllUsers = async (
         include: [
           [
             Sequelize.literal(`(
-              SELECT COUNT(*)
-              FROM orders
-              WHERE orders.userId = users.id
-            )`),
+        SELECT COUNT(*)
+        FROM orders
+        WHERE orders.userId = Users.id
+      )`),
             "totalOrders",
           ],
           [
-            // tính tổng giá trị đơn hàng đã hoàn thành thay vì tổng tất cả đơn hàng
             Sequelize.literal(`(
-              SELECT COALESCE(SUM(orders.total), 0)
-              FROM orders
-              WHERE orders.userId = Users.id AND orders.status = 'delivered'
-            )`),
+        SELECT COALESCE(SUM(orders.total), 0)
+        FROM orders
+        WHERE orders.userId = Users.id AND orders.status = 'delivered'
+      )`),
             "totalSpent",
           ],
         ],
