@@ -522,7 +522,7 @@ export const getTopProductsReport = async (req: Request, res: Response) => {
           "totalRevenue",
         ],
       ],
-      group: ["productId"],
+      group: ["productId", "OrderDetail.id"],
       include: [
         {
           model: Product,
