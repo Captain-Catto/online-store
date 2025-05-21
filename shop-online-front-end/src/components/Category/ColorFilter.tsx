@@ -1,4 +1,5 @@
 import React from "react";
+import { colorToVietnamese } from "@/utils/colorUtils";
 
 interface ColorFilterProps {
   isOpen: boolean;
@@ -83,7 +84,7 @@ export default function ColorFilter({
                     activeFilter === colorId ? "text-blue-600 font-medium" : ""
                   }`}
                 >
-                  {colorId}
+                  {colorToVietnamese[colorId] || colorId}
                 </span>
               </div>
             </div>

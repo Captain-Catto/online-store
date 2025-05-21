@@ -70,11 +70,14 @@ export const OrderService = {
     try {
       console.log("Sending order data:", JSON.stringify(orderData));
 
-      // Use AuthClient.fetchWithAuth to include authentication token if user is logged in
+      // Get authentication token
+      const token = sessionStorage.getItem("authToken");
+
       const response = await fetch(`${API_BASE_URL}/orders`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
         },
         body: JSON.stringify(orderData),
       });
@@ -503,6 +506,34 @@ export const OrderService = {
       return await response.json();
     } catch (error) {
       console.error("Error validating voucher:", error);
+      throw error;
+    }
+  },
+
+  // Thêm phương thức để hủy đơn hàng
+  cancelOrder: async (orderId: string | number): Promise<void> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/orders/${orderId}/cancel`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          cancelNote: "Khách hàng hủy đơn trước khi hoàn tất thanh toán",
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message ||
+            `Error ${response.status}: ${response.statusText}`
+        );
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Error canceling order:", error);
       throw error;
     }
   },

@@ -7,6 +7,7 @@ import {
   deleteVoucher,
   validateVoucher,
   incrementVoucherUsage,
+  getUserAvailableVouchers,
 } from "../controllers/Voucher.controller";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { roleMiddleware } from "../middlewares/roleMiddleware";
@@ -15,6 +16,9 @@ const router = Router();
 
 // Lấy danh sách tất cả các Voucher (admin)
 router.get("/", authMiddleware, roleMiddleware([1]), getVouchers);
+
+// Lấy danh sách voucher có sẵn cho người dùng đã đăng nhập
+router.get("/user/available", authMiddleware, getUserAvailableVouchers);
 
 // Lấy chi tiết một Voucher theo mã code
 router.get("/:code", getVoucherByCode);

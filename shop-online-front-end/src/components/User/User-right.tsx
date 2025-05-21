@@ -1184,7 +1184,6 @@ const Addresses: React.FC<{
           </div>
         </div>
       </div>
-
       {/* Modal Chỉnh sửa địa chỉ */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -1438,7 +1437,6 @@ const Addresses: React.FC<{
           </div>
         </div>
       )}
-
       {/* Dialog xác nhận xóa địa chỉ */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -1469,7 +1467,6 @@ const Addresses: React.FC<{
           </div>
         </div>
       )}
-
       {/* Notification */}
       {notification && (
         <div
@@ -1482,7 +1479,6 @@ const Addresses: React.FC<{
           {notification.message}
         </div>
       )}
-
       {/* Modal Thêm địa chỉ mới */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -1725,7 +1721,7 @@ const Addresses: React.FC<{
             </form>
           </div>
         </div>
-      )}
+      )}{" "}
     </div>
   );
 };
@@ -1734,6 +1730,67 @@ const Addresses: React.FC<{
 const Promotions: React.FC<{ data?: Promotion[] | null }> = ({ data }) => {
   // Sử dụng dữ liệu từ API hoặc mẫu nếu không có
   const promotions = data || [];
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const router = useRouter();
+
+  // Format currency for min order value
+  const formatCurrencyValue = (value: number) => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+      minimumFractionDigits: 0,
+    }).format(value);
+  };
+
+  // Hàm xử lý sao chép mã khuyến mãi vào clipboard
+  const handleUsePromotion = (code: string) => {
+    navigator.clipboard
+      .writeText(code)
+      .then(() => {
+        // Hiển thị thông báo đã sao chép
+        setCopiedCode(code);
+        // Tự động xóa thông báo sau 2 giây
+        setTimeout(() => setCopiedCode(null), 2000);
+      })
+      .catch((err) => {
+        console.error("Không thể sao chép: ", err);
+      });
+  };
+
+  // Chuyển đến trang giỏ hàng với mã
+  const handleGoToCart = (code: string) => {
+    router.push(`/cart?voucher=${code}`);
+  };
+
+  // Create a description for the voucher conditions
+  const getVoucherConditions = (promotion: Promotion) => {
+    const conditions = [];
+
+    if (promotion.minOrderValue > 0) {
+      conditions.push(
+        `Đơn hàng tối thiểu ${formatCurrencyValue(promotion.minOrderValue)}`
+      );
+    }
+
+    if (promotion.description) {
+      conditions.push(promotion.description);
+    }
+
+    return conditions.length > 0
+      ? conditions.join(" • ")
+      : "Không có điều kiện áp dụng";
+  };
+
+  // Get the discount description
+  const getDiscountDescription = (promotion: Promotion) => {
+    if (!promotion.type || !promotion.value) return "";
+
+    if (promotion.type === "percentage") {
+      return `Giảm ${promotion.value}% cho đơn hàng`;
+    } else {
+      return `Giảm ${formatCurrencyValue(promotion.value)} cho đơn hàng`;
+    }
+  };
 
   if (promotions.length === 0) {
     return <EmptyState message="Bạn chưa có ưu đãi nào." />;
@@ -1747,18 +1804,113 @@ const Promotions: React.FC<{ data?: Promotion[] | null }> = ({ data }) => {
           {promotions.map((promotion) => (
             <div
               key={promotion.id}
-              className="border rounded-lg p-4 flex items-center justify-between"
+              className="border rounded-lg overflow-hidden"
             >
-              <div>
-                <h3 className="font-bold text-lg">{promotion.title}</h3>
-                <p className="text-gray-600">Mã: {promotion.code}</p>
-                <p className="text-gray-600">Hạn sử dụng: {promotion.expiry}</p>
+              {/* Voucher header with title and badge */}
+              <div className="bg-gray-50 p-4 border-b">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-bold text-lg">{promotion.title}</h3>
+                  {promotion.minOrderValue > 0 && (
+                    <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-1 rounded">
+                      Đơn tối thiểu:{" "}
+                      {formatCurrencyValue(promotion.minOrderValue)}
+                    </span>
+                  )}
+                </div>
               </div>
-              <button className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 transition-colors">
-                Sử dụng
-              </button>
+
+              {/* Voucher body with code and details */}
+              <div className="p-4">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+                  <div className="mb-4 md:mb-0">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-gray-900 font-medium bg-gray-100 px-2 py-1 rounded">
+                        {promotion.code}
+                      </span>
+                      {copiedCode === promotion.code && (
+                        <span className="text-green-600 text-sm animate-pulse">
+                          ✓ Đã sao chép!
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-gray-600 mt-2">
+                      Hạn sử dụng: {promotion.expiry}
+                    </p>
+
+                    {/* Discount description */}
+                    {promotion.type && promotion.value && (
+                      <p className="text-gray-800 mt-2 font-medium">
+                        {getDiscountDescription(promotion)}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                      onClick={() => handleUsePromotion(promotion.code)}
+                      className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 transition-colors"
+                    >
+                      Sao chép mã
+                    </button>
+                    <button
+                      onClick={() => handleGoToCart(promotion.code)}
+                      className="px-4 py-2 border border-black text-black rounded-md hover:bg-gray-100 transition-colors"
+                    >
+                      Áp dụng ngay
+                    </button>
+                  </div>
+                </div>
+
+                {/* Voucher conditions */}
+                {(promotion.description || promotion.minOrderValue > 0) && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="flex items-start">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5 text-gray-500 mr-2 mt-0.5 flex-shrink-0"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <div>
+                        <p className="text-sm text-gray-600 font-medium">
+                          Điều kiện áp dụng:
+                        </p>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {getVoucherConditions(promotion)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
+        </div>
+
+        <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <h4 className="font-medium text-gray-900 mb-2">
+            Lưu ý khi sử dụng mã giảm giá:
+          </h4>
+          <ul className="text-sm text-gray-600 space-y-2 list-disc pl-5">
+            <li>Mỗi đơn hàng chỉ được áp dụng một mã giảm giá</li>
+            <li>
+              Giá trị đơn hàng phải đạt mức tối thiểu để áp dụng mã giảm giá
+            </li>
+            <li>
+              Một số mã giảm giá có thể có giới hạn sử dụng và thời hạn áp dụng
+            </li>
+            <li>
+              Nếu có vấn đề khi áp dụng mã giảm giá, vui lòng liên hệ bộ phận hỗ
+              trợ
+            </li>
+          </ul>
         </div>
       </div>
     </div>

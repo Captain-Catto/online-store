@@ -22,7 +22,7 @@ export const createOrder = async (
     const {
       items,
       paymentMethodId,
-      voucherId,
+      voucherCode,
       shippingFullName,
       shippingPhoneNumber,
       shippingStreetAddress,
@@ -31,10 +31,7 @@ export const createOrder = async (
       shippingCity,
       userId,
     } = req.body;
-    console.log("bắt đầu tạo đơn hàng");
-    // đổi flow, người dùng không đăng nhập vẫn có thể đặt hàng
-    // Lấy user ID từ body
-    console.log("userId", userId);
+    console.log("body", req.body);
 
     if (!items || !items.length) {
       await t.rollback();
@@ -137,8 +134,16 @@ export const createOrder = async (
     let voucherDiscount = 0;
     let appliedVoucher = null;
 
-    if (voucherId) {
-      const voucher = await Voucher.findByPk(voucherId, { transaction: t });
+    if (voucherCode) {
+      const voucher = await Voucher.findOne({
+        where: {
+          code: voucherCode,
+          status: "active",
+          minOrderValue: { [Op.lte]: total },
+          expirationDate: { [Op.gte]: new Date() },
+        },
+        transaction: t,
+      });
 
       if (!voucher) {
         await t.rollback();
@@ -163,6 +168,25 @@ export const createOrder = async (
       // Không cho phép giảm giá lớn hơn tổng đơn hàng
       voucherDiscount = Math.min(voucherDiscount, total);
       appliedVoucher = voucher;
+
+      // Cập nhật số lần sử dụng của voucher
+      const currentUsageCount = voucher.getDataValue("usageCount") || 0;
+      await voucher.update(
+        {
+          usageCount: currentUsageCount + 1,
+        },
+        { transaction: t }
+      );
+
+      // Kiểm tra giới hạn sử dụng nếu có
+      const usageLimit = voucher.getDataValue("usageLimit");
+      if (usageLimit > 0 && currentUsageCount + 1 >= usageLimit) {
+        // Nếu đạt giới hạn sử dụng, đổi trạng thái voucher thành "inactive"
+        await voucher.update({ status: "inactive" }, { transaction: t });
+        console.log(
+          `Voucher ${voucherCode} đã đạt giới hạn sử dụng và được cập nhật thành trạng thái inactive`
+        );
+      }
     }
 
     // Tính phí vận chuyển

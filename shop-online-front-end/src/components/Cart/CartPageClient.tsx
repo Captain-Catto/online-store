@@ -90,9 +90,7 @@ export default function CartPageClient() {
       }
     },
     [removeFromCart, showToast]
-  );
-
-  // Xử lý chuyển sang trang thanh toán
+  ); // Xử lý chuyển sang trang thanh toán
   const handleCheckout = useCallback(async () => {
     if (cartItems.length === 0) {
       showToast("Giỏ hàng của bạn đang trống!", {
@@ -118,10 +116,14 @@ export default function CartPageClient() {
         return;
       }
 
+      // Calculate final total
+      const finalTotal = subtotal;
+
       const orderData = {
         items: cartItems,
         summary: {
           subtotal,
+          total: finalTotal,
         },
         timestamp: new Date().getTime(),
       };

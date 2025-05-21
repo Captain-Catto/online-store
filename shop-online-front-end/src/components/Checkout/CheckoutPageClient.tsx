@@ -1,24 +1,26 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
-import locationsData from "../../data/location.json";
 import Image from "next/image";
+import locationsData from "../../data/location.json";
+import { PaymentMethodId, PAYMENT_METHOD_NAMES } from "../../types/payment";
+import imgMomo from "../../assets/imgs/payment/momo.png";
+import imgCod from "../../assets/imgs/payment/cod.png";
+import imgZalopay from "../../assets/imgs/payment/Logo-FA-14.png";
 import Header from "@/components/Header/Header";
 import Footer from "@/components/Footer/Footer";
-import imgMomo from "../../assets/imgs/payment/momo.png";
-import imgCreditCard from "../../assets/imgs/payment/credit-card-debit-card-svgrepo-com.svg";
-import imgBanking from "../../assets/imgs/payment/internetbanking.png";
-import imgCod from "../../assets/imgs/payment/cod.png";
 import { AuthService } from "@/services/AuthService";
 import { UserService } from "@/services/UserService";
 import { Address } from "@/types/address";
 import { OrderService } from "@/services/OrderService";
+import { VoucherService } from "@/services/VoucherService";
 import { useCart } from "@/contexts/CartContext";
 import BreadcrumbTrail from "../Breadcrumb/BreadcrumbTrail";
 import { BreadcrumbItem } from "@/types/breadcrumb";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
+import { AppliedVoucher } from "@/types/vouchers";
 
 // Định nghĩa kiểu dữ liệu
 type LocationsType = {
@@ -36,15 +38,6 @@ interface CartItem {
   quantity: number;
 }
 
-// Định nghĩa interface cho voucher
-interface Voucher {
-  id: number;
-  code: string;
-  discount: number;
-  discountType: string;
-  minOrderValue: number;
-}
-
 // Ép kiểu dữ liệu
 const locations: LocationsType = locationsData as LocationsType;
 
@@ -56,6 +49,8 @@ export default function CheckoutPage() {
     { label: "Giỏ hàng", href: "/cart" },
     { label: "Thanh toán", href: "/checkout", isLast: true },
   ];
+
+  // States
   const [showAllAddresses, setShowAllAddresses] = useState(false);
   const [shippingInfo, setShippingInfo] = useState({
     name: "",
@@ -74,44 +69,37 @@ export default function CheckoutPage() {
     phone: "",
     paymentMethod: "",
   });
-  // thêm state lưu thông tin đơn hàng truyền từ trang cart
   const [orderSummary, setOrderSummary] = useState({
     subtotal: 0,
     discount: 0,
     deliveryFee: 0,
     total: 0,
   });
-  const [paymentMethod, setPaymentMethod] = useState("cod");
-  // thêm state để check login
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>(
+    PaymentMethodId.COD
+  );
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  // State cho địa chỉ người dùng
+  const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
+  const [addressError, setAddressError] = useState<string | null>(null);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(
     null
   );
-  const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
-  const [addressError, setAddressError] = useState<string | null>(null);
-
-  // State cho xử lý đơn hàng
   const [submitting, setSubmitting] = useState(false);
-
-  // State cho voucher
   const [voucherCode, setVoucherCode] = useState("");
   const [voucherLoading, setVoucherLoading] = useState(false);
   const [voucherError, setVoucherError] = useState<string | null>(null);
-  const [appliedVoucher, setAppliedVoucher] = useState<Voucher | null>(null);
-  // state cho cart items
+  const [appliedVoucher, setAppliedVoucher] = useState<AppliedVoucher | null>(
+    null
+  );
+  // Add state to track validated voucher codes
+  const [validatedVoucherCodes, setValidatedVoucherCodes] = useState<
+    Set<string>
+  >(new Set());
   const { cartItems, loading: cartLoading, clearCart } = useCart();
-
-  // State cho user ID
   const [userId, setUserId] = useState<number | null>(null);
-
-  // State cho tính phí vận chuyển
   const [calculatingShippingFee, setCalculatingShippingFee] = useState(false);
-
-  // state báo lỗi đơn hàng
   const [orderError, setOrderError] = useState<string | null>(null);
 
   // Điền thông tin từ địa chỉ đã chọn
@@ -200,6 +188,43 @@ export default function CheckoutPage() {
 
     // Tính toán dữ liệu đơn hàng từ cartItems
     if (!cartLoading && cartItems.length > 0) {
+      // Load applied voucher from sessionStorage
+      try {
+        const orderDataString = sessionStorage.getItem("pendingOrder");
+        if (orderDataString) {
+          const orderData = JSON.parse(orderDataString);
+
+          // Extract voucher data if present
+          if (orderData.summary && orderData.summary.appliedVoucher) {
+            const voucherData = orderData.summary.appliedVoucher;
+
+            setAppliedVoucher({
+              code: voucherData.code,
+              discount: orderData.summary.voucherDiscount || 0,
+              type: voucherData.type,
+              value: voucherData.value,
+              minOrderValue: voucherData.minOrderValue,
+            });
+
+            // Set the voucher code field
+            setVoucherCode(voucherData.code);
+          }
+
+          // Set order summary based on data from sessionStorage
+          setOrderSummary({
+            subtotal: orderData.summary.subtotal || 0,
+            discount: orderData.summary.voucherDiscount || 0,
+            deliveryFee: orderData.summary.deliveryFee || 0,
+            total: orderData.summary.total || orderData.summary.subtotal || 0,
+          });
+
+          return;
+        }
+      } catch (error) {
+        console.error("Error loading order data from session storage:", error);
+      }
+
+      // Fallback: calculate from cart items if session storage data isn't available
       const subtotal = cartItems.reduce(
         (sum, item) => sum + item.price * item.quantity,
         0
@@ -285,70 +310,158 @@ export default function CheckoutPage() {
     }
   }, [shippingInfo.city, isLoggedIn, loading, calculateShippingFee]);
 
-  // hàm handleApplyVoucher
-  const handleApplyVoucher = async () => {
-    if (!voucherCode.trim()) {
-      setVoucherError("Vui lòng nhập mã giảm giá");
-      return;
-    }
+  // Sử dụng useRef để lưu trữ timeout ID cho debounce
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
-    setVoucherLoading(true);
-    setVoucherError(null);
-
-    try {
-      // Sử dụng API validate để kiểm tra voucher với giá trị đơn hàng
-      const response = await OrderService.validateVoucher(
-        voucherCode,
-        orderSummary.subtotal
-      );
-
-      // Tính số tiền được giảm giá (từ API trả về)
-      const discountAmount = response.discountAmount;
-
-      // Cập nhật order summary với số tiền giảm giá
-      setOrderSummary((prev) => ({
-        ...prev,
-        discount: discountAmount,
-        total: prev.subtotal + prev.deliveryFee - discountAmount,
-      }));
-
-      // Lưu voucher đã áp dụng
-      setAppliedVoucher({
-        id: response.id,
-        code: response.code,
-        discount: response.value,
-        discountType: response.type,
-        minOrderValue: response.minOrderValue || 0,
-      });
-
-      // Cập nhật session storage với số tiền mới
-      const orderDataString = sessionStorage.getItem("pendingOrder");
-      if (orderDataString) {
-        const orderData = JSON.parse(orderDataString);
-        orderData.summary.discount = discountAmount;
-        orderData.summary.total =
-          orderData.summary.subtotal +
-          orderData.summary.deliveryFee -
-          discountAmount;
-        orderData.summary.voucherId = response.id;
-        sessionStorage.setItem("pendingOrder", JSON.stringify(orderData));
+  // Hàm xử lý áp dụng voucher
+  const processVoucher = useCallback(
+    async (code: string) => {
+      // Nếu mã trống, không làm gì cả
+      if (!code.trim()) {
+        setVoucherError(null);
+        return;
       }
-    } catch (error) {
-      console.error("Error applying voucher:", error);
-      setVoucherError(
-        error instanceof Error ? error.message : "Không thể áp dụng mã giảm giá"
-      );
-    } finally {
-      setVoucherLoading(false);
+
+      // Check if this code has already been validated (failed)
+      if (validatedVoucherCodes.has(code.trim())) {
+        setVoucherError("Mã giảm giá không hợp lệ hoặc đã hết hạn");
+        return;
+      }
+
+      setVoucherLoading(true);
+      setVoucherError(null);
+
+      try {
+        // Sử dụng VoucherService để validate voucher
+        const voucherData = await VoucherService.validateVoucher(
+          code,
+          orderSummary.subtotal
+        );
+
+        // Tính số tiền được giảm giá
+        let discountAmount = 0;
+        if (voucherData.type === "percentage") {
+          discountAmount = Math.floor(
+            (orderSummary.subtotal * voucherData.value) / 100
+          );
+        } else {
+          discountAmount = voucherData.value;
+        }
+
+        // Cập nhật appliedVoucher state
+        setAppliedVoucher({
+          code: voucherData.code,
+          discount: discountAmount,
+          type: voucherData.type,
+          value: voucherData.value,
+          minOrderValue: voucherData.minOrderValue,
+        });
+
+        // Cập nhật order summary với số tiền giảm giá
+        setOrderSummary((prev) => ({
+          ...prev,
+          discount: discountAmount,
+          total: prev.subtotal + prev.deliveryFee - discountAmount,
+        }));
+
+        // Cập nhật thông tin trong sessionStorage
+        const orderDataString = sessionStorage.getItem("pendingOrder");
+        if (orderDataString) {
+          const orderData = JSON.parse(orderDataString);
+          orderData.summary.voucherDiscount = discountAmount;
+          orderData.summary.total =
+            orderData.summary.subtotal +
+            orderData.summary.deliveryFee -
+            discountAmount;
+
+          // Store voucher info in pendingOrder
+          orderData.summary.appliedVoucher = {
+            code: voucherData.code,
+            type: voucherData.type,
+            value: voucherData.value,
+            minOrderValue: voucherData.minOrderValue,
+          };
+
+          // Make sure to include the voucher code directly in the summary for easier access
+          orderData.voucherCode = voucherData.code;
+
+          sessionStorage.setItem("pendingOrder", JSON.stringify(orderData));
+
+          console.log("Updated pendingOrder with voucher:", orderData);
+        }
+      } catch (error) {
+        console.error("Error applying voucher:", error);
+        setVoucherError(
+          error instanceof Error
+            ? error.message
+            : "Không thể áp dụng mã giảm giá"
+        );
+
+        // Store this code as a failed code
+        setValidatedVoucherCodes((prev) => {
+          const newSet = new Set(prev);
+          newSet.add(code.trim());
+          return newSet;
+        });
+
+        // Nếu có lỗi, xóa voucher đã áp dụng
+        setAppliedVoucher(null);
+
+        // Cập nhật order summary, loại bỏ discount
+        setOrderSummary((prev) => ({
+          ...prev,
+          discount: 0,
+          total: prev.subtotal + prev.deliveryFee,
+        }));
+      } finally {
+        setVoucherLoading(false);
+      }
+    },
+    [orderSummary.subtotal, validatedVoucherCodes]
+  );
+
+  // Thêm useEffect để tự động áp dụng voucher khi mã thay đổi
+  useEffect(() => {
+    // Nếu đã có voucher áp dụng hoặc đang loading, không làm gì cả
+    if (appliedVoucher || voucherLoading) return;
+
+    // Nếu mã voucher trống, không làm gì cả
+    const trimmedCode = voucherCode.trim();
+    if (!trimmedCode) return;
+
+    // Nếu mã voucher đã được xác nhận là không hợp lệ trước đó, không kiểm tra lại
+    if (validatedVoucherCodes.has(trimmedCode)) return;
+
+    // Clear timer cũ nếu có
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
     }
-  };
+
+    // Tạo timer mới để debounce việc gọi API
+    debounceTimer.current = setTimeout(() => {
+      if (trimmedCode) {
+        processVoucher(trimmedCode);
+      }
+    }, 800); // 800ms debounce
+
+    // Cleanup khi component unmount
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+    };
+  }, [
+    voucherCode,
+    appliedVoucher,
+    voucherLoading,
+    processVoucher,
+    validatedVoucherCodes,
+  ]);
 
   const handlePlaceOrder = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setOrderError(null);
     setSubmitting(true);
@@ -374,23 +487,17 @@ export default function CheckoutPage() {
         size: item.size,
         quantity: item.quantity,
       }));
-
-      // Map payment method to paymentMethodId
-      const paymentMethodIdMap: Record<string, number> = {
-        cod: 1,
-        creditCard: 2,
-        banking: 3,
-        momo: 4,
-      };
-
       // Create full address string
-      const fullAddress = `${shippingInfo.address}, ${shippingInfo.ward}, ${shippingInfo.district}, ${shippingInfo.city}`;
+      const fullAddress = `${shippingInfo.address}, ${shippingInfo.ward}, ${shippingInfo.district}, ${shippingInfo.city}`; // Create order payload
 
-      // Create order payload
+      // Get voucher code from applied voucher or from the session storage
+      const voucherCodeToUse =
+        appliedVoucher?.code || orderData.voucherCode || null;
+
       const orderPayload = {
         items: orderItems,
-        paymentMethodId: paymentMethodIdMap[paymentMethod] || 1,
-        voucherId: appliedVoucher?.id || orderData.summary?.voucherId || null,
+        paymentMethodId: paymentMethod,
+        voucherCode: voucherCodeToUse, // Keep this for backward compatibility
         shippingAddress: fullAddress,
         shippingFullName: shippingInfo.name,
         shippingPhoneNumber: shippingInfo.phone,
@@ -469,7 +576,6 @@ export default function CheckoutPage() {
     // Xóa lỗi khi người dùng chọn lại
     setErrors((prev) => ({ ...prev, [name]: "" }));
   };
-
   const validateForm = () => {
     const newErrors: typeof errors = {
       name: "",
@@ -495,10 +601,12 @@ export default function CheckoutPage() {
     return Object.values(newErrors).every((error) => error === "");
   };
 
+  // Reset pendingOrderId when payment method changes
   const handlePaymentMethodChange = (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
-    setPaymentMethod(e.target.value);
+    const newMethod = parseInt(e.target.value) as PaymentMethodId;
+    setPaymentMethod(newMethod);
     setErrors((prev) => ({ ...prev, paymentMethod: "" }));
   };
 
@@ -521,7 +629,7 @@ export default function CheckoutPage() {
             {/* Shipping Information */}
             <div className="lg:col-span-2">
               <h2 className="text-xl font-semibold mb-4">
-                Shipping Information
+                Thông tin giao hàng
               </h2>
 
               {/* Existing Addresses */}
@@ -847,12 +955,10 @@ export default function CheckoutPage() {
                       disabled={!shippingInfo.district}
                     >
                       <option value="">Chọn Phường/Xã</option>
-                      {shippingInfo.city &&
-                        shippingInfo.district &&
-                        (
-                          locations[shippingInfo.city][shippingInfo.district] ||
-                          []
-                        ).map((ward) => (
+                      {shippingInfo.district &&
+                        locations[shippingInfo.city as keyof LocationsType]?.[
+                          shippingInfo.district
+                        ]?.map((ward: string) => (
                           <option key={ward} value={ward}>
                             {ward}
                           </option>
@@ -863,118 +969,9 @@ export default function CheckoutPage() {
                     )}
                   </div>
                 </div>
-
-                {/* payment */}
-                <div className="mt-8">
-                  <h2 className="text-xl font-semibold mb-4">
-                    Phương thức thanh toán
-                  </h2>
-                  <div className="space-y-3">
-                    <label className="flex items-center p-4 border rounded cursor-pointer hover:border-gray-400 transition-colors">
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value="cod"
-                        checked={paymentMethod === "cod"}
-                        onChange={handlePaymentMethodChange}
-                        className="mr-3"
-                      />
-                      <div>
-                        <div className="font-medium">Tiền mặt (COD)</div>
-                        <div className="text-sm text-gray-500">
-                          Thanh toán khi nhận hàng
-                        </div>
-                      </div>
-                      <Image
-                        src={imgCod}
-                        alt="COD"
-                        width={40}
-                        height={40}
-                        className="ml-auto"
-                      />
-                    </label>
-
-                    <label className="flex items-center p-4 border rounded cursor-pointer hover:border-gray-400 transition-colors">
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value="creditCard"
-                        checked={paymentMethod === "creditCard"}
-                        onChange={handlePaymentMethodChange}
-                        className="mr-3"
-                      />
-                      <div>
-                        <div className="font-medium">Thẻ Credit/Debit</div>
-                        <div className="text-sm text-gray-500">
-                          Thanh toán bằng thẻ tín dụng/dư nợ
-                        </div>
-                      </div>
-                      <Image
-                        src={imgCreditCard}
-                        alt="Credit Card"
-                        width={40}
-                        height={40}
-                        className="ml-auto"
-                      />
-                    </label>
-
-                    <label className="flex items-center p-4 border rounded cursor-pointer hover:border-gray-400 transition-colors">
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value="banking"
-                        checked={paymentMethod === "banking"}
-                        onChange={handlePaymentMethodChange}
-                        className="mr-3"
-                      />
-                      <div>
-                        <div className="font-medium">Internet Banking</div>
-                        <div className="text-sm text-gray-500">
-                          Trả thông qua internet banking
-                        </div>
-                      </div>
-                      <Image
-                        src={imgBanking}
-                        alt="Internet Banking"
-                        width={300}
-                        height={40}
-                        className="ml-auto"
-                      />
-                    </label>
-
-                    <label className="flex items-center p-4 border rounded cursor-pointer hover:border-gray-400 transition-colors">
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value="momo"
-                        checked={paymentMethod === "momo"}
-                        onChange={handlePaymentMethodChange}
-                        className="mr-3"
-                      />
-                      <div>
-                        <div className="font-medium">MoMo</div>
-                        <div className="text-sm text-gray-500">
-                          Trả bằng ví MoMo
-                        </div>
-                      </div>
-                      <Image
-                        src={imgMomo}
-                        alt="MoMo"
-                        width={40}
-                        height={40}
-                        className="ml-auto"
-                      />
-                    </label>
-                  </div>
-
-                  {errors.paymentMethod && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors.paymentMethod}
-                    </p>
-                  )}
-                </div>
               </div>
             </div>
+
             {/* Order Summary */}
             <div className="lg:col-span-1">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 sticky top-4">
@@ -989,25 +986,23 @@ export default function CheckoutPage() {
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
                     Mã giảm giá
-                  </label>
-                  <div className="flex space-x-2">
+                  </label>{" "}
+                  <div>
                     <input
                       id="voucher-input"
                       type="text"
                       value={voucherCode}
                       onChange={(e) => setVoucherCode(e.target.value)}
                       placeholder="Nhập mã giảm giá"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       disabled={!!appliedVoucher || voucherLoading}
                     />
-                    <button
-                      type="button"
-                      onClick={handleApplyVoucher}
-                      disabled={voucherLoading || !!appliedVoucher}
-                      className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
-                    >
-                      {voucherLoading ? "Đang kiểm tra..." : "Áp dụng"}
-                    </button>
+                    {voucherLoading && (
+                      <div className="mt-2 text-sm text-gray-600 flex items-center">
+                        <span className="animate-spin mr-2 h-3 w-3 border-t-2 border-b-2 border-gray-600 rounded-full inline-block"></span>
+                        Đang kiểm tra mã giảm giá...
+                      </div>
+                    )}
                   </div>
                   {voucherError && (
                     <p className="text-red-500 text-sm mt-1">{voucherError}</p>
@@ -1016,37 +1011,44 @@ export default function CheckoutPage() {
                     <div className="mt-2 flex items-center justify-between bg-green-50 p-2 rounded">
                       <div>
                         <span className="text-green-700 font-medium text-sm">
-                          {appliedVoucher.code}
+                          Mã giảm giá: {appliedVoucher.code}
                         </span>
                         <span className="text-green-600 text-xs block">
-                          {appliedVoucher.discountType === "percentage"
-                            ? `Giảm ${appliedVoucher.discount}%`
-                            : `Giảm ${appliedVoucher.discount.toLocaleString(
-                                "vi-VN"
-                              )}đ`}
+                          Giảm:{" "}
+                          {appliedVoucher.discount.toLocaleString("vi-VN")}đ
                         </span>
+                        {appliedVoucher.minOrderValue > 0 && (
+                          <span className="text-green-600 text-xs">
+                            Áp dụng cho đơn hàng từ{" "}
+                            {appliedVoucher.minOrderValue.toLocaleString(
+                              "vi-VN"
+                            )}
+                            đ
+                          </span>
+                        )}
                       </div>
                       <button
                         type="button"
                         onClick={() => {
                           setAppliedVoucher(null);
                           setVoucherCode("");
-                          // Reset discount
+                          // Reset discount in orderSummary
                           setOrderSummary((prev) => ({
                             ...prev,
                             discount: 0,
                             total: prev.subtotal + prev.deliveryFee,
                           }));
-                          // Update session storage
+
+                          // Update sessionStorage as well
                           const orderDataString =
                             sessionStorage.getItem("pendingOrder");
                           if (orderDataString) {
                             const orderData = JSON.parse(orderDataString);
-                            orderData.summary.discount = 0;
+                            orderData.summary.voucherDiscount = 0;
                             orderData.summary.total =
                               orderData.summary.subtotal +
                               orderData.summary.deliveryFee;
-                            orderData.summary.voucherId = null;
+                            orderData.summary.appliedVoucher = null;
                             sessionStorage.setItem(
                               "pendingOrder",
                               JSON.stringify(orderData)
@@ -1074,7 +1076,7 @@ export default function CheckoutPage() {
                   {orderSummary.discount > 0 && (
                     <div className="flex justify-between py-2">
                       <span className="text-gray-600">Giảm giá</span>
-                      <span className="font-medium text-red-500">
+                      <span className="font-medium text-red-600">
                         -{orderSummary.discount.toLocaleString("vi-VN")} VND
                       </span>
                     </div>
@@ -1084,8 +1086,8 @@ export default function CheckoutPage() {
                     <span className="text-gray-600">
                       Phí vận chuyển
                       {calculatingShippingFee && (
-                        <span className="inline-block ml-1">
-                          <span className="animate-spin h-3 w-3 border-t-2 border-b-2 border-gray-500 rounded-full inline-block"></span>
+                        <span className="ml-2 inline-block">
+                          <span className="animate-spin h-3 w-3 border-t-2 border-b-2 border-gray-600 rounded-full inline-block"></span>
                         </span>
                       )}
                     </span>
@@ -1107,21 +1109,7 @@ export default function CheckoutPage() {
                     className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative mb-4"
                     role="alert"
                   >
-                    <div className="flex">
-                      <div className="py-1">
-                        <svg
-                          className="fill-current h-5 w-5 text-red-500 mr-2"
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 20 20"
-                        >
-                          <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="font-medium">Không thể đặt hàng</p>
-                        <p className="text-sm">{orderError}</p>
-                      </div>
-                    </div>
+                    <span className="block sm:inline">{orderError}</span>
                   </div>
                 )}
 
@@ -1132,13 +1120,144 @@ export default function CheckoutPage() {
                 >
                   {submitting ? (
                     <span className="flex items-center justify-center">
-                      <span className="animate-spin mr-2 h-5 w-5 border-t-2 border-b-2 border-white rounded-full"></span>
+                      <svg
+                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
                       Đang xử lý...
                     </span>
                   ) : (
                     "Đặt Hàng"
                   )}
                 </button>
+              </div>{" "}
+            </div>
+            {/* Phương thức thanh toán */}
+            <div className="lg:col-span-2">
+              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 sticky top-4">
+                <h2 className="text-xl font-semibold mb-4">
+                  Phương thức thanh toán
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* COD */}
+                  <label
+                    className={`flex items-center border rounded-lg p-4 cursor-pointer ${
+                      paymentMethod === PaymentMethodId.COD
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value={PaymentMethodId.COD}
+                      checked={paymentMethod === PaymentMethodId.COD}
+                      onChange={handlePaymentMethodChange}
+                      className="hidden"
+                    />
+                    <div className="flex items-center gap-3">
+                      <Image
+                        src={imgCod}
+                        alt="COD"
+                        width={40}
+                        height={40}
+                        className="object-contain"
+                      />{" "}
+                      <div>
+                        <p className="font-medium text-gray-900">COD</p>
+                        <p className="text-sm text-gray-500">
+                          {PAYMENT_METHOD_NAMES[PaymentMethodId.COD]}
+                        </p>
+                      </div>
+                    </div>
+                  </label>
+
+                  {/* Momo */}
+                  <label
+                    className={`flex items-center border rounded-lg p-4 cursor-pointer ${
+                      paymentMethod === PaymentMethodId.MOMO
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value={PaymentMethodId.MOMO}
+                      checked={paymentMethod === PaymentMethodId.MOMO}
+                      onChange={handlePaymentMethodChange}
+                      className="hidden"
+                    />
+                    <div className="flex items-center gap-3">
+                      <Image
+                        src={imgMomo}
+                        alt="Momo"
+                        width={40}
+                        height={40}
+                        className="object-contain"
+                      />{" "}
+                      <div>
+                        <p className="font-medium text-gray-900">Momo</p>
+                        <p className="text-sm text-gray-500">
+                          {PAYMENT_METHOD_NAMES[PaymentMethodId.MOMO]}
+                        </p>
+                      </div>
+                    </div>
+                  </label>
+
+                  {/* ZaloPay */}
+                  <label
+                    className={`flex items-center border rounded-lg p-4 cursor-pointer ${
+                      paymentMethod === PaymentMethodId.ZALOPAY
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value={PaymentMethodId.ZALOPAY}
+                      checked={paymentMethod === PaymentMethodId.ZALOPAY}
+                      onChange={handlePaymentMethodChange}
+                      className="hidden"
+                    />
+                    <div className="flex items-center gap-3">
+                      <Image
+                        src={imgZalopay}
+                        alt="ZaloPay"
+                        width={40}
+                        height={40}
+                        className="object-contain"
+                      />{" "}
+                      <div>
+                        <p className="font-medium text-gray-900">ZaloPay</p>
+                        <p className="text-sm text-gray-500">
+                          {PAYMENT_METHOD_NAMES[PaymentMethodId.ZALOPAY]}
+                        </p>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+                {errors.paymentMethod && (
+                  <p className="text-red-500 text-sm mt-1">
+                    {errors.paymentMethod}
+                  </p>
+                )}
               </div>
             </div>
           </form>

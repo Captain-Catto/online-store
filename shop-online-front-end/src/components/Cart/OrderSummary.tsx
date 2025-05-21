@@ -13,6 +13,9 @@ export default function OrderSummary({
   isEmpty = false,
   isProcessing = false,
 }: OrderSummaryProps) {
+  // Calculate final total
+  const total = subtotal;
+
   return (
     <div className="w-full lg:w-1/3 bg-gray-50 p-6 rounded-lg">
       <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
@@ -21,14 +24,20 @@ export default function OrderSummary({
         <div className="flex justify-between py-2">
           <span className="text-gray-600">Tạm tính</span>
           <span className="font-medium">
-            {subtotal.toLocaleString("vi-VN")} VND
+            {subtotal.toLocaleString("vi-VN")} ₫
           </span>
         </div>
 
         <div className="border-t border-gray-200 my-4"></div>
 
+        {/* Total */}
+        <div className="flex justify-between py-2 font-bold">
+          <span>Tổng cộng</span>
+          <span>{total.toLocaleString("vi-VN")} ₫</span>
+        </div>
+
         <button
-          onClick={onCheckout}
+          onClick={() => onCheckout()}
           disabled={isEmpty || isProcessing}
           className={`w-full py-3 px-4 mt-6 ${
             isEmpty || isProcessing

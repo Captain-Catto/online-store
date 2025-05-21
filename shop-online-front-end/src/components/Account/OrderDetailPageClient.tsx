@@ -50,11 +50,16 @@ export default function OrderDetailPageClient({
     total: number;
     subtotal: number;
     voucherDiscount: number;
+    shippingFee?: number; // Adding optional shipping fee
     status: string;
     paymentMethodId: number;
     paymentStatusId: number;
-    shippingAddress: string;
-    phoneNumber?: string;
+    shippingAddress: string; // Keeping for backward compatibility
+    shippingStreetAddress?: string;
+    shippingWard?: string;
+    shippingDistrict?: string;
+    shippingCity?: string;
+    shippingPhoneNumber?: string;
     cancelNote: string | null;
     refundAmount: number | null;
     refundReason: string | null;
@@ -94,6 +99,7 @@ export default function OrderDetailPageClient({
       try {
         setLoading(true);
         const orderData = await OrderService.getOrderById(Number(orderId));
+        console.log("order data", orderData);
         setOrder({
           ...orderData,
           orderDetails: orderData.orderDetails || [],
@@ -247,6 +253,24 @@ export default function OrderDetailPageClient({
     }).format(date);
   };
 
+  // Hàm định dạng địa chỉ giao hàng
+  const formatShippingAddress = (order: Order) => {
+    // Use individual fields if available
+    if (order.shippingStreetAddress && order.shippingCity) {
+      const addressParts = [
+        order.shippingStreetAddress,
+        order.shippingWard,
+        order.shippingDistrict,
+        order.shippingCity,
+      ].filter(Boolean); // Filter out undefined or empty values
+
+      return addressParts.join(", ");
+    }
+
+    // Fallback to legacy field
+    return order.shippingAddress;
+  };
+
   return (
     <>
       <Header />
@@ -351,11 +375,11 @@ export default function OrderDetailPageClient({
                   <div className="space-y-2">
                     <p>
                       <span className="font-medium">Địa chỉ giao hàng:</span>{" "}
-                      {order.shippingAddress}
+                      {formatShippingAddress(order)}
                     </p>
                     <p>
                       <span className="font-medium">Số điện thoại:</span>{" "}
-                      {order.phoneNumber}
+                      {order.shippingPhoneNumber}
                     </p>
                   </div>
                 </div>
@@ -414,6 +438,12 @@ export default function OrderDetailPageClient({
                   <span className="text-gray-600">Tạm tính:</span>
                   <span>{order.subtotal.toLocaleString("vi-VN")}đ</span>
                 </div>
+                {order.shippingFee !== undefined && order.shippingFee > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Phí vận chuyển:</span>
+                    <span>{order.shippingFee.toLocaleString("vi-VN")}đ</span>
+                  </div>
+                )}
                 {order.voucherDiscount > 0 && (
                   <div className="flex justify-between">
                     <span className="text-gray-600">Giảm giá:</span>

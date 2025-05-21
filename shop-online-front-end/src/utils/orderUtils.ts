@@ -20,9 +20,8 @@ export const mapCartItemsToOrderItems = (
 export const getPaymentMethodId = (method: string): number => {
   const methodMap: Record<string, number> = {
     cod: 1,
-    creditCard: 2,
-    banking: 3,
-    momo: 4,
+    momo: 2,
+    zalopay: 3,
   };
 
   return methodMap[method] || 1;

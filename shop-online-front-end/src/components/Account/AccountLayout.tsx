@@ -15,6 +15,7 @@ import { WishlistItem } from "@/types/wishlist";
 import { UserService } from "@/services/UserService";
 import { OrderService } from "@/services/OrderService";
 import { WishlistService } from "@/services/WishlistService";
+import { VoucherService } from "@/services/VoucherService";
 import BreadcrumbTrail from "../Breadcrumb/BreadcrumbTrail";
 import { BreadcrumbItem } from "@/types/breadcrumb";
 
@@ -228,11 +229,25 @@ export default function AccountLayout({
     }
   }, [isLoggedIn]);
 
+  // Hàm lấy danh sách voucher của người dùng
+  const fetchUserVouchers = useCallback(async () => {
+    if (!isLoggedIn) return;
+    try {
+      setDataLoading(true);
+
+      const vouchers = await VoucherService.getUserAvailableVouchers();
+      setPromotionsData(vouchers);
+    } catch (error) {
+      console.error("Error fetching user vouchers:", error);
+    } finally {
+      setDataLoading(false);
+    }
+  }, [isLoggedIn]);
+
   // Handle order page change
   const handleOrderPageChange = (page: number) => {
     fetchOrders(page);
   };
-
   // Load data dựa trên active tab
   useEffect(() => {
     if (isLoggedIn && !isLoading) {
@@ -244,23 +259,9 @@ export default function AccountLayout({
         fetchAccountInfo();
       } else if (activeTab === "wishlist") {
         fetchWishlist();
+      } else if (activeTab === "promotions") {
+        fetchUserVouchers();
       }
-
-      // Dữ liệu ưu đãi mẫu
-      setPromotionsData([
-        {
-          id: "PROMO1",
-          title: "Giảm 25% cho đơn hàng đầu tiên",
-          expiry: "30/04/2025",
-          code: "WELCOME25",
-        },
-        {
-          id: "PROMO2",
-          title: "Miễn phí vận chuyển",
-          expiry: "15/05/2025",
-          code: "FREESHIP",
-        },
-      ]);
     }
   }, [
     isLoggedIn,
@@ -270,6 +271,7 @@ export default function AccountLayout({
     fetchAddresses,
     fetchOrders,
     fetchWishlist,
+    fetchUserVouchers,
   ]);
 
   // Nếu không đăng nhập, không hiển thị nội dung
@@ -336,6 +338,8 @@ export default function AccountLayout({
                   ? fetchAccountInfo
                   : activeTab === "wishlist"
                   ? fetchWishlist
+                  : activeTab === "promotions"
+                  ? fetchUserVouchers
                   : undefined
               }
               onPageChange={

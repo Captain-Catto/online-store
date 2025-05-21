@@ -8,6 +8,7 @@ import Footer from "@/components/Footer/Footer";
 import { OrderService } from "@/services/OrderService";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
 import { colorToVietnamese } from "@/utils/colorUtils";
+import { PaymentMethodId, PAYMENT_METHOD_NAMES } from "@/types/payment";
 
 // Define interfaces for the order data
 interface OrderDetail {
@@ -55,6 +56,7 @@ interface OrderData {
   createdAt: string;
   updatedAt: string;
   orderDetails: OrderDetail[];
+  shippingFee: number;
 }
 
 export default function OrderConfirmationPage() {
@@ -79,6 +81,7 @@ export default function OrderConfirmationPage() {
         setOrderData({
           ...order,
           phoneNumber: order.shippingPhoneNumber || "",
+          shippingFee: order.shippingFee || 0,
           orderDetails: (order.orderDetails || []).map((detail) => ({
             ...detail,
             product: {
@@ -100,13 +103,9 @@ export default function OrderConfirmationPage() {
 
   // Helper function to map payment method ID to name
   const getPaymentMethodName = (methodId: number): string => {
-    const methods: Record<number, string> = {
-      1: "Thanh toán khi nhận hàng (COD)",
-      2: "Thẻ tín dụng/Ghi nợ",
-      3: "Internet Banking",
-      4: "Ví MoMo",
-    };
-    return methods[methodId] || "Không xác định";
+    return (
+      PAYMENT_METHOD_NAMES[methodId as PaymentMethodId] || "Không xác định"
+    );
   };
 
   // Helper function to format date

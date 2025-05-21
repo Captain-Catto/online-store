@@ -3,8 +3,7 @@
     "dev": "nodemon src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "seed": "nodemon ./src/seeders/seed.ts",
-    "generate-test-orders": "ts-node ./src/scripts/generateTestOrders.ts"
+    "seed": "nodemon ./src/seeders/seed.ts"
   },
   "dependencies": {
     "aws-sdk": "^2.1692.0",
@@ -37,6 +36,7 @@
     "@types/sequelize": "^4.28.20",
     "@types/uuid": "^10.0.0",
     "nodemon": "^3.1.9",
+    "sequelize-cli": "^6.6.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.2"
   }

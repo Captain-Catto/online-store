@@ -294,3 +294,56 @@ export const incrementVoucherUsage = async (
     res.status(500).json({ message: error.message });
   }
 };
+
+// Lấy danh sách voucher khả dụng cho người dùng
+export const getUserAvailableVouchers = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    // Lấy tất cả voucher còn hiệu lực và active
+    const currentDate = new Date();
+    const vouchers = await Voucher.findAll({
+      where: {
+        status: "active",
+        expirationDate: { [Op.gt]: currentDate },
+        [Op.or]: [
+          { usageLimit: 0 }, // không giới hạn sử dụng
+          { usageCount: { [Op.lt]: Voucher.sequelize!.col("usageLimit") } }, // số lần dùng < giới hạn
+        ],
+      },
+      order: [["expirationDate", "ASC"]], // Sắp xếp theo ngày hết hạn gần nhất
+    });
+
+    // Chuyển đổi dữ liệu voucher sang định dạng phù hợp với client
+    const formattedVouchers = vouchers.map((voucher) => ({
+      id: voucher.id,
+      title: formatVoucherTitle(voucher),
+      expiry: new Date(voucher.expirationDate).toLocaleDateString("vi-VN"),
+      code: voucher.code,
+      minOrderValue: voucher.minOrderValue,
+      description: voucher.description || "",
+      type: voucher.type,
+      value: voucher.value,
+    }));
+
+    res.status(200).json(formattedVouchers);
+  } catch (error: any) {
+    console.error("Error fetching user vouchers:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Hàm hỗ trợ format tiêu đề voucher
+function formatVoucherTitle(voucher: any): string {
+  if (voucher.type === "percentage") {
+    return `Giảm ${voucher.value}% cho đơn hàng`;
+  } else {
+    return `Giảm ${voucher.value.toLocaleString("vi-VN")}đ cho đơn hàng`;
+  }
+}

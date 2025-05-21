@@ -696,12 +696,7 @@ const productCategories = [
 ];
 
 // 9. PaymentMethods
-const paymentMethods = [
-  { name: "COD" },
-  { name: "Credit Card" },
-  { name: "Internet Banking" },
-  { name: "Momo" },
-];
+const paymentMethods = [{ name: "COD" }, { name: "Momo" }, { name: "ZaloPay" }];
 
 // 10. PaymentStatus
 const paymentStatuses = [
