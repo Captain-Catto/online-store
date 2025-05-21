@@ -450,9 +450,10 @@ export default function OrderDetailPage() {
                             Địa chỉ giao hàng
                           </th>
                           <td className="py-2 text-gray-800">
-                            {order.shippingStreetAddress}, {order.shippingWard}
-                            ,&nbsp;;
-                            {order.shippingDistrict}, {order.shippingCity}
+                            {order.shippingStreetAddress},&nbsp;
+                            {order.shippingWard}
+                            ,&nbsp;
+                            {order.shippingDistrict},&nbsp;{order.shippingCity}
                           </td>
                         </tr>
                         <tr>

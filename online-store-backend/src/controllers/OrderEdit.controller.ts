@@ -142,6 +142,7 @@ export const cancelOrder = async (
       return;
     } // Lấy thông tin trạng thái thanh toán hiện tại
     const currentPaymentStatusId = order.getDataValue("paymentStatusId");
+    const orderTotal = order.getDataValue("total");
 
     // Nếu đơn hàng đã thanh toán (paymentStatusId = 2), chuyển sang trạng thái hoàn tiền (paymentStatusId = 4)
     let updateData: any = {
@@ -152,6 +153,8 @@ export const cancelOrder = async (
     if (currentPaymentStatusId === 2) {
       // Nếu trạng thái là "Paid"
       updateData.paymentStatusId = 4; // Cập nhật thành "Refunded"
+      updateData.refundAmount = orderTotal; // Hoàn lại toàn bộ số tiền đã thanh toán
+      updateData.refundReason = "Hoàn tiền do hủy đơn hàng";
     }
 
     // Cập nhật trạng thái đơn hàng thành "cancelled" và cập nhật trạng thái hoàn tiền nếu cần

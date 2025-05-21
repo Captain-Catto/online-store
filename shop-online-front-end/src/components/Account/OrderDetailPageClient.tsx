@@ -364,7 +364,7 @@ export default function OrderDetailPageClient({
                     </p>
                     {order.cancelNote && (
                       <p>
-                        <span className="font-medium">Lý do hủy:</span>&nbsp;;
+                        <span className="font-medium">Lý do hủy:</span>&nbsp;
                         {order.cancelNote}
                       </p>
                     )}
