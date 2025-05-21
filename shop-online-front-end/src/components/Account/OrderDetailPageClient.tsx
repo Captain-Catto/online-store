@@ -345,26 +345,26 @@ export default function OrderDetailPageClient({
                   </h3>
                   <div className="space-y-2">
                     <p>
-                      <span className="font-medium">Ngày đặt hàng:</span>&bsp;
+                      <span className="font-medium">Ngày đặt hàng:</span>&nbsp;;
                       {formatDateTime(order.createdAt)}
                     </p>
                     <p>
                       <span className="font-medium">
                         Phương thức thanh toán:
                       </span>
-                      &bsp;
+                      &nbsp;;
                       {mapPaymentMethod(order.paymentMethodId)}
                     </p>
                     <p>
                       <span className="font-medium">
                         Trạng thái thanh toán:
                       </span>
-                      &bsp;
+                      &nbsp;;
                       {mapPaymentStatus(order.paymentStatusId)}
                     </p>
                     {order.cancelNote && (
                       <p>
-                        <span className="font-medium">Lý do hủy:</span>&bsp;
+                        <span className="font-medium">Lý do hủy:</span>&nbsp;;
                         {order.cancelNote}
                       </p>
                     )}
@@ -377,11 +377,11 @@ export default function OrderDetailPageClient({
                   <div className="space-y-2">
                     <p>
                       <span className="font-medium">Địa chỉ giao hàng:</span>
-                      &bsp;
+                      &nbsp;;
                       {formatShippingAddress(order)}
                     </p>
                     <p>
-                      <span className="font-medium">Số điện thoại:</span>&bsp;
+                      <span className="font-medium">Số điện thoại:</span>&nbsp;;
                       {order.shippingPhoneNumber}
                     </p>
                   </div>

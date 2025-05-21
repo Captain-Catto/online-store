@@ -451,7 +451,7 @@ export default function OrderDetailPage() {
                           </th>
                           <td className="py-2 text-gray-800">
                             {order.shippingStreetAddress}, {order.shippingWard}
-                            ,&bsp;
+                            ,&nbsp;;
                             {order.shippingDistrict}, {order.shippingCity}
                           </td>
                         </tr>
