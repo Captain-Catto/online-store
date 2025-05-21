@@ -42,6 +42,7 @@ import suitabilityRoutes from "./routes/Suitability.route";
 import AdminMenuItemRoutes from "./routes/AdminMenu.route";
 import cartRoutes from "./routes/Cart.route";
 import reportsRoutes from "./routes/Reports.route";
+import paymentRoutes from "./routes/Payment.route";
 
 dotenv.config();
 
@@ -82,6 +83,7 @@ app.use("/api/suitabilities", suitabilityRoutes);
 app.use("/api/admin-menu", AdminMenuItemRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/reports", reportsRoutes);
+app.use("/api/payments", paymentRoutes);
 // Middleware xử lý lỗi
 
 // Kết nối DB

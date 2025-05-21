@@ -525,10 +525,58 @@ export default function CheckoutPage() {
       // Sử dụng clearCart từ context - đợi nó hoàn thành
       await clearCart();
 
-      // setTimout để chắc chắn clearCart trước và sau đó chuyển trang
-      setTimeout(() => {
-        router.push("/order-confirmation");
-      }, 100);
+      // Nếu thanh toán là VNPAY, chuyển hướng đến trang thanh toán VNPAY
+      if (paymentMethod === PaymentMethodId.VNPAY) {
+        try {
+          // Gọi API để tạo URL thanh toán VNPAY
+          const vnpayResponse = await fetch(
+            `/api/payments/vnpay/create-payment-url`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                orderId: response.orderId,
+                amount: orderSummary.total,
+                orderInfo: `Thanh toan don hang #${response.orderId}`,
+                returnUrl: `${window.location.origin}/payment/vnpay-return`,
+              }),
+            }
+          );
+
+          const vnpayData = await vnpayResponse.json();
+
+          if (vnpayData.paymentUrl) {
+            // Lưu orderId vào sessionStorage trước khi chuyển hướng
+            sessionStorage.setItem(
+              "pendingVNPayOrderId",
+              String(response.orderId)
+            );
+
+            // Chuyển hướng đến trang thanh toán VNPAY
+            window.location.href = vnpayData.paymentUrl;
+            return; // Dừng xử lý tiếp theo
+          } else {
+            throw new Error("Không nhận được URL thanh toán");
+          }
+        } catch (error) {
+          console.error("Lỗi khi tạo URL thanh toán VNPAY:", error);
+          setOrderError(
+            "Không thể tạo liên kết thanh toán VNPAY. Vui lòng thử lại sau."
+          );
+
+          // Chuyển về trang xác nhận đơn hàng dù gặp lỗi VNPAY
+          setTimeout(() => {
+            router.push("/order-confirmation");
+          }, 100);
+        }
+      } else {
+        // Các phương thức thanh toán khác
+        setTimeout(() => {
+          router.push("/order-confirmation");
+        }, 100);
+      }
     } catch (error) {
       console.error("Error placing order:", error);
 
@@ -1248,6 +1296,39 @@ export default function CheckoutPage() {
                         <p className="font-medium text-gray-900">ZaloPay</p>
                         <p className="text-sm text-gray-500">
                           {PAYMENT_METHOD_NAMES[PaymentMethodId.ZALOPAY]}
+                        </p>{" "}
+                      </div>
+                    </div>
+                  </label>
+
+                  {/* VNPAY */}
+                  <label
+                    className={`flex items-center border rounded-lg p-4 cursor-pointer ${
+                      paymentMethod === PaymentMethodId.VNPAY
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value={PaymentMethodId.VNPAY}
+                      checked={paymentMethod === PaymentMethodId.VNPAY}
+                      onChange={handlePaymentMethodChange}
+                      className="hidden"
+                    />
+                    <div className="flex items-center gap-3">
+                      <Image
+                        src={imgZalopay}
+                        alt="VNPAY"
+                        width={40}
+                        height={40}
+                        className="object-contain"
+                      />{" "}
+                      <div>
+                        <p className="font-medium text-gray-900">VNPAY</p>
+                        <p className="text-sm text-gray-500">
+                          {PAYMENT_METHOD_NAMES[PaymentMethodId.VNPAY]}
                         </p>
                       </div>
                     </div>
