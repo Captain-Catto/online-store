@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+  ),
   title: {
     template: "%s",
     default: "Shop Online - Quần áo thời trang",
@@ -23,28 +26,18 @@ export const metadata: Metadata = {
   description:
     "Shop Online - Nơi mua sắm thời trang hàng đầu với nhiều sản phẩm đa dạng và chất lượng.",
   keywords: ["thời trang", "quần áo", "online store", "mua sắm"],
+  openGraph: {
+    type: "website",
+    locale: "vi_VN",
+    url: "/",
+    siteName: "Shop Online",
+  },
   icons: {
     icon: [
       { url: "/favicon.ico" },
       { url: "/icon.png", type: "image/png", sizes: "192x192" },
     ],
     apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
-  },
-  openGraph: {
-    title: "Shop Online",
-    description:
-      "Shop Online - Nơi mua sắm thời trang hàng đầu với nhiều sản phẩm đa dạng và chất lượng.",
-    url: "https://yourwebsite.com",
-    siteName: "Shop Online",
-    images: [
-      {
-        url: "/og-image.jpg",
-        width: 1200,
-        height: 630,
-      },
-    ],
-    locale: "vi_VN",
-    type: "website",
   },
 };
 export default function RootLayout({
