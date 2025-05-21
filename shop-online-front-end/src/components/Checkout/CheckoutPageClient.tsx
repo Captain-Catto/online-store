@@ -21,6 +21,7 @@ import BreadcrumbTrail from "../Breadcrumb/BreadcrumbTrail";
 import { BreadcrumbItem } from "@/types/breadcrumb";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
 import { AppliedVoucher } from "@/types/vouchers";
+import { API_BASE_URL } from "@/config/apiConfig";
 
 // Định nghĩa kiểu dữ liệu
 type LocationsType = {
@@ -530,7 +531,7 @@ export default function CheckoutPage() {
         try {
           // Gọi API để tạo URL thanh toán VNPAY
           const vnpayResponse = await fetch(
-            `/api/payments/vnpay/create-payment-url`,
+            `${API_BASE_URL}/payments/vnpay/create-payment-url`,
             {
               method: "POST",
               headers: {
