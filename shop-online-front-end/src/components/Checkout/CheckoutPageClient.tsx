@@ -545,8 +545,19 @@ export default function CheckoutPage() {
               }),
             }
           );
-
           const vnpayData = await vnpayResponse.json();
+          console.log("VNPAY URL received:", vnpayData.paymentUrl);
+
+          // Đảm bảo URL có chứa vnp_SecureHash
+          if (
+            vnpayData.paymentUrl &&
+            vnpayData.paymentUrl.includes("vnp_SecureHash=")
+          ) {
+            window.location.href = vnpayData.paymentUrl;
+          } else {
+            console.error("VNPAY URL không hợp lệ:", vnpayData.paymentUrl);
+            throw new Error("URL thanh toán không hợp lệ");
+          }
 
           if (vnpayData.paymentUrl) {
             // Lưu orderId vào sessionStorage trước khi chuyển hướng
@@ -568,9 +579,9 @@ export default function CheckoutPage() {
           );
 
           // Chuyển về trang xác nhận đơn hàng dù gặp lỗi VNPAY
-          setTimeout(() => {
-            router.push("/order-confirmation");
-          }, 100);
+          // setTimeout(() => {
+          //   router.push("/order-confirmation");
+          // }, 100);
         }
       } else {
         // Các phương thức thanh toán khác

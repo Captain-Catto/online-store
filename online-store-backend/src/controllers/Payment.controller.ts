@@ -24,70 +24,51 @@ export const createVNPayPaymentUrl = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { orderId, amount, orderInfo = "Thanh toan don hang" } = req.body;
+    console.log("Request body:", req.body);
+    const {
+      orderId,
+      amount,
+      orderInfo = "Thanh toan don hang",
+      returnUrl,
+    } = req.body;
 
-    if (!orderId || !amount) {
-      res
-        .status(400)
-        .json({ message: "Thiếu thông tin đơn hàng hoặc số tiền" });
-      return;
-    }
+    // Loại bỏ ký tự # từ orderInfo
+    const sanitizedOrderInfo = orderInfo.replace(/#/g, "");
 
-    // Get IP Address
-    const ipAddr =
-      req.headers["x-forwarded-for"] ||
-      req.socket.remoteAddress ||
-      req.ip ||
-      "127.0.0.1";
-
-    // Lấy thông tin từ Order
-    const order = await Order.findByPk(orderId);
-    if (!order) {
-      res.status(404).json({ message: "Không tìm thấy đơn hàng" });
-      return;
-    }
-
-    // Create VNPAY payment URL
-    const createDate = format(new Date(), "yyyyMMddHHmmss");
-    const vnpOrderId = orderId.toString() + "_" + createDate;
-    const currCode = "VND";
-
-    // Convert amount to VND without decimal (amount * 100)
-    const amountInVND = Math.floor(amount) * 100;
-
-    // Build payment parameters
-    let vnpParams: any = {
+    // Build payment parameters - đảm bảo không có undefined
+    const vnpParams: any = {
       vnp_Version: "2.1.0",
       vnp_Command: "pay",
       vnp_TmnCode: vnp_TmnCode,
       vnp_Locale: "vn",
-      vnp_CurrCode: currCode,
-      vnp_TxnRef: vnpOrderId,
-      vnp_OrderInfo: orderInfo,
-      vnp_Amount: amountInVND,
-      vnp_ReturnUrl: vnp_ReturnUrl,
-      vnp_IpAddr: ipAddr.toString(),
-      vnp_CreateDate: createDate,
+      vnp_CurrCode: "VND",
+      vnp_TxnRef: `${orderId}_${format(new Date(), "yyyyMMddHHmmss")}`,
+      vnp_OrderInfo: sanitizedOrderInfo,
       vnp_OrderType: "other",
+      vnp_Amount: Math.round(Number(amount)) * 100,
+      vnp_ReturnUrl: returnUrl || vnp_ReturnUrl,
+      vnp_IpAddr: req.ip || req.socket.remoteAddress || "127.0.0.1",
+      vnp_CreateDate: format(new Date(), "yyyyMMddHHmmss"),
     };
 
-    // Add expiration time - 15 minutes from now
-    const expireDate = new Date();
-    expireDate.setMinutes(expireDate.getMinutes() + 15);
-    vnpParams.vnp_ExpireDate = format(expireDate, "yyyyMMddHHmmss");
-
     // Sort parameters by field name
-    vnpParams = sortObject(vnpParams);
+    const sortedParams = sortObject(vnpParams);
+    console.log("Sorted params:", sortedParams);
 
     // Create hash data
-    const signData = qs.stringify(vnpParams, { encode: false });
+    const signData = qs.stringify(sortedParams, { encode: false });
+    console.log("Sign data:", signData);
+
     const hmac = crypto.createHmac("sha512", vnp_HashSecret);
     const signed = hmac.update(Buffer.from(signData, "utf-8")).digest("hex");
-    vnpParams.vnp_SecureHash = signed;
+    console.log("Secure hash:", signed);
 
-    // Create payment URL
+    sortedParams.vnp_SecureHash = signed;
+
+    // Create payment URL - encode=true để đảm bảo URL an toàn
     const paymentUrl =
-      vnp_Url + "?" + qs.stringify(vnpParams, { encode: false });
+      vnp_Url + "?" + qs.stringify(sortedParams, { encode: true });
+    console.log("Payment URL:", paymentUrl);
 
     // Return payment URL to client
     res.status(200).json({ paymentUrl });
@@ -106,19 +87,33 @@ export const processVNPayReturn = async (
 ): Promise<void> => {
   try {
     const vnpParams = req.body;
+    console.log("Request body:", req.body);
+
     const secureHash = vnpParams["vnp_SecureHash"];
+    console.log("SecureHash:", secureHash);
 
-    // Remove secure hash and hash type from params to verify
-    delete vnpParams["vnp_SecureHash"];
-    delete vnpParams["vnp_SecureHashType"];
+    // Tạo bản sao của params và xóa vnp_SecureHash
+    const params = { ...vnpParams };
+    delete params["vnp_SecureHash"];
+    // Trong 2.1.0 không cần xóa vnp_SecureHashType vì nó không được gửi đi
+    // nhưng để đảm bảo tương thích, vẫn giữ lại đoạn code này
+    if (params["vnp_SecureHashType"]) {
+      delete params["vnp_SecureHashType"];
+    }
 
-    // Sort params
-    const sortedParams = sortObject(vnpParams);
+    // Phần còn lại của code không thay đổi
+    const sortedParams = sortObject(params);
 
     // Create sign data
     const signData = qs.stringify(sortedParams, { encode: false });
+    console.log("Sign data:", signData);
+
     const hmac = crypto.createHmac("sha512", vnp_HashSecret);
     const signed = hmac.update(Buffer.from(signData, "utf-8")).digest("hex");
+
+    // Bổ sung log để debug
+    console.log("Generated hash:", signed);
+    console.log("Received hash:", secureHash);
 
     // Verify secure hash
     if (secureHash !== signed) {
@@ -223,100 +218,97 @@ export const processVNPayIPN = async (
 ): Promise<void> => {
   try {
     const vnpParams = req.query;
-    const secureHash = vnpParams["vnp_SecureHash"];
+    console.log("IPN Request body:", req.query);
+    const secureHash = vnpParams["vnp_SecureHash"] as string;
+    console.log("IPN SecureHash:", secureHash);
 
     // Remove secure hash and hash type from params to verify
-    delete vnpParams["vnp_SecureHash"];
-    delete vnpParams["vnp_SecureHashType"];
+    const params = { ...vnpParams };
+    delete params["vnp_SecureHash"];
+    delete params["vnp_SecureHashType"];
 
     // Sort params
-    const sortedParams = sortObject(vnpParams);
+    const sortedParams = sortObject(params);
 
     // Create sign data
     const signData = qs.stringify(sortedParams, { encode: false });
     const hmac = crypto.createHmac("sha512", vnp_HashSecret);
     const signed = hmac.update(Buffer.from(signData, "utf-8")).digest("hex");
+    console.log("Generated hash:", signed);
 
     // Verify secure hash
     if (secureHash === signed) {
       // Extract order ID from vnp_TxnRef (format: orderId_timestamp)
       const vnp_TxnRef = vnpParams["vnp_TxnRef"] as string;
       const orderId = vnp_TxnRef.split("_")[0];
+      const rspCode = vnpParams["vnp_ResponseCode"] as string;
 
-      // Check payment status
-      const vnp_ResponseCode = vnpParams["vnp_ResponseCode"];
-      const vnp_TransactionStatus = vnpParams["vnp_TransactionStatus"];
+      // Check order exists
+      const order = await Order.findByPk(orderId);
+      if (!order) {
+        res.status(200).json({ RspCode: "01", Message: "Order not found" });
+        return;
+      }
 
-      // Start transaction
-      const t = await sequelize.transaction();
+      // Check amount match (optional but recommended)
+      const orderAmount = order.getDataValue("total");
+      const paymentAmount = Number(vnpParams["vnp_Amount"]) / 100;
+      if (Math.abs(orderAmount - paymentAmount) > 1) {
+        // Allow small difference due to rounding
+        res.status(200).json({ RspCode: "04", Message: "Amount invalid" });
+        return;
+      }
 
-      try {
-        // Find order
-        const order = await Order.findByPk(orderId, { transaction: t });
-
-        if (!order) {
-          await t.rollback();
-          // Return successful response with error code 01 (Order not found)
-          res.status(200).json({
-            RspCode: "01",
-            Message: "Order not found",
-          });
-          return;
-        }
-
-        // Check if payment was successful (00 means success)
-        if (vnp_ResponseCode === "00" && vnp_TransactionStatus === "00") {
-          // Update order payment status to Paid (2)
-          await order.update(
-            {
-              paymentMethodId: 4, // VNPAY
-              paymentStatusId: 2, // Paid
-              status:
-                order.getDataValue("status") === "pending"
-                  ? "processing"
-                  : order.getDataValue("status"),
-            },
-            { transaction: t }
-          );
-        } else {
-          // Payment failed
-          await order.update(
-            {
-              paymentStatusId: 3, // Failed
-            },
-            { transaction: t }
-          );
-        }
-
-        await t.commit();
-
-        // Return successful response
+      // Check payment status in your database
+      const currentPaymentStatus = order.getDataValue("paymentStatusId");
+      // If payment is already processed, return success but don't update again
+      if (currentPaymentStatus === 2 || currentPaymentStatus === 3) {
         res.status(200).json({
-          RspCode: "00",
-          Message: "Confirm Success",
+          RspCode: "02",
+          Message: "This order has been updated to the payment status",
         });
-      } catch (error) {
-        await t.rollback();
-        // Return error response
-        res.status(200).json({
-          RspCode: "99",
-          Message: "Unknown error",
+        return;
+      }
+
+      // Update payment status based on response code
+      if (rspCode === "00") {
+        // Payment successful
+        await order.update({
+          paymentMethodId: 4, // VNPAY
+          paymentStatusId: 2, // Paid
+          status:
+            order.getDataValue("status") === "pending"
+              ? "processing"
+              : order.getDataValue("status"),
+        });
+      } else {
+        // Payment failed
+        await order.update({
+          paymentStatusId: 3, // Failed
         });
       }
+
+      // Return success response
+      res.status(200).json({
+        RspCode: "00",
+        Message: "Confirm Success",
+      });
+      return;
     } else {
       // Invalid signature
       res.status(200).json({
         RspCode: "97",
-        Message: "Invalid signature",
+        Message: "Checksum failed",
       });
+      return;
     }
   } catch (error: any) {
     console.error("Error processing VNPAY IPN:", error);
-    // Return error response
     res.status(200).json({
       RspCode: "99",
       Message: "Unknown error",
     });
+    return;
   }
 };
 
@@ -352,17 +344,12 @@ export const checkPaymentStatus = async (
 
 // Helper function to sort object by key
 function sortObject(obj: any): any {
+  // Sắp xếp các key theo alphabet
   const sorted: any = {};
   const keys = Object.keys(obj).sort();
 
   for (const key of keys) {
-    if (
-      obj[key] !== null &&
-      typeof obj[key] === "object" &&
-      !Array.isArray(obj[key])
-    ) {
-      sorted[key] = sortObject(obj[key]);
-    } else {
+    if (obj[key] !== undefined && obj[key] !== null) {
       sorted[key] = obj[key];
     }
   }

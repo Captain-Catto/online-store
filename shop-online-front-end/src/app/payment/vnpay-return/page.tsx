@@ -17,7 +17,14 @@ function PaymentStatus() {
   useEffect(() => {
     const processPayment = async () => {
       try {
+        // Log all search params for debugging
+        console.log(
+          "Search params:",
+          Object.fromEntries(searchParams.entries())
+        );
+
         const vnp_ResponseCode = searchParams.get("vnp_ResponseCode");
+        const vnp_TxnRef = searchParams.get("vnp_TxnRef");
 
         if (!vnp_ResponseCode) {
           setStatus("error");
@@ -25,30 +32,66 @@ function PaymentStatus() {
           return;
         }
 
+        // Check payment result based on response code
         if (vnp_ResponseCode === "00") {
+          // Payment successful
           setStatus("success");
           setMessage("Thanh toán thành công");
-          // Redirect to order confirmation after a short delay
+
+          if (vnp_TxnRef) {
+            // Extract orderId from TxnRef (format: orderId_timestamp)
+            const orderId = vnp_TxnRef.split("_")[0];
+            sessionStorage.setItem("recentOrderId", orderId);
+          }
+
           setTimeout(() => {
             router.push("/order-confirmation");
           }, 2000);
         } else {
+          // Payment failed
           setStatus("error");
-          setMessage("Thanh toán không thành công. Vui lòng thử lại.");
-          // Redirect back to cart after error
+          setMessage(getErrorMessage(vnp_ResponseCode));
+
           setTimeout(() => {
             router.push("/cart");
           }, 3000);
         }
       } catch (error) {
-        console.error("Error processing payment:", error);
+        console.error("Error processing payment return:", error);
         setStatus("error");
-        setMessage("Có lỗi xảy ra khi xử lý thanh toán");
+        setMessage("Có lỗi xảy ra khi xử lý kết quả thanh toán");
       }
     };
 
     processPayment();
   }, [router, searchParams]);
+
+  // Helper function to get error message based on response code
+  const getErrorMessage = (responseCode: string) => {
+    const errorMessages: Record<string, string> = {
+      "01": "Giao dịch đã tồn tại",
+      "02": "Merchant không hợp lệ",
+      "03": "Dữ liệu gửi sang không đúng định dạng",
+      "04": "Khởi tạo GD không thành công do Website đang bị tạm khóa",
+      "05": "Giao dịch không thành công do: Quý khách nhập sai mật khẩu quá số lần quy định",
+      "07": "Giao dịch bị nghi ngờ là gian lận",
+      "09": "Giao dịch không thành công do: Thẻ/Tài khoản của khách hàng bị khóa",
+      "10": "Giao dịch không thành công do: Khách hàng xác thực thông tin thẻ/tài khoản không đúng quá 3 lần",
+      "11": "Giao dịch không thành công do: Đã hết hạn chờ thanh toán",
+      "12": "Giao dịch không thành công do: Thẻ/Tài khoản của khách hàng bị khóa",
+      "24": "Giao dịch không thành công do: Khách hàng hủy giao dịch",
+      "51": "Giao dịch không thành công do: Tài khoản không đủ số dư để thực hiện giao dịch",
+      "65": "Giao dịch không thành công do: Tài khoản vượt quá hạn mức giao dịch trong ngày",
+      "75": "Ngân hàng thanh toán đang bảo trì",
+      "79": "Giao dịch không thành công do: KH nhập sai mật khẩu thanh toán quá số lần quy định",
+      "99": "Lỗi không xác định",
+    };
+
+    return (
+      errorMessages[responseCode] ||
+      "Thanh toán không thành công. Vui lòng thử lại."
+    );
+  };
 
   if (status === "loading") {
     return (
