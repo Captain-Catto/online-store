@@ -174,12 +174,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       roleId: user.roleId,
     });
 
-    console.log("Setting refresh token cookie:", {
-      token: refreshToken.substring(0, 10) + "...",
-      maxAge: refreshMaxAge,
-      httpOnly: true,
-    });
-
     // Lưu Refresh Token vào cookie
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
@@ -188,14 +182,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       sameSite: "lax", // Cần thiết cho các trình duyệt hiện đại
       path: "/", // Đảm bảo cookie có thể truy cập từ mọi đường dẫn
     });
-    console.log("Cookie headers:", res.getHeaders());
     res.status(200).json({ message: "Đăng nhập thành công", accessToken });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// Đăng xuất
 // Đăng xuất
 export const logout = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -385,7 +377,6 @@ export const getAllUsers = async (
   res: Response
 ): Promise<void> => {
   try {
-    console.log("getAllUsers called");
     // Sử dụng req.user từ middleware xác thực
     if (!req.user || (req.user.role !== 1 && req.user.role !== 2)) {
       res.status(403).json({ message: "Không có quyền truy cập" });

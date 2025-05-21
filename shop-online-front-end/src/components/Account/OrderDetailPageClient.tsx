@@ -345,21 +345,21 @@ export default function OrderDetailPageClient({
                   </h3>
                   <div className="space-y-2">
                     <p>
-                      <span className="font-medium">Ngày đặt hàng:</span>&nbsp;;
+                      <span className="font-medium">Ngày đặt hàng:</span>&nbsp;
                       {formatDateTime(order.createdAt)}
                     </p>
                     <p>
                       <span className="font-medium">
                         Phương thức thanh toán:
                       </span>
-                      &nbsp;;
+                      &nbsp;
                       {mapPaymentMethod(order.paymentMethodId)}
                     </p>
                     <p>
                       <span className="font-medium">
                         Trạng thái thanh toán:
                       </span>
-                      &nbsp;;
+                      &nbsp;
                       {mapPaymentStatus(order.paymentStatusId)}
                     </p>
                     {order.cancelNote && (
@@ -377,11 +377,11 @@ export default function OrderDetailPageClient({
                   <div className="space-y-2">
                     <p>
                       <span className="font-medium">Địa chỉ giao hàng:</span>
-                      &nbsp;;
+                      &nbsp;
                       {formatShippingAddress(order)}
                     </p>
                     <p>
-                      <span className="font-medium">Số điện thoại:</span>&nbsp;;
+                      <span className="font-medium">Số điện thoại:</span>&nbsp;
                       {order.shippingPhoneNumber}
                     </p>
                   </div>
@@ -397,13 +397,13 @@ export default function OrderDetailPageClient({
               <div className="divide-y divide-gray-200">
                 {order.orderDetails.map((item) => (
                   <div key={item.id} className="p-6 flex items-center">
-                    <div className="flex-shrink-0 w-20 h-20 relative">
+                    <div className="flex-shrink-0 w-22 h-30 relative">
                       <Image
                         src={item.imageUrl}
                         alt={item.product.name}
-                        layout="fill"
-                        objectFit="cover"
-                        className="rounded-md"
+                        fill
+                        sizes="30px"
+                        className="rounded-md object-cover"
                       />
                     </div>
                     <div className="ml-6 flex-1">

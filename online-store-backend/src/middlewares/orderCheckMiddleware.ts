@@ -7,58 +7,59 @@ import ProductDetail from "../models/ProductDetail";
 import Product from "../models/Product";
 import sequelize from "../config/db";
 
+// Lưu thời gian kiểm tra cuối cùng
+let lastCheckTime = 0;
+
+// Thời gian giữa các lần kiểm tra (15 phút)
+const CHECK_INTERVAL = 15 * 60 * 1000;
+
 /**
- * Middleware kiểm tra và hủy tự động các đơn hàng quá hạn thanh toán
+ * Middleware tự động hủy đơn hàng thanh toán online sau 1 ngày
  *
- * - Chạy mỗi khi có request đến API /orders hoặc /admin/*
- * - Chỉ kiểm tra mỗi 15 phút một lần để tránh ảnh hưởng đến hiệu suất
- *
- * @param req - Request
- * @param res - Response
- * @param next - NextFunction
+ * Hủy các đơn hàng thanh toán online (không phải COD)
+ * mà khách hàng chưa thanh toán sau 24 giờ
  */
 export const checkExpiredPayments = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
+  // Đảm bảo next() chỉ được gọi một lần
+  let nextCalled = false;
+
+  const callNext = () => {
+    if (!nextCalled) {
+      nextCalled = true;
+      next();
+    }
+  };
+
   try {
-    // Biến static để lưu trữ thời gian kiểm tra gần nhất
-    const LAST_CHECK_KEY = "last_check_expired_orders";
+    const currentTime = Date.now();
 
-    // Lấy thời gian kiểm tra gần nhất từ global
-    const lastCheck = (global as any)[LAST_CHECK_KEY] || 0;
-    const now = Date.now();
-
-    // Chỉ kiểm tra mỗi 15 phút một lần
-    const INTERVAL = 15 * 60 * 1000; // 15 phút
-
-    if (now - lastCheck < INTERVAL) {
-      return next();
+    // Kiểm tra nếu chưa đến thời gian để chạy lại
+    if (currentTime - lastCheckTime < CHECK_INTERVAL) {
+      return callNext();
     }
 
-    // Cập nhật thời gian kiểm tra gần nhất
-    (global as any)[LAST_CHECK_KEY] = now;
+    // Cập nhật thời gian kiểm tra cuối cùng
+    lastCheckTime = currentTime;
 
-    console.log(
-      `[${new Date().toISOString()}] Kiểm tra đơn hàng quá hạn thanh toán...`
-    );
+    // Tính thời điểm 24 giờ trước
+    const oneDayAgo = new Date();
+    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
 
-    // Tạo một ngày trước từ thời điểm hiện tại
-    const oneDayBefore = new Date();
-    oneDayBefore.setDate(oneDayBefore.getDate() - 1);
-
-    // Sử dụng transaction để đảm bảo tính nhất quán
-    const t = await sequelize.transaction();
+    // Bắt đầu transaction để đảm bảo tính nhất quán dữ liệu
+    const transaction = await sequelize.transaction();
 
     try {
-      // Tìm các đơn hàng cần hủy: không phải COD (paymentMethodId != 1),
-      // đơn ở trạng thái pending và được tạo cách đây hơn 1 ngày
+      // Tìm các đơn hàng cần hủy
       const pendingOrders = await Order.findAll({
         where: {
           paymentMethodId: { [Op.ne]: 1 }, // Không phải COD
-          status: "pending", // Đơn hàng đang ở trạng thái pending
-          createdAt: { [Op.lt]: oneDayBefore }, // Tạo cách đây hơn 1 ngày
+          status: "pending", // Đơn hàng đang chờ
+          createdAt: { [Op.lt]: oneDayAgo }, // Tạo trước 24 giờ
+          paymentStatusId: 1, // Chưa thanh toán
         },
         include: [
           {
@@ -66,135 +67,101 @@ export const checkExpiredPayments = async (
             as: "orderDetails",
           },
         ],
-        transaction: t,
+        transaction,
       });
 
+      // Nếu không có đơn hàng nào cần hủy
       if (pendingOrders.length === 0) {
-        await t.commit();
-        console.log(
-          `[${new Date().toISOString()}] Không có đơn hàng nào cần hủy tự động`
-        );
-        return next();
+        await transaction.commit();
+        return callNext();
       }
-
-      const updatedProductIds = new Set<number>();
-      let cancelledCount = 0;
 
       // Xử lý từng đơn hàng
       for (const order of pendingOrders) {
-        // Cập nhật trạng thái đơn hàng thành cancelled và trạng thái thanh toán thành cancelled (5)
+        // Cập nhật trạng thái đơn hàng
         await order.update(
           {
             status: "cancelled",
-            paymentStatusId: 5, // Cancelled payment status
+            paymentStatusId: 5, // Đã hủy thanh toán
             cancelNote: "Tự động hủy do không thanh toán sau 24 giờ",
           },
-          { transaction: t }
+          { transaction }
         );
 
-        // Hoàn trả số lượng tồn kho
-        const orderDetails = (order as any).orderDetails || [];
-        for (const detail of orderDetails) {
-          const productId = detail.productId;
-          updatedProductIds.add(productId);
+        // Hoàn trả sản phẩm vào kho
+        const orderDetails = order.getDataValue("orderDetails");
 
-          // Tìm ProductDetail dựa trên productDetailId hoặc productId và color
-          let productDetail;
-          if (detail.productDetailId) {
-            productDetail = await ProductDetail.findByPk(
-              detail.productDetailId,
-              {
-                transaction: t,
-              }
-            );
-          } else {
-            productDetail = await ProductDetail.findOne({
-              where: { productId, color: detail.color },
-              transaction: t,
-            });
-          }
-
-          if (!productDetail) {
-            continue;
-          }
-
-          // Cập nhật lại tồn kho
-          const inventory = await ProductInventory.findOne({
-            where: { productDetailId: productDetail.id, size: detail.size },
-            transaction: t,
-          });
-
-          if (inventory) {
-            const currentStock = inventory.getDataValue("stock");
-            const newStock = currentStock + detail.quantity;
-            await inventory.update({ stock: newStock }, { transaction: t });
-          } else {
-            await ProductInventory.create(
-              {
-                productDetailId: productDetail.id,
-                size: detail.size,
-                stock: detail.quantity,
-              },
-              { transaction: t }
-            );
-          }
-        }
-
-        cancelledCount++;
-      }
-
-      // Cập nhật lại trạng thái sản phẩm dựa trên tồn kho
-      for (const productId of updatedProductIds) {
-        try {
-          // Logic cập nhật trạng thái sản phẩm giữ nguyên...
-          const product = await Product.findByPk(productId, { transaction: t });
-          if (!product) continue;
-
-          // Tính tổng tồn kho
-          const totalStock =
-            (await ProductInventory.sum("stock", {
-              where: {
-                productDetailId: {
-                  [Op.in]: sequelize.literal(
-                    `(SELECT id FROM product_details WHERE productId = ${productId})`
-                  ),
-                },
-              },
-              transaction: t,
-            })) || 0;
-
-          // Cập nhật trạng thái sản phẩm
-          if (totalStock > 0 && product.status !== "active") {
-            await product.update({ status: "active" }, { transaction: t });
-          } else if (totalStock === 0 && product.status !== "outofstock") {
-            await product.update({ status: "outofstock" }, { transaction: t });
-          }
-        } catch (error) {
-          console.error(
-            `[ERROR] Lỗi khi cập nhật sản phẩm ID ${productId}:`,
-            error
+        for (const item of orderDetails) {
+          const productInventory = await ProductInventory.findByPk(
+            item.productInventoryId,
+            { transaction }
           );
+
+          if (productInventory) {
+            // Tăng số lượng tồn kho
+            const newQuantity =
+              productInventory.getDataValue("quantity") + item.quantity;
+            await productInventory.update(
+              { quantity: newQuantity },
+              { transaction }
+            );
+
+            // Cập nhật trạng thái sản phẩm
+            const productDetail = await ProductDetail.findByPk(
+              productInventory.getDataValue("productDetailId"),
+              { transaction }
+            );
+
+            if (productDetail) {
+              const inventories = await ProductInventory.findAll({
+                where: { productDetailId: productDetail.id },
+                transaction,
+              });
+
+              const totalQuantity = inventories.reduce(
+                (sum, inv) => sum + inv.getDataValue("quantity"),
+                0
+              );
+
+              // Cập nhật trạng thái sản phẩm chi tiết
+              if (
+                totalQuantity > 0 &&
+                productDetail.getDataValue("status") === "out_of_stock"
+              ) {
+                await productDetail.update(
+                  { status: "active" },
+                  { transaction }
+                );
+
+                // Cập nhật trạng thái sản phẩm chính
+                const product = await Product.findByPk(
+                  productDetail.getDataValue("productId"),
+                  { transaction }
+                );
+
+                if (
+                  product &&
+                  product.getDataValue("status") === "out_of_stock"
+                ) {
+                  await product.update({ status: "active" }, { transaction });
+                }
+              }
+            }
+          }
         }
       }
 
-      // Commit transaction
-      await t.commit();
-
-      console.log(
-        `[${new Date().toISOString()}] Đã hủy ${cancelledCount} đơn hàng quá hạn thanh toán`
-      );
-    } catch (error: any) {
-      await t.rollback();
-      console.error("[ERROR] Lỗi khi hủy đơn hàng tự động:", {
-        message: error.message,
-        stack: error.stack,
-      });
+      // Hoàn tất transaction
+      await transaction.commit();
+      callNext();
+    } catch (error) {
+      // Hoàn tác transaction nếu có lỗi
+      await transaction.rollback();
+      console.error("Lỗi khi hủy đơn hàng quá hạn:", error);
+      callNext();
     }
-
-    next();
   } catch (error) {
-    // Đảm bảo middleware không làm gián đoạn request
-    console.error("Error in checkExpiredPayments middleware:", error);
-    next();
+    console.error("Lỗi khi kiểm tra đơn hàng quá hạn:", error);
+    callNext();
   }
 };
