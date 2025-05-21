@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import express from "express";
 import path from "path";
 import cookieParser from "cookie-parser";
+import { checkExpiredPayments } from "./middlewares/orderCheckMiddleware";
 
 // Import các models
 import "./models/Role";
@@ -73,7 +74,8 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/vouchers", voucherRoutes);
 app.use("/api/product-categories", productCategoryRoutes);
 app.use("/api/product-images", productImageRoutes);
-app.use("/api/orders", orderRoutes);
+// Middleware kiểm tra đơn hàng quá hạn thanh toán sẽ được kích hoạt khi truy cập route đơn hàng
+app.use("/api/orders", checkExpiredPayments, orderRoutes);
 app.use("/api/user-addresses", userAddressRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/user-notes", UserNoteRoutes);

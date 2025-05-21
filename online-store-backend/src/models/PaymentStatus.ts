@@ -30,7 +30,13 @@ PaymentStatus.init(
       unique: true,
     },
     description: {
-      type: DataTypes.ENUM("Pending", "Paid", "Failed", "Refunded"),
+      type: DataTypes.ENUM(
+        "Pending",
+        "Paid",
+        "Failed",
+        "Refunded",
+        "Cancelled"
+      ),
       allowNull: true,
     },
   },

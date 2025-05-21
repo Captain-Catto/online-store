@@ -95,7 +95,6 @@ export const processVNPayReturn = async (
   res: Response
 ): Promise<void> => {
   try {
-    // VNPAY return thường là GET request, nên dùng query thay vì body
     const vnpParams = req.query;
     console.log("Request query:", vnpParams);
 

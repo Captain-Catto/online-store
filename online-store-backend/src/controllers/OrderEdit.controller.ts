@@ -86,7 +86,7 @@ export const updateOrderStatus = async (
  * Hủy đơn hàng (chỉ dành cho admin)
  *
  * Quy trình:
- * 1. Tạo transaction để đảm bảo tính toàn vẹn dữ liệu
+ * 1. Tạo transaction để đảm bảo tính toàn vẹn của dữ liệu
  * 2. Tìm đơn hàng và chi tiết đơn hàng theo ID
  * 3. Kiểm tra điều kiện:
  *    - Đơn hàng phải tồn tại
@@ -140,16 +140,22 @@ export const cancelOrder = async (
       await t.rollback();
       res.status(400).json({ message: "Không thể hủy đơn hàng đã giao" });
       return;
+    } // Lấy thông tin trạng thái thanh toán hiện tại
+    const currentPaymentStatusId = order.getDataValue("paymentStatusId");
+
+    // Nếu đơn hàng đã thanh toán (paymentStatusId = 2), chuyển sang trạng thái hoàn tiền (paymentStatusId = 4)
+    let updateData: any = {
+      status: "cancelled",
+      cancelNote: cancelNote || "Hủy bởi Admin",
+    };
+
+    if (currentPaymentStatusId === 2) {
+      // Nếu trạng thái là "Paid"
+      updateData.paymentStatusId = 4; // Cập nhật thành "Refunded"
     }
 
-    // Cập nhật trạng thái đơn hàng thành "cancelled"
-    await order.update(
-      {
-        status: "cancelled",
-        cancelNote: cancelNote || "Hủy bởi Admin",
-      },
-      { transaction: t }
-    );
+    // Cập nhật trạng thái đơn hàng thành "cancelled" và cập nhật trạng thái hoàn tiền nếu cần
+    await order.update(updateData, { transaction: t });
 
     // Danh sách sản phẩm cần kiểm tra sau khi cập nhật tồn kho
     const updatedProductIds = new Set<number>();
@@ -703,6 +709,184 @@ export const processRefund = async (
     });
   } catch (error: any) {
     await t.rollback();
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * Tự động hủy các đơn hàng thanh toán không phải tiền mặt còn pending sau 1 ngày
+ *
+ * Quy trình:
+ * 1. Tìm các đơn hàng có paymentMethodId != 1 (không phải COD)
+ * 2. Đơn hàng có trạng thái "pending"
+ * 3. Đơn hàng tạo cách đây trên 1 ngày
+ * 4. Cập nhật trạng thái đơn hàng thành "cancelled"
+ * 5. Cập nhật trạng thái thanh toán thành 5 (cancelled)
+ * 6. Hoàn trả số lượng tồn kho
+ *
+ * @param req - Request
+ * @param res - Response
+ */
+export const autoCancelPendingOrders = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const t = await sequelize.transaction();
+
+  try {
+    // Tạo một ngày trước từ thời điểm hiện tại
+    const oneDayBefore = new Date();
+    oneDayBefore.setDate(oneDayBefore.getDate() - 1);
+
+    // Tìm các đơn hàng cần hủy: không phải COD (paymentMethodId != 1),
+    // đơn ở trạng thái pending và được tạo cách đây hơn 1 ngày
+    const pendingOrders = await Order.findAll({
+      where: {
+        paymentMethodId: { [Op.ne]: 1 }, // Không phải COD
+        status: "pending", // Đơn hàng đang ở trạng thái pending
+        createdAt: { [Op.lt]: oneDayBefore }, // Tạo cách đây hơn 1 ngày
+      },
+      include: [
+        {
+          model: OrderDetail,
+          as: "orderDetails",
+        },
+      ],
+      transaction: t,
+    });
+
+    if (pendingOrders.length === 0) {
+      await t.commit();
+      res.status(200).json({
+        message: "Không có đơn hàng nào cần hủy tự động",
+        cancelledCount: 0,
+      });
+      return;
+    }
+
+    let cancelledCount = 0;
+    const updatedProductIds = new Set<number>();
+
+    // Xử lý từng đơn hàng
+    for (const order of pendingOrders) {
+      // Cập nhật trạng thái đơn hàng thành cancelled và trạng thái thanh toán thành cancelled (5)
+      await order.update(
+        {
+          status: "cancelled",
+          paymentStatusId: 5, // Cancelled payment status
+          cancelNote: "Tự động hủy do không thanh toán sau 24 giờ",
+        },
+        { transaction: t }
+      );
+
+      // Hoàn trả số lượng tồn kho
+      const orderDetails = (order as any).orderDetails || [];
+      for (const detail of orderDetails) {
+        const productId = detail.productId;
+        updatedProductIds.add(productId);
+
+        // Tìm ProductDetail dựa trên productDetailId hoặc productId và color
+        let productDetail;
+        if (detail.productDetailId) {
+          productDetail = await ProductDetail.findByPk(detail.productDetailId, {
+            transaction: t,
+          });
+        } else {
+          productDetail = await ProductDetail.findOne({
+            where: { productId, color: detail.color },
+            transaction: t,
+          });
+        }
+
+        if (!productDetail) {
+          continue;
+        }
+
+        // Cập nhật lại tồn kho
+        const inventory = await ProductInventory.findOne({
+          where: { productDetailId: productDetail.id, size: detail.size },
+          transaction: t,
+        });
+
+        if (inventory) {
+          const currentStock = inventory.getDataValue("stock");
+          const newStock = currentStock + detail.quantity;
+          await inventory.update({ stock: newStock }, { transaction: t });
+        } else {
+          await ProductInventory.create(
+            {
+              productDetailId: productDetail.id,
+              size: detail.size,
+              stock: detail.quantity,
+            },
+            { transaction: t }
+          );
+        }
+      }
+
+      cancelledCount++;
+    }
+
+    // Cập nhật lại trạng thái sản phẩm dựa trên tồn kho
+    for (const productId of updatedProductIds) {
+      try {
+        // Truy vấn trạng thái sản phẩm
+        const product = await Product.findByPk(productId, { transaction: t });
+        if (!product) {
+          continue;
+        }
+
+        // Tính tổng tồn kho bằng Sequelize
+        const totalStock =
+          (await ProductInventory.sum("stock", {
+            where: {
+              productDetailId: {
+                [Op.in]: sequelize.literal(
+                  `(SELECT id FROM product_details WHERE productId = ${productId})`
+                ),
+              },
+            },
+            transaction: t,
+          })) || 0;
+
+        // Cập nhật trạng thái sản phẩm
+        if (totalStock > 0 && product.status !== "active") {
+          await sequelize.query(
+            `UPDATE products SET status = 'active', updatedAt = NOW() 
+             WHERE id = :productId AND status = 'outofstock'`,
+            {
+              replacements: { productId },
+              type: QueryTypes.UPDATE,
+              transaction: t,
+            }
+          );
+        } else if (totalStock === 0 && product.status !== "outofstock") {
+          await product.update({ status: "outofstock" }, { transaction: t });
+        }
+      } catch (error) {
+        console.error(
+          `[ERROR] Lỗi khi cập nhật trạng thái sản phẩm ID ${productId}:`,
+          error
+        );
+      }
+    }
+
+    // Commit transaction nếu mọi thứ thành công
+    await t.commit();
+
+    // Trả về kết quả thành công
+    res.status(200).json({
+      message: "Đã hủy tự động các đơn hàng quá hạn thanh toán",
+      cancelledCount,
+      orderIds: pendingOrders.map((order) => order.id),
+    });
+  } catch (error: any) {
+    // Rollback transaction nếu có lỗi
+    await t.rollback();
+    console.error("[ERROR] Lỗi khi hủy đơn hàng tự động:", {
+      message: error.message,
+      stack: error.stack,
+    });
     res.status(500).json({ message: error.message });
   }
 };

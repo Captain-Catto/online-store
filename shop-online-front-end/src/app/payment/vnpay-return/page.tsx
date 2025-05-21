@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header/Header";
 import Footer from "@/components/Footer/Footer";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
+import { OrderService } from "@/services/OrderService";
 
 function PaymentStatus() {
   const router = useRouter();
@@ -30,9 +31,7 @@ function PaymentStatus() {
           setStatus("error");
           setMessage("Không nhận được phản hồi từ VNPay");
           return;
-        }
-
-        // Check payment result based on response code
+        } // Check payment result based on response code
         if (vnp_ResponseCode === "00") {
           // Payment successful
           setStatus("success");
@@ -42,6 +41,18 @@ function PaymentStatus() {
             // Extract orderId from TxnRef (format: orderId_timestamp)
             const orderId = vnp_TxnRef.split("_")[0];
             sessionStorage.setItem("recentOrderId", orderId);
+
+            // Update payment status to "Paid" (paymentStatusId=2)
+            try {
+              await OrderService.updatePaymentStatus(orderId, 2);
+              console.log(
+                `Payment status updated successfully for order ${orderId}`
+              );
+            } catch (error) {
+              console.error("Failed to update payment status:", error);
+              // Continue with the payment success flow even if the status update fails
+              // The status can be updated later by admin if needed
+            }
           }
 
           setTimeout(() => {

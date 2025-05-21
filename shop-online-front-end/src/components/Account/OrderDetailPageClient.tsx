@@ -345,24 +345,26 @@ export default function OrderDetailPageClient({
                   </h3>
                   <div className="space-y-2">
                     <p>
-                      <span className="font-medium">Ngày đặt hàng:</span>{" "}
+                      <span className="font-medium">Ngày đặt hàng:</span>&bsp;
                       {formatDateTime(order.createdAt)}
                     </p>
                     <p>
                       <span className="font-medium">
                         Phương thức thanh toán:
-                      </span>{" "}
+                      </span>
+                      &bsp;
                       {mapPaymentMethod(order.paymentMethodId)}
                     </p>
                     <p>
                       <span className="font-medium">
                         Trạng thái thanh toán:
-                      </span>{" "}
+                      </span>
+                      &bsp;
                       {mapPaymentStatus(order.paymentStatusId)}
                     </p>
                     {order.cancelNote && (
                       <p>
-                        <span className="font-medium">Lý do hủy:</span>{" "}
+                        <span className="font-medium">Lý do hủy:</span>&bsp;
                         {order.cancelNote}
                       </p>
                     )}
@@ -374,11 +376,12 @@ export default function OrderDetailPageClient({
                   </h3>
                   <div className="space-y-2">
                     <p>
-                      <span className="font-medium">Địa chỉ giao hàng:</span>{" "}
+                      <span className="font-medium">Địa chỉ giao hàng:</span>
+                      &bsp;
                       {formatShippingAddress(order)}
                     </p>
                     <p>
-                      <span className="font-medium">Số điện thoại:</span>{" "}
+                      <span className="font-medium">Số điện thoại:</span>&bsp;
                       {order.shippingPhoneNumber}
                     </p>
                   </div>

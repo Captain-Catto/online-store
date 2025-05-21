@@ -10,8 +10,6 @@ import {
 import { formatCurrency } from "@/utils/currencyUtils";
 
 export const OrderService = {
-  // OrderService.ts
-  // Trong src/services/OrderService.ts
   getMyOrders: async (page = 1, limit = 10): Promise<PaginatedOrders> => {
     try {
       const response = await AuthClient.fetchWithAuth(
@@ -534,6 +532,41 @@ export const OrderService = {
       return await response.json();
     } catch (error) {
       console.error("Error canceling order:", error);
+      throw error;
+    }
+  },
+
+  // Cập nhật trạng thái thanh toán cho đơn hàng
+  updatePaymentStatus: async (
+    orderId: string | number,
+    paymentStatusId: number
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      const response = await AuthClient.fetchWithAuth(
+        `${API_BASE_URL}/orders/${orderId}/payment-status`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ paymentStatusId }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message ||
+            `Error ${response.status}: ${response.statusText}`
+        );
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error(
+        `Error updating payment status for order ${orderId}:`,
+        error
+      );
       throw error;
     }
   },

@@ -12,6 +12,7 @@ import { Order } from "@/types/order";
 import CancelOrderModal from "@/components/admin/dashboard/CancelOrderModal";
 import { formatCurrency } from "@/utils/currencyUtils";
 import { useToast } from "@/utils/useToast";
+import { getPaymentMethodName, getPaymentStatusName } from "@/types/payment";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
 
 export default function OrderDetailPage() {
@@ -359,9 +360,7 @@ export default function OrderDetailPage() {
                             Phương thức thanh toán
                           </th>
                           <td className="py-2 text-gray-800">
-                            {order.paymentMethodId === 1
-                              ? "Tiền mặt khi nhận hàng (COD)"
-                              : "Chuyển khoản ngân hàng"}
+                            {getPaymentMethodName(order.paymentMethodId)}
                           </td>
                         </tr>
                         <tr>
@@ -369,9 +368,7 @@ export default function OrderDetailPage() {
                             Trạng thái thanh toán
                           </th>
                           <td className="py-2 text-gray-800">
-                            {order.paymentStatusId === 1
-                              ? "Chưa thanh toán"
-                              : "Đã thanh toán"}
+                            {getPaymentStatusName(order.paymentStatusId)}
                           </td>
                         </tr>
                         <tr>
@@ -453,7 +450,8 @@ export default function OrderDetailPage() {
                             Địa chỉ giao hàng
                           </th>
                           <td className="py-2 text-gray-800">
-                            {order.shippingStreetAddress}, {order.shippingWard},{" "}
+                            {order.shippingStreetAddress}, {order.shippingWard}
+                            ,&bsp;
                             {order.shippingDistrict}, {order.shippingCity}
                           </td>
                         </tr>

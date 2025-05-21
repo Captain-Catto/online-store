@@ -14,6 +14,7 @@ import {
   updateShippingAddress,
   getAllOrders,
   processRefund,
+  autoCancelPendingOrders,
 } from "../controllers/OrderEdit.controller";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import {
@@ -89,5 +90,13 @@ router.put("/:id/cancel", authMiddleware, cancelOrder);
 
 // Tính phí vận chuyển cho giỏ hàng
 router.post("/shipping-fee", calculateShippingFeeForCart);
+
+// Tự động hủy đơn hàng thanh toán khác tiền mặt sau 1 ngày
+router.post(
+  "/auto-cancel-pending",
+  authMiddleware,
+  roleMiddleware([1]),
+  autoCancelPendingOrders
+);
 
 export default router;
