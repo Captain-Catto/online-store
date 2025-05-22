@@ -90,10 +90,17 @@ export default function AdminSidebar({
     );
   };
 
+  const getHomePath = () => {
+    if (user?.role === 2) {
+      return "/admin/users";
+    }
+    return "/admin";
+  };
+
   return (
     <aside className="main-sidebar sidebar-dark-primary elevation-4">
       {/* Brand Logo */}
-      <Link href="/admin" className="brand-link">
+      <Link href={getHomePath()} className="brand-link">
         <span className="brand-text font-weight-light">Shop Online Admin</span>
       </Link>
 

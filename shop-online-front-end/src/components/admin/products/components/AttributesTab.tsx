@@ -7,6 +7,7 @@ import {
   ProductDetailType,
   ProductInventory,
 } from "@/components/admin/products/types";
+import { formatNumberWithCommas, parseCurrency } from "@/utils/currencyUtils";
 
 interface AttributesTabProps {
   suitabilities: Array<{ id: number; name: string }>;
@@ -202,22 +203,14 @@ const AttributesTab: React.FC<AttributesTabProps> = memo(
     const handlePriceChange = (
       detailIndex: number,
       field: string,
-      value: number | string
+      value: string
     ): void => {
-      // đảm bảo giá trị là số
-      let numValue = typeof value === "string" ? parseFloat(value) : value;
-
-      // nếu giá trị không hợp lệ hoặc nhỏ hơn 0, đặt lại về 0
-      if (isNaN(numValue) || numValue < 0) {
-        numValue = 0;
-      }
+      // Chuyển đổi giá trị từ định dạng có dấu phân cách sang số
+      const numValue = parseCurrency(value);
 
       // sao chép danh sách chi tiết sản phẩm hiện tại
       // để không làm thay đổi trực tiếp state
       const updatedDetails = [...product.details];
-
-      // cập nhật giá trị tương ứng trong danh sách chi tiết
-      // sử dụng detailIndex để xác định chi tiết nào cần cập nhật
       updatedDetails[detailIndex] = {
         ...updatedDetails[detailIndex],
         [field]: numValue,
@@ -309,11 +302,9 @@ const AttributesTab: React.FC<AttributesTabProps> = memo(
                                 </td>
                                 <td>
                                   <input
-                                    type="number"
+                                    type="text"
                                     className="form-control"
-                                    value={detail.price}
-                                    min="0"
-                                    step="1000"
+                                    value={formatNumberWithCommas(detail.price)}
                                     onChange={(e) =>
                                       handlePriceChange(
                                         detailIndex,
@@ -325,9 +316,11 @@ const AttributesTab: React.FC<AttributesTabProps> = memo(
                                 </td>
                                 <td>
                                   <input
-                                    type="number"
+                                    type="text"
                                     className="form-control"
-                                    value={detail.originalPrice || detail.price}
+                                    value={formatNumberWithCommas(
+                                      detail.originalPrice || detail.price
+                                    )}
                                     min="0"
                                     step="1000"
                                     onChange={(e) =>
