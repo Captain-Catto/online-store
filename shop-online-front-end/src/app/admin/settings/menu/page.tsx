@@ -215,9 +215,10 @@ export default function AdminMenuManagement() {
 
     if (!draggedItem || !targetItem) return;
 
-    try {
-      setLoading(true);
+    // Lưu bản sao của menuItems hiện tại để phục hồi nếu có lỗi
+    const originalItems = [...menuItems];
 
+    try {
       // Xác định index mới cho các item
       const oldIndex = menuItems.findIndex(
         (item) => item.id === draggedItem.id
@@ -233,23 +234,40 @@ export default function AdminMenuManagement() {
         displayOrder: index + 1,
       }));
 
+      // Cập nhật UI ngay lập tức để tránh nhấp nháy
       setMenuItems(updatedItems);
 
+      // Hiển thị thông báo "đang cập nhật" nhưng không block UI
+      showToast("Đang cập nhật thứ tự menu...", {
+        type: "info",
+        duration: 1000,
+      });
+
       // Gọi API để cập nhật thứ tự trên server
-      await AdminMenuService.updateMenuOrder(
+      const result = await AdminMenuService.updateMenuOrder(
         updatedItems.map((item) => ({
           id: item.id,
           displayOrder: item.displayOrder,
         }))
       );
 
-      showToast("Đã cập nhật thứ tự menu", { type: "success" });
+      // Hiển thị thông báo thành công từ API (hoặc thông báo mặc định)
+      showToast(result?.message || "Đã cập nhật thứ tự menu", {
+        type: "success",
+      });
+
+      // Không cần gọi loadMenuItems() vì chúng ta đã cập nhật state đúng
     } catch (error) {
-      showToast(error as string, { type: "error" });
-      // Load lại dữ liệu nếu có lỗi
-      await loadMenuItems();
-    } finally {
-      setLoading(false);
+      // Khôi phục trạng thái ban đầu nếu có lỗi
+      setMenuItems(originalItems);
+
+      // Hiển thị thông báo lỗi
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Có lỗi xảy ra khi cập nhật thứ tự menu";
+
+      showToast(errorMessage, { type: "error", duration: 5000 });
     }
   };
 

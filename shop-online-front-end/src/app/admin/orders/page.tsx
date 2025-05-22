@@ -261,8 +261,8 @@ export default function OrdersPage() {
     try {
       // Redirect to order detail page using link
       router.push(`/admin/orders/${orderId}`);
-    } catch {
-      showToast("Không thể cập nhật trạng thái đơn hàng", { type: "error" });
+    } catch (error) {
+      showToast(error as string, { type: "error" });
     }
   };
 

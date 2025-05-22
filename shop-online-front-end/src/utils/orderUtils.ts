@@ -43,7 +43,7 @@ export const mapOrderStatus = (status: string) => {
     processing: "Đang xử lý",
     shipping: "Đang vận chuyển",
     delivered: "Đã giao hàng",
-    canceled: "Đã hủy",
+    cancelled: "Đã hủy",
     refunded: "Đã hoàn tiền",
   };
   return statusMap[status] || status;

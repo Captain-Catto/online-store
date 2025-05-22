@@ -381,7 +381,7 @@ export const OrderService = {
   updateOrderStatus: async (
     orderId: number | string,
     status: string
-  ): Promise<{ success: boolean; message: string }> => {
+  ): Promise<{ order: Order; message: string }> => {
     try {
       const response = await AuthClient.fetchWithAuth(
         `${API_BASE_URL}/orders/${orderId}/status`,

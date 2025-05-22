@@ -14,6 +14,7 @@ import { formatCurrency } from "@/utils/currencyUtils";
 import { useToast } from "@/utils/useToast";
 import { getPaymentMethodName, getPaymentStatusName } from "@/types/payment";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
+import { OrderService } from "@/services/OrderService";
 
 export default function OrderDetailPage() {
   const { id } = useParams() as { id: string };
@@ -124,6 +125,7 @@ export default function OrderDetailPage() {
   };
 
   // Xử lý thay đổi trạng thái đơn hàng
+
   const handleUpdateStatus = async () => {
     if (order && orderStatus === order.status) {
       return; // Không có thay đổi
@@ -132,37 +134,34 @@ export default function OrderDetailPage() {
     try {
       setUpdating(true);
 
-      // Call API to update order status
-      const response = await AuthClient.fetchWithAuth(
-        `${API_BASE_URL}/orders/${id}/status`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ status: orderStatus }),
+      // Gọi API cập nhật trạng thái
+      const result = await OrderService.updateOrderStatus(id, orderStatus);
+
+      // Kiểm tra và xử lý kết quả trả về - result có cấu trúc { message, order }
+      if (result && result.order) {
+        // Cập nhật state local với dữ liệu đơn hàng mới từ API
+        setOrder(result.order);
+        setOrderStatus(result.order.status);
+
+        // Hiển thị thông báo thành công từ message trả về của API
+        showToast(result.message || "Cập nhật trạng thái đơn hàng thành công", {
+          type: "success",
+          duration: 3000,
+        });
+      } else {
+        // Trường hợp API không trả về order nhưng vẫn thành công
+        if (order) {
+          // Fallback: cập nhật state local với trạng thái đã gửi đi
+          setOrder({ ...order, status: orderStatus });
         }
-      );
 
-      if (!response.ok) {
-        throw new Error("Không thể cập nhật trạng thái đơn hàng");
+        showToast(result.message || "Cập nhật trạng thái đơn hàng thành công", {
+          type: "success",
+          duration: 3000,
+        });
       }
-
-      const data = await response.json();
-
-      // Update order data with the response
-      if (data.order) {
-        setOrder(data.order);
-        setOrderStatus(data.order.status);
-      }
-
-      // Hiển thị toast thông báo thành công
-      showToast("Cập nhật trạng thái đơn hàng thành công", {
-        type: "success",
-        duration: 3000,
-      });
     } catch (error) {
-      // Hiển thị toast lỗi
+      // Xử lý lỗi - API trả về lỗi hoặc có exception
       showToast(
         error instanceof Error
           ? error.message

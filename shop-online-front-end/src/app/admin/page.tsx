@@ -69,7 +69,7 @@ export default function AdminDashboardPage() {
               processing: "bg-warning",
               shipping: "bg-info",
               delivered: "bg-success",
-              canceled: "bg-danger",
+              cancelled: "bg-danger",
             };
             return statusMap[status] || "bg-secondary";
           };

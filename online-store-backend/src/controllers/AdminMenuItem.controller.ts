@@ -193,9 +193,9 @@ export const updateMenuOrder = async (req: Request, res: Response) => {
       }
     });
 
-    res.json({ message: "Menu order updated successfully" });
+    res.json({ message: "Menu order đã được update thành công" });
   } catch (error) {
     console.error("Error updating menu order:", error);
-    res.status(500).json({ message: "Failed to update menu order" });
+    res.status(500).json({ message: "Menu order update thất bại" });
   }
 };

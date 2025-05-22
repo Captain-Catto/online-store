@@ -67,20 +67,30 @@ export const AdminMenuService = {
     // Không cần trả về gì nếu thành công (status 204)
   },
 
+  // Sửa phương thức updateMenuOrder
+
   updateMenuOrder: async (
     items: { id: number; displayOrder: number }[]
-  ): Promise<void> => {
-    const response = await AuthClient.fetchWithAuth(`${API_URL}/order`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items }),
-    });
+  ): Promise<{ message: string }> => {
+    try {
+      const response = await AuthClient.fetchWithAuth(`${API_URL}/order`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items }),
+      });
 
-    if (!response.ok) {
-      const errorData = await response
-        .json()
-        .catch(() => ({ message: "Failed to update menu order" }));
-      throw new Error(errorData.message || "Failed to update menu order");
+      // Parse response một lần duy nhất
+      const data = await response.json();
+
+      // Kiểm tra status code
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to update menu order");
+      }
+
+      // Trả về dữ liệu thành công
+      return data;
+    } catch (error) {
+      throw error;
     }
   },
 };

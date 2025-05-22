@@ -823,11 +823,13 @@ export const ProductService = {
           body: JSON.stringify(sizeData),
         }
       );
+      const responseData = await response.json();
 
       if (!response.ok) {
-        throw new Error("Không thể tạo kích thước");
+        const errorMessage = responseData.message || "Không thể tạo kích thước";
+        throw new Error(errorMessage);
       }
-      return await response.json();
+      return responseData;
     } catch (error) {
       throw error;
     }

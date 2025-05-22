@@ -462,49 +462,6 @@ export const getOrderById = async (
 };
 
 /**
- * Update order status (admin only)
- */
-export const updateOrderStatus = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  const t = await sequelize.transaction();
-
-  try {
-    const { id } = req.params;
-    const { status, paymentStatusId } = req.body;
-
-    const order = await Order.findByPk(id, { transaction: t });
-
-    if (!order) {
-      await t.rollback();
-      res.status(404).json({ message: "Đơn hàng không tồn tại" });
-      return;
-    }
-
-    // Cập nhật trạng thái
-    await order.update(
-      {
-        status: status || order.getDataValue("status"),
-        paymentStatusId:
-          paymentStatusId || order.getDataValue("paymentStatusId"),
-      },
-      { transaction: t }
-    );
-
-    await t.commit();
-
-    res.status(200).json({
-      message: "Cập nhật trạng thái đơn hàng thành công",
-      order,
-    });
-  } catch (error: any) {
-    await t.rollback();
-    res.status(500).json({ message: error.message });
-  }
-};
-
-/**
  * Calculate shipping fee based on order total and shipping address
  */
 const calculateShippingFee = (

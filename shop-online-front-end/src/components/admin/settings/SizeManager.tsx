@@ -120,8 +120,14 @@ const SizeManager: React.FC = () => {
         displayOrder: 0,
       });
       loadSizes();
-    } catch {
-      showToast("Không thể thêm kích thước", { type: "error" });
+    } catch (error) {
+      // Sửa phần xử lý lỗi tại đây
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Không thể thêm kích thước mới";
+
+      showToast(errorMessage, { type: "error" });
     }
   };
 
