@@ -306,6 +306,7 @@ export default function ProductDetailPageClient({
                               }`}
                               fill
                               sizes="80px"
+                              loading="lazy"
                               className="object-cover rounded-lg p-0.5"
                             />
                           </div>
@@ -314,15 +315,16 @@ export default function ProductDetailPageClient({
                   </div>
 
                   {/* Hình ảnh chính */}
-                  {currentImage && ( // Chỉ render khi có currentImage
+                  {currentImage && (
                     <div className="relative flex-1 aspect-square sm:aspect-[5/6] w-full rounded-xl">
                       <Image
                         src={currentImage}
                         alt={product?.name || "Product image"}
                         fill
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 70vw, 640px" // Cấu hình sizes tối ưu hơn
                         className="rounded-lg object-cover transition-opacity duration-300"
-                        priority
+                        priority={selectedColor !== ""} // Chỉ priority khi đã chọn màu
+                        loading={selectedColor !== "" ? "eager" : "lazy"} // Tải nhanh khi đã chọn màu
                       />
                     </div>
                   )}

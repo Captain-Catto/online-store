@@ -107,15 +107,14 @@ export default function AdminSidebar({
       {/* Sidebar */}
       <div className="sidebar">
         {/* Sidebar user panel */}
-        <div className="user-panel mt-3 pb-3 d-flex">
-          <div className="flex items-center justify-center">
+        <div className="user-panel mt-3 pb-3 d-flex items-center">
+          <div className="flex items-center justify-center w-12 h-12">
             <Image
               src={logo}
               alt="Shop Online Logo"
-              width={50}
-              height={50}
-              priority
-              loading="eager"
+              sizes="100%"
+              priority={false}
+              loading="lazy"
             />
           </div>
           <div className="info">

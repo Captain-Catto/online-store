@@ -148,7 +148,7 @@ export const deleteNavigationMenu = async (
     }
 
     await menu.destroy();
-    res.json({ message: "Đã xóa menu thành công" });
+    res.status(200).json({ message: "Đã xóa menu thành công" });
   } catch (error) {
     res.status(500).json({ message: "Lỗi khi xóa menu", error });
   }

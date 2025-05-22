@@ -14,7 +14,6 @@ interface RecentOrdersTableProps {
 }
 
 export default function RecentOrdersTable({ orders }: RecentOrdersTableProps) {
-  console.log("RecentOrdersTable orders:", orders);
   return (
     <div className="card">
       <div className="card-header">

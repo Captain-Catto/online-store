@@ -208,29 +208,46 @@ export default function NavigationManagement() {
   };
 
   // Hàm thực hiện xóa sau khi đã xác nhận
+  // Sửa hàm handleConfirmDelete để hiển thị đúng message từ backend
+
   const handleConfirmDelete = async () => {
     if (!deleteConfirmation.itemId) return;
 
     try {
-      await NavigationService.deleteMenuItem(deleteConfirmation.itemId);
-      // Tải lại danh sách menu
-      const menuData = await NavigationService.getAllMenuItems();
-      setMenuItems(menuData);
+      // Gọi API xóa menu và lưu kết quả trả về
+      const result = await NavigationService.deleteMenuItem(
+        deleteConfirmation.itemId
+      );
 
-      // Cập nhật navbar
-      await refreshNavigation();
+      // Kiểm tra trạng thái dựa trên message
+      if (
+        result.message.toLowerCase().includes("không thể") ||
+        result.message.toLowerCase().includes("lỗi")
+      ) {
+        // Message báo lỗi
+        showToast(result.message, { type: "error", duration: 4000 });
+      } else {
+        // Message thành công
+        showToast(result.message, { type: "success" });
 
-      // Hiển thị thông báo thành công
-      showToast("Xóa mục menu thành công", { type: "success" });
+        // Tải lại danh sách menu
+        const menuData = await NavigationService.getAllMenuItems();
+        // Cập nhật danh sách menu trong state
+        setMenuItems(menuData);
+        // Cập nhật navbar
+        await refreshNavigation();
+      }
     } catch {
-      setError("Không thể xóa menu. Vui lòng thử lại.");
-      showToast("Không thể xóa menu", { type: "error" });
+      // Chỉ xử lý các lỗi không mong muốn (network, etc.)
+      showToast("Có lỗi xảy ra khi kết nối đến server", {
+        type: "error",
+        duration: 4000,
+      });
     } finally {
-      // Đóng modal sau khi hoàn tất
+      // Đóng modal xác nhận xóa
       handleCancelDelete();
     }
   };
-
   // Xử lý khi bắt đầu kéo
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id.toString());

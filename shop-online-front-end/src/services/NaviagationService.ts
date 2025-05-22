@@ -109,8 +109,9 @@ export class NavigationService {
       throw error;
     }
   }
+  // Sửa phương thức deleteMenuItem để hiển thị message từ backend
 
-  static async deleteMenuItem(id: number): Promise<void> {
+  static async deleteMenuItem(id: number): Promise<{ message: string }> {
     try {
       // Sử dụng fetchWithAuth với options
       const response = await AuthClient.fetchWithAuth(
@@ -120,11 +121,42 @@ export class NavigationService {
         }
       );
 
-      if (!response.ok) {
-        throw new Error("Không thể xóa menu");
+      // Nếu status 204 (No Content) - đây là thành công không có body
+      if (response.status === 204) {
+        return { message: "Đã xóa menu thành công" };
+      }
+
+      // Đối với tất cả các status code khác, cố gắng đọc JSON response
+      try {
+        const responseData = await response.json();
+
+        // Nếu không thành công, trả về message từ API thay vì throw error
+        if (!response.ok) {
+          // Sử dụng message từ API hoặc message mặc định
+          return { message: responseData.message || "Không thể xóa menu" };
+        }
+
+        // Trường hợp thành công với body
+        return responseData;
+      } catch {
+        // Lỗi khi parse JSON (không có body hoặc body không phải JSON)
+        if (!response.ok) {
+          // Không trả về mã lỗi, chỉ trả về thông báo chung
+          return { message: "Không thể xóa menu" };
+        }
+
+        // Fallback cho thành công
+        return { message: "Đã xóa menu thành công" };
       }
     } catch (error) {
-      throw error;
+      console.error("Error deleting menu item:", error);
+
+      // Trả về message lỗi thay vì throw
+      if (error instanceof Error) {
+        return { message: error.message };
+      } else {
+        return { message: "Có lỗi xảy ra khi xóa menu" };
+      }
     }
   }
 }

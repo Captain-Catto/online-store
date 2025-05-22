@@ -282,7 +282,6 @@ export default function ReportsPage() {
       const lowStockResponse = await ReportsService.getLowStockProductsReport(
         params
       );
-      console.log("Low stock products response:", lowStockResponse);
       setLowStockProducts(lowStockResponse || []);
     } catch (err: unknown) {
       if (err instanceof Error) {
