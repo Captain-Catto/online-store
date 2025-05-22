@@ -88,7 +88,6 @@ export default function CategoriesManagement() {
       try {
         setLoading(true);
         const data = await CategoryService.getAllCategories();
-        console.log("Fetched categories:", data);
 
         // Nếu dữ liệu trả về có cấu trúc phân cấp, cần phẳng hóa
         const flattenedData = flattenCategories(data);
@@ -101,8 +100,7 @@ export default function CategoriesManagement() {
           .map((category) => category.id);
         setExpandedCategories(new Set(parentIds));
       } catch (error) {
-        console.error("Error fetching categories:", error);
-        showToast("Không thể tải danh mục", { type: "error" });
+        showToast(error as string, { type: "error" });
         setLoading(false);
       }
     };
@@ -378,8 +376,7 @@ export default function CategoriesManagement() {
       const flattenedData = flattenCategories(data);
       setCategories(flattenedData);
     } catch (error) {
-      console.error("Error saving category:", error);
-      showToast("Lỗi khi lưu danh mục", { type: "error" });
+      showToast(error as string, { type: "error" });
     }
   };
 
@@ -480,8 +477,7 @@ export default function CategoriesManagement() {
       const flattenedData = flattenCategories(data);
       setCategories(flattenedData);
     } catch (error) {
-      console.error("Error deleting category:", error);
-      showToast("Lỗi khi xóa danh mục", { type: "error" });
+      showToast(error as string, { type: "error" });
     } finally {
       // Đóng modal sau khi hoàn tất
       handleCancelDelete();

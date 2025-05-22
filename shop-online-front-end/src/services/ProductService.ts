@@ -73,17 +73,13 @@ export const ProductService = {
         });
       }
 
-      console.log("Query Params:", params.toString());
-
       const response = await fetch(
         `${API_BASE_URL}/products?${params.toString()}`
       );
       const data = await response.json();
-      console.log("API Response:", data);
       if (!response.ok) throw new Error("Network response was not ok");
       return await data;
     } catch (error) {
-      console.error("Error fetching products:", error);
       throw error;
     }
   },
@@ -95,7 +91,6 @@ export const ProductService = {
       if (!response.ok) throw new Error("Network response was not ok");
       return await response.json();
     } catch (error) {
-      console.error("Error fetching product details:", error);
       throw error;
     }
   },
@@ -109,8 +104,6 @@ export const ProductService = {
     }
 
     try {
-      console.log("Sending product data with credentials included");
-
       const response = await fetch(`${API_BASE_URL}/products`, {
         method: "POST",
         headers: {
@@ -122,34 +115,25 @@ export const ProductService = {
 
       if (response.status === 401) {
         // Xử lý cụ thể cho lỗi xác thực
-        console.error("Authentication failed: 401 Unauthorized");
         throw new Error(
           "Bạn chưa đăng nhập hoặc phiên làm việc đã hết hạn. Vui lòng đăng nhập lại."
         );
       }
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("API error response:", errorText);
         throw new Error(
           `Lỗi tạo sản phẩm: ${response.status} ${response.statusText}`
         );
       } // Parse and log the response
       const responseData = await response.json();
-      console.log("API Response from createProduct:", responseData);
 
       // The backend returns productId instead of id, so normalize it here
       if (!responseData.id && responseData.productId) {
-        console.log(
-          "Normalizing API response: mapping productId to id",
-          responseData.productId
-        );
         responseData.id = responseData.productId;
       }
 
       // Additional fallback checks
       if (!responseData.id) {
-        console.error("Missing product ID in API response:", responseData);
         // Look for ID in other fields
         const possibleProduct = responseData.product || {};
         const productId =
@@ -159,14 +143,12 @@ export const ProductService = {
           possibleProduct.productId;
 
         if (productId) {
-          console.log("Found product ID in alternate location:", productId);
           responseData.id = productId;
         }
       }
 
       return responseData;
     } catch (error) {
-      console.error("Error creating product:", error);
       throw error;
     }
   },
@@ -193,7 +175,6 @@ export const ProductService = {
       if (!response.ok) throw new Error("Network response was not ok");
       return await response.json();
     } catch (error) {
-      console.error("Error uploading product images:", error);
       throw error;
     }
   },
@@ -240,10 +221,6 @@ export const ProductService = {
       if (!response.ok) throw new Error("Network response was not ok");
       return await response.json();
     } catch (error) {
-      console.error(
-        `Error fetching products for category ${categoryId}:`,
-        error
-      );
       throw error;
     }
   },
@@ -255,7 +232,6 @@ export const ProductService = {
       if (!response.ok) throw new Error("Network response was not ok");
       return await response.json();
     } catch (error) {
-      console.error("Error fetching suitabilities:", error);
       throw error;
     }
   },
@@ -268,7 +244,6 @@ export const ProductService = {
         throw new Error(`Failed to fetch product variants: ${response.status}`);
       return await response.json();
     } catch (error) {
-      console.error(`Error fetching product variants for ID ${id}:`, error);
       throw error;
     }
   },
@@ -312,7 +287,6 @@ export const ProductService = {
       if (product.subtypeId !== null && product.subtypeId !== undefined) {
         formData.append("subtypeId", product.subtypeId.toString());
       } // Gửi request đến API
-      console.log("Sending request to create product with images");
       const response = await fetch(`${API_BASE_URL}/products/`, {
         method: "POST",
         headers: {
@@ -332,20 +306,14 @@ export const ProductService = {
 
       // Parse and log the response
       const responseData = await response.json();
-      console.log("API Response from createProductWithImages:", responseData);
 
       // The backend returns productId instead of id, so normalize it here
       if (!responseData.id && responseData.productId) {
-        console.log(
-          "Normalizing API response: mapping productId to id",
-          responseData.productId
-        );
         responseData.id = responseData.productId;
       }
 
       // Additional fallback checks
       if (!responseData.id) {
-        console.error("Missing product ID in API response:", responseData);
         // Look for ID in other fields
         const possibleProduct = responseData.product || {};
         const productId =
@@ -355,14 +323,12 @@ export const ProductService = {
           possibleProduct.productId;
 
         if (productId) {
-          console.log("Found product ID in alternate location:", productId);
           responseData.id = productId;
         }
       }
 
       return responseData;
     } catch (error) {
-      console.error("Error creating product with images:", error);
       throw error;
     }
   },
@@ -486,12 +452,6 @@ export const ProductService = {
     productId: string | number,
     imageIds: number[]
   ) => {
-    console.log(
-      `Attempting to delete images: ${JSON.stringify(
-        imageIds
-      )} from product ${productId}`
-    );
-
     // Validate inputs
     if (!imageIds || imageIds.length === 0) {
       console.warn("No image IDs provided for deletion");
@@ -508,12 +468,6 @@ export const ProductService = {
       return { message: "No valid images to delete", removedCount: 0 };
     }
 
-    console.log(
-      `Proceeding with deletion of ${
-        validImageIds.length
-      } valid images: ${JSON.stringify(validImageIds)}`
-    );
-
     const token = sessionStorage.getItem("authToken");
     if (!token) throw new Error("Token không hợp lệ");
     try {
@@ -529,20 +483,16 @@ export const ProductService = {
         }
       );
 
-      console.log(`Delete images response status: ${response.status}`);
-
       if (!response.ok) {
         let errorMsg = `Lỗi khi xóa hình ảnh: ${response.status} ${response.statusText}`;
 
         try {
           const errorData = await response.json();
-          console.error("Image deletion error:", errorData);
           if (errorData && errorData.message) {
             errorMsg = errorData.message;
           }
         } catch {
           const errorText = await response.text();
-          console.error("Image deletion error text:", errorText);
           errorMsg = `Lỗi khi xóa hình ảnh: ${errorText}`;
         }
 
@@ -550,10 +500,8 @@ export const ProductService = {
       }
 
       const result = await response.json();
-      console.log("Image deletion successful:", result);
       return result;
     } catch (error) {
-      console.error("Error removing product images:", error);
       throw error;
     }
   },
@@ -562,8 +510,6 @@ export const ProductService = {
     if (!token) throw new Error("Token không hợp lệ");
 
     try {
-      console.log(`Setting image ${imageId} as main for product ${productId}`);
-
       const response = await fetch(
         `${API_BASE_URL}/products/${productId}/images/${imageId}/main`,
         {
@@ -593,10 +539,8 @@ export const ProductService = {
       }
 
       const result = await response.json();
-      console.log("Set main image response:", result);
       return result;
     } catch (error) {
-      console.error("Error setting main image:", error);
       throw error;
     }
   },
@@ -607,7 +551,6 @@ export const ProductService = {
       if (!response.ok) throw new Error("Network response was not ok");
       return await response.json();
     } catch (error) {
-      console.error("Error fetching sizes:", error);
       throw error;
     }
   },
@@ -621,7 +564,6 @@ export const ProductService = {
       if (!response.ok) throw new Error("Network response was not ok");
       return await response.json();
     } catch (error) {
-      console.error(`Error fetching sizes for category ${categoryId}:`, error);
       throw error;
     }
   },
@@ -801,7 +743,6 @@ export const ProductService = {
               inventoryData
             );
           } catch (error) {
-            console.error("Lỗi khi cập nhật tồn kho:", error);
             if (error instanceof Error) {
               throw new Error(`Lỗi khi cập nhật tồn kho: ${error.message}`);
             }
@@ -811,7 +752,6 @@ export const ProductService = {
           try {
             await ProductService.updateProductVariants(productId, variantData);
           } catch (error) {
-            console.error("Lỗi khi cập nhật biến thể:", error);
             if (error instanceof Error) {
               throw new Error(`Lỗi khi cập nhật biến thể: ${error.message}`);
             }
@@ -822,11 +762,6 @@ export const ProductService = {
           removedData.removedImageIds &&
           removedData.removedImageIds.length > 0
         ) {
-          console.log(
-            `Processing image deletion: ${
-              removedData.removedImageIds.length
-            } images to remove: ${JSON.stringify(removedData.removedImageIds)}`
-          );
           try {
             // Check if we have valid numeric image IDs before attempting to delete
             const validImageIds = removedData.removedImageIds.filter(
@@ -834,43 +769,21 @@ export const ProductService = {
             );
 
             if (validImageIds.length > 0) {
-              console.log(
-                `Sending ${
-                  validImageIds.length
-                } valid image IDs for deletion: ${JSON.stringify(
-                  validImageIds
-                )}`
-              );
-
-              // Call our removeProductImages method directly with the valid IDs
-              const result = await ProductService.removeProductImages(
+              // Call our removeProductImages method to delete the images
+              await ProductService.removeProductImages(
                 productId,
                 validImageIds
               );
-
-              console.log("Image deletion result:", result);
-
-              // You could add additional processing here if needed
-              if (result && result.removedCount) {
-                console.log(
-                  `Successfully deleted ${result.removedCount} images`
-                );
-              }
             } else {
-              console.log("No valid image IDs to delete");
             }
           } catch (imgError) {
-            console.error("Failed to delete images:", imgError);
             throw new Error(
               `Lỗi khi xóa hình ảnh: ${
                 imgError instanceof Error ? imgError.message : "Không xác định"
               }`
             );
           }
-        } else {
-          console.log("No images to delete");
         }
-
         // Xóa chi tiết sản phẩm nếu có
         if (removedData.removedDetailIds.length > 0) {
           await ProductService.removeProductDetails(
@@ -878,7 +791,6 @@ export const ProductService = {
           );
         }
       } catch (error) {
-        console.error("Error during product update operations:", error);
         throw error;
       }
 
@@ -888,7 +800,6 @@ export const ProductService = {
         productId,
       };
     } catch (error) {
-      console.error("Error updating product:", error);
       if (error instanceof Error) {
         throw new Error(`Lỗi cập nhật sản phẩm: ${error.message}`);
       }
@@ -918,7 +829,6 @@ export const ProductService = {
       }
       return await response.json();
     } catch (error) {
-      console.error("Lỗi khi tạo kích thước:", error);
       throw error;
     }
   },
@@ -949,7 +859,6 @@ export const ProductService = {
       }
       return await response.json();
     } catch (error) {
-      console.error("Lỗi khi cập nhật kích thước:", error);
       throw error;
     }
   },
@@ -968,7 +877,6 @@ export const ProductService = {
         throw new Error("Không thể xóa kích thước");
       }
     } catch (error) {
-      console.error("Lỗi khi xóa kích thước:", error);
       throw error;
     }
   },

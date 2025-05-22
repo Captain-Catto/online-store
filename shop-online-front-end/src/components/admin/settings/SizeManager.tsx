@@ -69,9 +69,8 @@ const SizeManager: React.FC = () => {
         }))
       );
       setError(null);
-    } catch (err) {
+    } catch {
       setError("Không thể tải danh sách kích thước");
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -84,8 +83,7 @@ const SizeManager: React.FC = () => {
       setCategories(
         data.map((category) => ({ ...category, id: Number(category.id) }))
       );
-    } catch (err) {
-      console.error("Không thể tải danh sách danh mục", err);
+    } catch {
       showToast("Không thể tải danh sách danh mục", { type: "error" });
     }
   }, [showToast]);

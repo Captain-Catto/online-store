@@ -56,15 +56,19 @@ export function useAuth(redirectTo?: string) {
                 // Kiểm tra nếu user có role === 1 (admin role) và role == 2 (employee role)
                 setIsAdmin(userData.role === 1);
                 setIsEmployee(userData.role === 2);
-              } catch (e) {
-                console.error("Error parsing user data:", e);
+              } catch {
+                // Nếu có lỗi khi phân tích cú pháp, xóa user khỏi localStorage
+                localStorage.removeItem("user");
+                setUser(null);
+                setIsAdmin(false);
+                setIsEmployee(false);
               }
             }
 
             setIsLoggedIn(true);
-          } catch (error) {
-            // Token is invalid or expired and couldn't be refreshed
-            console.error("Auth validation error:", error);
+          } catch {
+            // token ko có hoặc hết hạn và ko thể làm mới
+            // xử lý logout và chuyển về trang đăng nhập
             await handleLogout();
 
             if (redirectTo) {
@@ -90,8 +94,7 @@ export function useAuth(redirectTo?: string) {
                 router.push(redirectTo);
               }
             }
-          } catch (error) {
-            console.error("Token refresh error:", error);
+          } catch {
             await handleLogout();
 
             if (redirectTo) {
@@ -107,8 +110,7 @@ export function useAuth(redirectTo?: string) {
             router.push(redirectTo);
           }
         }
-      } catch (error) {
-        console.error("Auth check error:", error);
+      } catch {
         setIsLoggedIn(false);
         setUser(null);
       } finally {

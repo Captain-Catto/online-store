@@ -17,7 +17,7 @@ export default function AdminSidebar({
 }: AdminSidebarProps) {
   const pathname = usePathname();
   const { hierarchicalMenu, loading, error } = useAdminMenu();
-  const [user, setUser] = useState<{ name: string } | null>(null);
+  const [user, setUser] = useState<{ name: string; role: number } | null>(null);
 
   // Đọc localStorage trong useEffect để tránh lỗi hydration
   useEffect(() => {
@@ -26,10 +26,21 @@ export default function AdminSidebar({
       if (userString) {
         setUser(JSON.parse(userString));
       }
-    } catch (error) {
-      console.error("Lỗi khi đọc user từ localStorage:", error);
+    } catch {
+      // console.error("Lỗi khi đọc user từ localStorage:", error);
     }
   }, []);
+
+  const getDisplayRole = () => {
+    if (!user) return "Admin";
+
+    // Kiểm tra role của user
+    if (user?.role === 1) {
+      return "Quản trị viên";
+    } else {
+      return "Nhân viên";
+    }
+  };
 
   // Hàm render menu item
   const renderMenuItem = (item: HierarchicalMenuItem) => {
@@ -89,8 +100,8 @@ export default function AdminSidebar({
       {/* Sidebar */}
       <div className="sidebar">
         {/* Sidebar user panel */}
-        <div className="user-panel mt-3 pb-3 mb-3 d-flex">
-          <div className="image">
+        <div className="user-panel mt-3 pb-3 d-flex">
+          <div className="flex items-center justify-center">
             <Image
               src={logo}
               alt="Shop Online Logo"
@@ -101,9 +112,10 @@ export default function AdminSidebar({
             />
           </div>
           <div className="info">
-            <a href="/admin/profile" className="d-block">
-              {user?.name || "Admin"}
+            <a href="/account" className="d-block">
+              {user?.name || "Người dùng"}
             </a>
+            <span className="d-block text-white">{getDisplayRole()}</span>
           </div>
         </div>
 

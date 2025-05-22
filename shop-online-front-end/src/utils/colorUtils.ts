@@ -18,6 +18,7 @@ export const colorToVietnamese: Record<string, string> = {
   white: "Trắng",
   blue: "Xanh dương",
   gray: "Xám",
+  grey: "Xám",
   charcoal: "Than chì",
   green: "Xanh lá",
   red: "Đỏ",

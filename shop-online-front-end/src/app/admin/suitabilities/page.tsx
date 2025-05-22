@@ -115,8 +115,7 @@ export default function SuitabilitiesManagement() {
       const data = await response.json();
       setSuitabilities(data);
     } catch (error) {
-      console.error("Error loading suitabilities:", error);
-      showToast("Lỗi khi tải danh sách phù hợp", { type: "error" });
+      showToast(`${error}`, { type: "error" });
     } finally {
       setLoading(false);
     }
@@ -187,7 +186,6 @@ export default function SuitabilitiesManagement() {
         fetchSuitabilities();
       }
     } catch (error) {
-      console.error("Error submitting form:", error);
       showToast(error instanceof Error ? error.message : "Có lỗi xảy ra", {
         type: "error",
       });
@@ -243,7 +241,6 @@ export default function SuitabilitiesManagement() {
       showToast("Xóa thành công", { type: "success" });
       fetchSuitabilities();
     } catch (error) {
-      console.error("Error deleting:", error);
       showToast(
         error instanceof Error ? error.message : "Có lỗi xảy ra khi xóa",
         {
@@ -288,7 +285,6 @@ export default function SuitabilitiesManagement() {
     // Gửi cập nhật lên server
     try {
       setReordering(true);
-      console.log("Reordering items:", updatedItems);
       const response = await AuthClient.fetchWithAuth(
         `${API_BASE_URL}/suitabilities/reorder`,
         {
@@ -310,7 +306,6 @@ export default function SuitabilitiesManagement() {
       showToast("Cập nhật thứ tự thành công", { type: "success" });
       fetchSuitabilities();
     } catch (error) {
-      console.error("Error reordering:", error);
       showToast(
         error instanceof Error ? error.message : "Lỗi khi cập nhật thứ tự",
         {

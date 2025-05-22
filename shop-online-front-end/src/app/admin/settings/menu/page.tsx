@@ -85,8 +85,7 @@ export default function AdminMenuManagement() {
 
       setError(null);
     } catch (err) {
-      console.error("Lỗi khi tải menu:", err);
-      setError("Không thể tải danh sách menu");
+      setError(err as string);
     } finally {
       setLoading(false);
     }
@@ -119,8 +118,7 @@ export default function AdminMenuManagement() {
       resetForm();
       await loadMenuItems();
     } catch (err) {
-      console.error("Lỗi khi lưu menu:", err);
-      showToast("Lỗi khi lưu mục menu", { type: "error" });
+      showToast(err as string, { type: "error" });
     }
   };
 
@@ -190,8 +188,7 @@ export default function AdminMenuManagement() {
       showToast("Xóa mục menu thành công!", { type: "success" });
       await loadMenuItems();
     } catch (err) {
-      console.error("Lỗi khi xóa menu:", err);
-      showToast("Không thể xóa menu", { type: "error" });
+      showToast(err as string, { type: "error" });
     } finally {
       // Đóng modal sau khi hoàn tất
       handleCancelDelete();
@@ -248,8 +245,7 @@ export default function AdminMenuManagement() {
 
       showToast("Đã cập nhật thứ tự menu", { type: "success" });
     } catch (error) {
-      console.error("Lỗi khi cập nhật thứ tự:", error);
-      showToast("Không thể cập nhật thứ tự menu", { type: "error" });
+      showToast(error as string, { type: "error" });
       // Load lại dữ liệu nếu có lỗi
       await loadMenuItems();
     } finally {

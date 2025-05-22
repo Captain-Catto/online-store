@@ -17,26 +17,6 @@ export default function AdminProfilePage() {
     { label: "Hồ sơ", active: true },
   ];
 
-  // logic
-  //gọi api lấy thông tin người dùng
-  //   const fetchUserProfile = async () => {
-  //     try {
-  //       const response = await fetch("/api/user/profile");
-  //       if (!response.ok) {
-  //         throw new Error("Failed to fetch user profile");
-  //       }
-  //       const data = await response.json();
-  //       setProfile({
-  //         name: data.name,
-  //         email: data.email,
-  //         password: "",
-  //         confirmPassword: "",
-  //       });
-  //     } catch (error) {
-  //       console.error("Error fetching user profile:", error);
-  //     }
-  //   };
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setProfile({ ...profile, [name]: value });

@@ -39,7 +39,6 @@ const ImagesTab: React.FC<ImagesTabProps> = memo(
           type: "SET_SELECTED_IMAGE_COLOR",
           payload: firstAvailableColor,
         });
-        console.log("Auto-selected first color:", firstAvailableColor);
       }
     }, [product, selectedImageColor, dispatch]);
 
@@ -66,14 +65,6 @@ const ImagesTab: React.FC<ImagesTabProps> = memo(
       );
       if (colorExists) {
         dispatch({ type: "SET_SELECTED_IMAGE_COLOR", payload: color });
-        console.log(`Selected color changed to: ${color}`);
-
-        // tìm tên hiển thị của màu sắc này để ghi lại
-        // nếu không tìm thấy, sử dụng chính màu sắc làm tên hiển thị
-        // sử dụng find để tìm màu sắc trong availableColors
-        const colorLabel =
-          availableColors.find((c) => c.key === color)?.label || color;
-        console.log(`Color display name: ${colorLabel}`);
       } else {
         console.warn(`Selected color ${color} not found in product details`);
       }

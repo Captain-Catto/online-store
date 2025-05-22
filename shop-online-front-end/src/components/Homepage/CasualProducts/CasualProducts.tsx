@@ -63,12 +63,10 @@ const CasualProducts: React.FC = () => {
         const limit = 10;
         // Gọi API lấy sản phẩm
         const response = await ProductService.getProducts(page, limit, filters);
-        console.log("response", response);
 
         const initialColors: { [key: number]: string } = {};
         const initialImages: { [key: number]: string } = {};
         const initialSecondaryImages: { [key: number]: string } = {};
-        console.log("san pham", response.products);
         // Xử lý dữ liệu từ API
         response.products.forEach((product: Product) => {
           if (product.colors && product.colors.length > 0) {
@@ -95,8 +93,7 @@ const CasualProducts: React.FC = () => {
         setSelectedColors(initialColors);
         setProductImages(initialImages);
         setSecondaryImages(initialSecondaryImages);
-      } catch (error) {
-        console.error("Failed to fetch casual products:", error);
+      } catch {
         setError("Không thể tải sản phẩm. Vui lòng thử lại sau.");
       } finally {
         setLoading(false);

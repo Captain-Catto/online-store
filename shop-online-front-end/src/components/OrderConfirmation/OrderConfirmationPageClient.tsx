@@ -77,7 +77,6 @@ export default function OrderConfirmationPage() {
 
       try {
         const order = await OrderService.getOrderById(Number(orderId));
-        console.log("Order data:", order);
         setOrderData({
           ...order,
           phoneNumber: order.shippingPhoneNumber || "",
@@ -90,8 +89,7 @@ export default function OrderConfirmationPage() {
             },
           })),
         });
-      } catch (error) {
-        console.error("Error fetching order details:", error);
+      } catch {
         setError("Không thể tải thông tin đơn hàng. Vui lòng thử lại sau.");
       } finally {
         setLoading(false);

@@ -76,7 +76,6 @@ const SearchModal: React.FC<SearchModalProps> = ({
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
-  console.log("categories", categories);
 
   return (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[200] flex items-start justify-center pt-10">

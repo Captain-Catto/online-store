@@ -18,6 +18,7 @@ import { WishlistService } from "@/services/WishlistService";
 import { VoucherService } from "@/services/VoucherService";
 import BreadcrumbTrail from "../Breadcrumb/BreadcrumbTrail";
 import { BreadcrumbItem } from "@/types/breadcrumb";
+import { useToast } from "@/utils/useToast";
 
 interface AccountLayoutProps {
   defaultActiveTab: string;
@@ -41,8 +42,6 @@ export default function AccountLayout({
   const [activeTab, setActiveTab] = useState(
     defaultActiveTab || getTabFromPathname(pathname)
   );
-
-  // States giữ nguyên từ AccountPageClient
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([]);
   const [accountData, setAccountData] = useState({
     name: "",
@@ -82,6 +81,7 @@ export default function AccountLayout({
     hasNextPage: false,
     hasPreviousPage: false,
   });
+  const { showToast, Toast } = useToast();
 
   // Cập nhật activeTab khi pathname thay đổi
   useEffect(() => {
@@ -158,11 +158,13 @@ export default function AccountLayout({
           : "",
       });
     } catch (error) {
-      console.error("Error fetching account info:", error);
+      showToast(error as string, {
+        type: "error",
+      });
     } finally {
       setDataLoading(false);
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, showToast]);
 
   const fetchAddresses = useCallback(async () => {
     if (!isLoggedIn) return;
@@ -172,14 +174,14 @@ export default function AccountLayout({
       const data = await UserService.getAddresses();
       setAddressesData(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error("Error fetching addresses:", error);
+      showToast(error as string, { type: "error" });
       setAddressError(
         error instanceof Error ? error.message : "Không thể tải địa chỉ"
       );
     } finally {
       setDataLoading(false);
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, showToast]);
 
   const fetchOrders = useCallback(
     async (page = 1) => {
@@ -198,7 +200,6 @@ export default function AccountLayout({
           },
         });
       } catch (error) {
-        console.error("Error fetching orders:", error);
         setOrderError(
           error instanceof Error ? error.message : "Không thể tải đơn hàng"
         );
@@ -218,7 +219,6 @@ export default function AccountLayout({
       setWishlistData(response.items);
       setWishlistPagination(response.pagination);
     } catch (error) {
-      console.error("Error fetching wishlist:", error);
       setWishlistError(
         error instanceof Error
           ? error.message
@@ -238,11 +238,16 @@ export default function AccountLayout({
       const vouchers = await VoucherService.getUserAvailableVouchers();
       setPromotionsData(vouchers);
     } catch (error) {
-      console.error("Error fetching user vouchers:", error);
+      showToast(
+        error instanceof Error
+          ? error.message
+          : "Không thể tải danh sách ưu đãi",
+        { type: "error" }
+      );
     } finally {
       setDataLoading(false);
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, showToast]);
 
   // Handle order page change
   const handleOrderPageChange = (page: number) => {
@@ -349,6 +354,7 @@ export default function AccountLayout({
           </div>
         </div>
       </main>
+      {Toast}
       <Footer />
     </>
   );

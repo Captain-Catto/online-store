@@ -106,8 +106,6 @@ const AccountInfo: React.FC<{ data?: User | null; onRetry?: () => void }> = ({
         if (onRetry) onRetry();
       }, 1000);
     } catch (error) {
-      console.error("Lỗi khi cập nhật thông tin:", error);
-
       // Show error notification
       setNotification({
         message:
@@ -257,7 +255,7 @@ const MyOrders: React.FC<{
   } | null;
   onPageChange?: (page: number) => void;
 }> = ({ data, onPageChange }) => {
-  console.log("Orders data:", data);
+  const router = useRouter();
 
   // Sử dụng dữ liệu từ API hoặc mảng rỗng nếu không có
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -383,12 +381,12 @@ const MyOrders: React.FC<{
                     {formatCurrency(order.total)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <Link
-                      href={`/account/orders/${order.id}`}
+                    <button
+                      onClick={() => router.push(`/account/orders/${order.id}`)}
                       className="text-blue-600 hover:text-blue-900"
                     >
                       Chi tiết
-                    </Link>
+                    </button>
                   </td>
                 </tr>
               );
@@ -525,8 +523,11 @@ const Addresses: React.FC<{
       try {
         const locationData = await import("@/data/location.json");
         setLocations(locationData.default);
-      } catch (error) {
-        console.error("Failed to load location data:", error);
+      } catch {
+        setNotification({
+          message: "Có lỗi xảy ra khi tải dữ liệu địa điểm!",
+          type: "error",
+        });
       }
     };
 
@@ -584,8 +585,7 @@ const Addresses: React.FC<{
       setTimeout(() => {
         if (onRetry) onRetry();
       }, 2000); // Đợi 2 giây rồi mới fetch data
-    } catch (error) {
-      console.error("Lỗi khi xóa địa chỉ:", error);
+    } catch {
       setNotification({
         message: "Có lỗi xảy ra khi xóa địa chỉ!",
         type: "error",
@@ -612,8 +612,7 @@ const Addresses: React.FC<{
       setTimeout(() => {
         if (onRetry) onRetry();
       }, 2000); // Đợi 2 giây rồi mới fetch data
-    } catch (error) {
-      console.error("Lỗi khi đặt địa chỉ mặc định:", error);
+    } catch {
       setNotification({
         message: "Có lỗi xảy ra khi đặt địa chỉ mặc định!",
         type: "error",
@@ -669,8 +668,7 @@ const Addresses: React.FC<{
       setTimeout(() => {
         if (onRetry) onRetry();
       }, 1000); // Giảm time xuống 1 giây
-    } catch (error) {
-      console.error("Lỗi khi cập nhật địa chỉ:", error);
+    } catch {
       setNotification({
         message: "Có lỗi xảy ra khi cập nhật địa chỉ!",
         type: "error",
@@ -783,8 +781,7 @@ const Addresses: React.FC<{
       setTimeout(() => {
         if (onRetry) onRetry();
       }, 1000); // Giảm time xuống 1 giây
-    } catch (error) {
-      console.error("Lỗi khi thêm địa chỉ:", error);
+    } catch {
       setNotification({
         message: "Có lỗi xảy ra khi thêm địa chỉ!",
         type: "error",
@@ -1418,7 +1415,7 @@ const Addresses: React.FC<{
               </div>
 
               {/* Nút hành động */}
-              <div className="flex justify-end space-x-3 mt-6">
+              <div className="flex justify-end mt-6">
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
@@ -1447,7 +1444,7 @@ const Addresses: React.FC<{
               thể hoàn tác.
             </p>
 
-            <div className="flex justify-end space-x-3">
+            <div className="flex justify-end gap-1">
               <button
                 onClick={() => {
                   setShowDeleteConfirm(false);
@@ -1703,7 +1700,7 @@ const Addresses: React.FC<{
               </div>
 
               {/* Nút hành động */}
-              <div className="flex justify-end space-x-3 mt-6">
+              <div className="flex justify-end gap-1 mt-6">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
@@ -1732,6 +1729,7 @@ const Promotions: React.FC<{ data?: Promotion[] | null }> = ({ data }) => {
   const promotions = data || [];
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const router = useRouter();
+  const { showToast, Toast } = useToast();
 
   // Format currency for min order value
   const formatCurrencyValue = (value: number) => {
@@ -1752,8 +1750,11 @@ const Promotions: React.FC<{ data?: Promotion[] | null }> = ({ data }) => {
         // Tự động xóa thông báo sau 2 giây
         setTimeout(() => setCopiedCode(null), 2000);
       })
-      .catch((err) => {
-        console.error("Không thể sao chép: ", err);
+      .catch(() => {
+        // Hiển thị thông báo lôi
+        showToast("Không thể sao chép mã khuyến mãi. Vui lòng thử lại sau.", {
+          type: "error",
+        });
       });
   };
 
@@ -1913,6 +1914,7 @@ const Promotions: React.FC<{ data?: Promotion[] | null }> = ({ data }) => {
           </ul>
         </div>
       </div>
+      {Toast}
     </div>
   );
 };
@@ -1985,6 +1987,10 @@ const Wishlist: React.FC<{
   const router = useRouter();
   const { showToast, Toast } = useToast();
 
+  const handleNavigateToProduct = (productId: number) => {
+    router.push(`/products/${productId}`);
+  };
+
   const handleRemoveFromWishlist = async (productId: number) => {
     try {
       await WishlistService.removeFromWishlist(productId);
@@ -1996,8 +2002,7 @@ const Wishlist: React.FC<{
       setTimeout(() => {
         if (onRetry) onRetry();
       }, 2000);
-    } catch (error) {
-      console.error("Error removing from wishlist:", error);
+    } catch {
       showToast("Không thể xóa sản phẩm. Vui lòng thử lại.", {
         type: "error",
       });
@@ -2068,7 +2073,10 @@ const Wishlist: React.FC<{
               className="flex-col sm:flex-row border rounded-md overflow-hidden hover:shadow-md transition-shadow flex"
             >
               <div className="flex-shrink-0 w-24 h-24 bg-gray-200 relative">
-                <Link href={`/products/${item.product.id}`}>
+                <div
+                  onClick={() => handleNavigateToProduct(item.product.id)}
+                  className="flex-shrink-0 w-24 h-24 bg-gray-200 relative cursor-pointer"
+                >
                   <Image
                     src={image}
                     alt={item.product.name}
@@ -2076,7 +2084,7 @@ const Wishlist: React.FC<{
                     sizes="100px"
                     className="object-cover"
                   />
-                </Link>
+                </div>
               </div>
 
               <div className="flex-grow p-3">

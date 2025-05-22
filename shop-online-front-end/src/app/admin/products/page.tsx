@@ -57,7 +57,7 @@ export default function ProductsPage() {
         setRole(parsedUser.role);
       }
     }
-  }, []);
+  }, [showToast]);
 
   // lấy data về
   const fetchProducts = useCallback(async () => {
@@ -73,8 +73,6 @@ export default function ProductsPage() {
         }
       );
 
-      console.log("Response:", response);
-
       setProducts(response.products || []);
 
       setPagination({
@@ -85,8 +83,7 @@ export default function ProductsPage() {
       });
 
       setLoading(false);
-    } catch (error) {
-      console.error("Error fetching products:", error);
+    } catch {
       setLoading(false);
       setError("Có lỗi xảy ra khi tải dữ liệu");
     }
@@ -119,9 +116,14 @@ export default function ProductsPage() {
 
       setCategories(categoryOptions);
     } catch (error) {
-      console.error("Error fetching categories:", error);
+      showToast(
+        error instanceof Error
+          ? error.message
+          : "Có lỗi xảy ra khi tải danh mục.",
+        { type: "error" }
+      );
     }
-  }, []);
+  }, [showToast]);
 
   // Lấy dữ liệu khi component mount hoặc khi các filter thay đổi
   useEffect(() => {
@@ -153,7 +155,6 @@ export default function ProductsPage() {
       showToast("Đã xóa sản phẩm thành công!", { type: "success" });
       fetchProducts();
     } catch (error) {
-      console.error("Error deleting product:", error);
       showToast(
         error instanceof Error
           ? error.message

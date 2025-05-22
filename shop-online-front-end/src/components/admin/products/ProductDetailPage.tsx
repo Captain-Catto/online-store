@@ -81,7 +81,6 @@ const ProductDetailPageContent: React.FC = () => {
     try {
       dispatch({ type: "SET_LOADING", payload: true });
       const productData = await ProductService.getProductVariants(id);
-      console.log("Fetched product data:", productData);
 
       dispatch({ type: "SET_PRODUCT", payload: productData });
 
@@ -92,8 +91,7 @@ const ProductDetailPageContent: React.FC = () => {
           payload: productData.details[0].color,
         });
       }
-    } catch (error) {
-      console.error("Error fetching product:", error);
+    } catch {
       dispatch({
         type: "SET_ERROR",
         payload: "Không thể tải thông tin sản phẩm",
@@ -113,8 +111,7 @@ const ProductDetailPageContent: React.FC = () => {
 
       setCategoryList(categories.filter((cat: Category) => !cat.parentId));
       setSuitabilities(suitData);
-    } catch (error) {
-      console.error("Error fetching categories:", error);
+    } catch {
       showToast("Không thể tải dữ liệu danh mục hoặc kích thước", {
         type: "error",
       });
@@ -153,8 +150,7 @@ const ProductDetailPageContent: React.FC = () => {
             { type: "warning" }
           );
         }
-      } catch (error) {
-        console.error("Error fetching sizes:", error);
+      } catch {
         showToast("Không thể tải dữ liệu kích thước", { type: "error" });
         // Fall back to default sizes if there's an error
         setAvailableSizes([
@@ -185,8 +181,7 @@ const ProductDetailPageContent: React.FC = () => {
         .then((data) => {
           setSubtypes(data);
         })
-        .catch((error) => {
-          console.error("Error fetching subtypes:", error);
+        .catch(() => {
           showToast("Không thể tải dữ liệu loại sản phẩm", { type: "error" });
         });
 
@@ -233,7 +228,6 @@ const ProductDetailPageContent: React.FC = () => {
         showToast(errorMessage, { type: "error" });
 
         // Log all errors for debugging
-        console.error("Product validation errors:", validation.errors);
         dispatch({ type: "SET_SUBMITTING", payload: false });
         return;
       }
@@ -292,8 +286,6 @@ const ProductDetailPageContent: React.FC = () => {
       // Reload product data to see changes
       await fetchProductData();
     } catch (error) {
-      console.error("Error saving product:", error);
-
       // Sử dụng trình xử lý lỗi để lấy thông báo chi tiết
       const errorMessage = getProductErrorMessage(error);
 
@@ -310,8 +302,7 @@ const ProductDetailPageContent: React.FC = () => {
       await ProductService.deleteProduct(id);
       showToast("Sản phẩm đã được xóa thành công", { type: "success" });
       router.push("/admin/products");
-    } catch (error) {
-      console.error("Error deleting product:", error);
+    } catch {
       showToast("Có lỗi xảy ra khi xóa sản phẩm", { type: "error" });
     } finally {
       dispatch({ type: "SET_SUBMITTING", payload: false });
@@ -349,7 +340,6 @@ const ProductDetailPageContent: React.FC = () => {
     // Nếu không có màu được chọn nhưng có các màu có sẵn, tự động chọn màu đầu tiên
     if (!state.selectedImageColor && state.product.details.length > 0) {
       const firstColor = state.product.details[0].color;
-      console.log("Tự động chọn màu đầu tiên:", firstColor);
       dispatch({ type: "SET_SELECTED_IMAGE_COLOR", payload: firstColor });
     }
 
@@ -477,10 +467,6 @@ const ProductDetailPageContent: React.FC = () => {
         if (typeof imageDeleteConfirmation.imageId === "number") {
           const imageIdToRemove = imageDeleteConfirmation.imageId as number;
 
-          console.log(
-            `Marking image ${imageIdToRemove} (type: ${typeof imageIdToRemove}) for deletion`
-          );
-
           // Make sure we're dealing with a numeric ID
           if (!isNaN(imageIdToRemove) && imageIdToRemove > 0) {
             // Track the ID for later deletion when saving the product
@@ -559,7 +545,6 @@ const ProductDetailPageContent: React.FC = () => {
         await fetchProductData();
       }
     } catch (error) {
-      console.error("Error setting main image:", error);
       showToast("Lỗi khi đặt ảnh chính: " + getProductErrorMessage(error), {
         type: "error",
       });

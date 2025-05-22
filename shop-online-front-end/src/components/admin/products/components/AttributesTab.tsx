@@ -177,7 +177,6 @@ const AttributesTab: React.FC<AttributesTabProps> = memo(
       checked: boolean
     ): void => {
       let updatedSuitabilities;
-      console.log("suitabilityid hiện tại", suitabilityId);
       if (checked) {
         updatedSuitabilities = [
           ...product.suitabilities,

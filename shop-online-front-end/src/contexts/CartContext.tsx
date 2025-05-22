@@ -301,8 +301,6 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
 
       // Xóa cart từ cookie
       clearLocalCart();
-
-      console.log("Cart reset after logout");
     };
 
     // Đăng ký lắng nghe sự kiện

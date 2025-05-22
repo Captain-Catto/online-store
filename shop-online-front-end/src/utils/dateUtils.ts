@@ -26,8 +26,7 @@ export const formatDateForInput = (dateString: string): string => {
 
     // Định dạng date object thành yyyy-MM-dd
     return date.toISOString().split("T")[0];
-  } catch (error) {
-    console.error("Lỗi định dạng ngày tháng:", error);
+  } catch {
     return "";
   }
 };
@@ -47,8 +46,7 @@ export const formatDateDisplay = (dateString: string): string => {
       month: "2-digit",
       year: "numeric",
     });
-  } catch (error) {
-    console.error("Lỗi hiển thị ngày tháng:", error);
+  } catch {
     return dateString;
   }
 };

@@ -8,8 +8,10 @@ import { API_BASE_URL } from "@/config/apiConfig";
 import { formatDateDisplay } from "@/utils/dateUtils";
 import { UserAdminApi } from "@/types/user";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
+import { useToast } from "@/utils/useToast";
 
 export default function UsersPage() {
+  const { showToast, Toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -24,6 +26,7 @@ export default function UsersPage() {
     currentPage: 1,
     perPage: 10,
   });
+  const [disableLoading, setDisableLoading] = useState<number | null>(null);
 
   // Fetch users from API
   useEffect(() => {
@@ -39,12 +42,6 @@ export default function UsersPage() {
         if (searchTerm) {
           params.append("search", searchTerm);
         }
-        console.log("Current filters:", {
-          searchTerm,
-          statusFilter,
-          params: params.toString(),
-        });
-
         if (statusFilter !== "all") {
           params.append("status", statusFilter);
         }
@@ -59,13 +56,11 @@ export default function UsersPage() {
         }
 
         const data = await response.json();
-        console.log("API Response:", data); // Debug log
 
         // Update state with API data
         setUsers(data.users);
         setPagination(data.pagination);
       } catch (error) {
-        console.error("Error fetching users:", error);
         setError(
           error instanceof Error ? error.message : "An unknown error occurred"
         );
@@ -115,6 +110,60 @@ export default function UsersPage() {
   ): void => {
     setStatusFilter(e.target.value);
     setCurrentPage(1);
+  };
+
+  const handleToggleUserStatus = async (userId: number, isActive: boolean) => {
+    try {
+      setDisableLoading(userId); // Bắt đầu loading cho user cụ thể
+
+      // Gọi API để thay đổi trạng thái người dùng
+      const response = await AuthClient.fetchWithAuth(
+        `${API_BASE_URL}/users/${userId}/toggle-status`,
+        {
+          method: "PATCH",
+        }
+      );
+
+      if (!response.ok) {
+        // Xử lý các lỗi khác nhau từ server
+        const errorData = await response.json().catch(() => ({}));
+
+        if (response.status === 403) {
+          showToast("Bạn không có quyền thực hiện hành động này", {
+            type: "error",
+          });
+          return;
+        }
+
+        throw new Error(
+          errorData.message || `Không thể thay đổi trạng thái tài khoản`
+        );
+      }
+
+      // Cập nhật lại danh sách người dùng trong state
+      setUsers((prevUsers) =>
+        prevUsers.map((user) =>
+          user.id === userId ? { ...user, isActive: !isActive } : user
+        )
+      );
+
+      // Hiển thị thông báo thành công
+      showToast(
+        `Đã ${isActive ? "vô hiệu hóa" : "kích hoạt"} tài khoản thành công`,
+        {
+          type: "success",
+        }
+      );
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? error.message
+          : "Đã xảy ra lỗi khi thay đổi trạng thái tài khoản",
+        { type: "error" }
+      );
+    } finally {
+      setDisableLoading(null); // Kết thúc loading
+    }
   };
 
   return (
@@ -242,23 +291,26 @@ export default function UsersPage() {
                               >
                                 <i className="fas fa-eye"></i>
                               </Link>
+
                               <button
-                                className="btn btn-sm btn-primary mr-1"
-                                title="Chỉnh sửa"
-                                onClick={() => {
-                                  console.log(`Edit user ${user.id}`);
-                                }}
+                                className={`btn btn-sm ${
+                                  user.isActive ? "btn-danger" : "btn-success"
+                                }`}
+                                title={
+                                  user.isActive ? "Vô hiệu hóa" : "Kích hoạt"
+                                }
+                                onClick={() =>
+                                  handleToggleUserStatus(user.id, user.isActive)
+                                }
+                                disabled={disableLoading === user.id}
                               >
-                                <i className="fas fa-edit"></i>
-                              </button>
-                              <button
-                                className="btn btn-sm btn-danger"
-                                title="Vô hiệu hóa"
-                                onClick={() => {
-                                  console.log(`Disable user ${user.id}`);
-                                }}
-                              >
-                                <i className="fas fa-ban"></i>
+                                {disableLoading === user.id ? (
+                                  <i className="fas fa-spinner fa-spin"></i>
+                                ) : user.isActive ? (
+                                  <i className="fas fa-ban"></i>
+                                ) : (
+                                  <i className="fas fa-check-circle"></i>
+                                )}
                               </button>
                             </div>
                           </td>
@@ -316,7 +368,6 @@ export default function UsersPage() {
                       <button
                         className="page-link"
                         onClick={() => {
-                          console.log(`Setting page to ${i + 1}`); // Debug log
                           setCurrentPage(i + 1);
                         }}
                       >
@@ -345,6 +396,8 @@ export default function UsersPage() {
           </div>
         </div>
       </section>
+      {/* Toast notifications */}
+      {Toast}
     </AdminLayout>
   );
 }

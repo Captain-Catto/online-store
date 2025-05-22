@@ -18,8 +18,7 @@ export class VoucherService {
       }
 
       return await response.json();
-    } catch (error) {
-      console.error("Error fetching user vouchers:", error);
+    } catch {
       return [];
     }
   }

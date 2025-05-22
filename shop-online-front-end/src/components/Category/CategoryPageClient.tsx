@@ -127,8 +127,8 @@ export default function CategoryPageClient({ slug }: CategoryClientProps) {
       try {
         const categories = await CategoryService.getNavCategories();
         setMainCategories(categories);
-      } catch (error) {
-        console.error("Không thể lấy danh sách danh mục chính:", error);
+      } catch {
+        setError("Không thể tải danh mục chính. Vui lòng thử lại sau.");
       }
     };
 
@@ -149,8 +149,8 @@ export default function CategoryPageClient({ slug }: CategoryClientProps) {
           );
           setAvailableSuitability(formattedSuitabilities);
         }
-      } catch (error) {
-        console.error("Không thể tải danh sách phù hợp:", error);
+      } catch {
+        setError("Không thể tải danh sách phù hợp. Vui lòng thử lại sau.");
       }
     };
 
@@ -185,8 +185,6 @@ export default function CategoryPageClient({ slug }: CategoryClientProps) {
     if (sortOption) {
       params.set("sort", sortOption);
     }
-
-    console.log("childCategory", filters.childCategory);
 
     const newUrl =
       pathname + (params.toString() ? `?${params.toString()}` : "");
@@ -343,8 +341,7 @@ export default function CategoryPageClient({ slug }: CategoryClientProps) {
         setSecondaryImages(secondaryImgs);
 
         setSelectedColors(colors);
-      } catch (error) {
-        console.error("Không thể tải sản phẩm:", error);
+      } catch {
         setError("Không thể tải sản phẩm. Vui lòng thử lại sau.");
       } finally {
         setLoading(false);
@@ -394,8 +391,7 @@ export default function CategoryPageClient({ slug }: CategoryClientProps) {
             setChildCategories(category.children);
           }
         }
-      } catch (error) {
-        console.error("Không thể lấy thông tin danh mục:", error);
+      } catch {
         setError("Không thể tìm thấy danh mục. Vui lòng thử lại sau.");
       }
     };
@@ -427,15 +423,13 @@ export default function CategoryPageClient({ slug }: CategoryClientProps) {
           parentCategoryId
         );
 
-        console.log("sizesData", sizesData);
-
         const availableSizeValues = sizesData
           .filter((size: ProductSize) => size.active)
           .map((size: ProductSize) => size.value);
 
         setAvailableSizes(availableSizeValues);
-      } catch (error) {
-        console.error("Không thể tải kích thước:", error);
+      } catch {
+        setError("Không thể tải kích thước. Vui lòng thử lại sau.");
       }
     };
 

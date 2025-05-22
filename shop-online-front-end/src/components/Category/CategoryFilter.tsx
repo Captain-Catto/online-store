@@ -15,7 +15,6 @@ export default function CategoryFilter({
   onFilterChange,
   categories = [],
 }: CategoryFilterProps) {
-  console.log("categories nhận về", categories);
   return (
     <div className="mb-6">
       <div

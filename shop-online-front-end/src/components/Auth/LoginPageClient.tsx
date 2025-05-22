@@ -73,8 +73,6 @@ export default function LoginPageClient() {
 
     setLoading(true);
 
-    console.log("remember me", rememberMe);
-
     try {
       // Gọi API login qua AuthService
       const result = await AuthService.login(email, password, rememberMe);

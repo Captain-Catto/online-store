@@ -46,7 +46,6 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
 
   // Lấy danh sách kích thước từ variant và sắp xếp
   const availableSizes = sortSizes(variant?.availableSizes ?? []);
-  console.log("Available Sizes:", availableSizes);
 
   // State để theo dõi size được thêm gần đây nhất
   const [addedSize, setAddedSize] = useState<string | null>(null);
@@ -63,7 +62,6 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
       const cartItemId = `${product.id}-${selectedColor}-${size}`;
 
       const productDetailId = variant?.detailId;
-      console.log("ProductDetailId from variant:", productDetailId);
 
       const cartItem: CartItem = {
         id: cartItemId,
@@ -77,7 +75,6 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
         size: size,
         image: productImage ?? "/images/default-product.jpg", // Fallback nếu productImage undefined
       };
-      console.log("CartItem:", cartItem);
       // Thêm vào giỏ hàng
       addToCart(cartItem);
 
@@ -88,8 +85,8 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
 
       // Thông báo cho component cha
       onProductAdded(product, selectedColor, size);
-    } catch (error) {
-      console.error("Error adding to cart:", error);
+    } catch {
+      // Xử lý lỗi nếu cần
     }
   };
 

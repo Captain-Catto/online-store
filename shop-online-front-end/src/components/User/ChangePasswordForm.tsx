@@ -120,8 +120,6 @@ export const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({
         }
       }, 2000); // Hiển thị notification trong 2 giây trước khi gọi onSuccess
     } catch (error) {
-      console.error("Lỗi khi đổi mật khẩu:", error);
-
       // Show error notification
       showToast(
         error instanceof Error

@@ -99,13 +99,11 @@ export default function OrderDetailPageClient({
       try {
         setLoading(true);
         const orderData = await OrderService.getOrderById(Number(orderId));
-        console.log("order data", orderData);
         setOrder({
           ...orderData,
           orderDetails: orderData.orderDetails || [],
         });
       } catch (error) {
-        console.error("Lỗi khi lấy chi tiết đơn hàng:", error);
         setError(
           error instanceof Error
             ? error.message
@@ -150,7 +148,6 @@ export default function OrderDetailPageClient({
         selectedCancelReason === "Khác (vui lòng nêu rõ)"
           ? cancelNote
           : selectedCancelReason;
-      console.log("final cancel note", finalCancelNote);
       // Gọi API hủy đơn hàng
       const response = await fetch(
         `${API_BASE_URL}/orders/${order.id}/cancel`,
@@ -192,7 +189,6 @@ export default function OrderDetailPageClient({
         orderDetails: updatedOrder.orderDetails || [],
       });
     } catch (error) {
-      console.error("Lỗi khi hủy đơn hàng:", error);
       setCancelError(
         error instanceof Error ? error.message : "Không thể hủy đơn hàng"
       );
@@ -402,7 +398,7 @@ export default function OrderDetailPageClient({
                         src={item.imageUrl}
                         alt={item.product.name}
                         fill
-                        sizes="30px"
+                        sizes="100%"
                         className="rounded-md object-cover"
                       />
                     </div>

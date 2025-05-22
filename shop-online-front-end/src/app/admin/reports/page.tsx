@@ -8,6 +8,7 @@ import Link from "next/link";
 import { formatCurrency } from "@/utils/currencyUtils";
 import { ReportsService } from "@/services/ReportsService";
 import { colorToVietnamese } from "@/utils/colorUtils";
+import { useRouter } from "next/navigation";
 
 interface ProductVariant {
   detailId: number;
@@ -29,6 +30,7 @@ interface LowStockProduct {
 }
 
 export default function ReportsPage() {
+  const router = useRouter();
   const [dateRange, setDateRange] = useState("week");
   const [reportType, setReportType] = useState("revenue");
   const [isLoading, setIsLoading] = useState(true);
@@ -241,7 +243,6 @@ export default function ReportsPage() {
     try {
       // Fetch summary report
       const summaryResponse = await ReportsService.getSummaryReport(params);
-      console.log("Summary Report Response:", summaryResponse);
       setSummaryData({
         totalRevenue: summaryResponse.totalRevenue || 0,
         totalOrders: summaryResponse.totalOrders || 0,
@@ -281,14 +282,13 @@ export default function ReportsPage() {
       const lowStockResponse = await ReportsService.getLowStockProductsReport(
         params
       );
+      console.log("Low stock products response:", lowStockResponse);
       setLowStockProducts(lowStockResponse || []);
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message || "Lỗi khi lấy dữ liệu báo cáo");
-        console.error("Error fetching reports:", err);
       } else {
         setError("Lỗi khi lấy dữ liệu báo cáo");
-        console.error("Error fetching reports:", err);
       }
     } finally {
       setIsLoading(false);
@@ -310,7 +310,6 @@ export default function ReportsPage() {
 
     try {
       const response = await ReportsService.getOrderAnalysisReport(params);
-      console.log("Order Analysis Response:", response);
       setOrderAnalysis({
         current: {
           totalOrders: response.current.totalOrders || 0,
@@ -398,10 +397,8 @@ export default function ReportsPage() {
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message || "Lỗi khi lấy dữ liệu phân tích đơn hàng");
-        console.error("Error fetching order analysis:", err);
       } else {
         setError("Lỗi khi lấy dữ liệu phân tích đơn hàng");
-        console.error("Error fetching order analysis:", err);
       }
     } finally {
       setIsLoading(false);
@@ -526,6 +523,10 @@ export default function ReportsPage() {
     productPerformanceData,
   ]);
 
+  const handleNavigateToProduct = (productId: number) => {
+    router.push(`/admin/products/${productId}`);
+  };
+
   return (
     <AdminLayout title="Báo cáo và Thống kê">
       {/* Content Header */}
@@ -639,12 +640,6 @@ export default function ReportsPage() {
                   disabled={isLoading}
                 >
                   <i className="fas fa-sync-alt mr-1"></i> Cập nhật báo cáo
-                </button>
-                <button
-                  className="btn btn-outline-secondary ml-2"
-                  disabled={isLoading}
-                >
-                  <i className="fas fa-download mr-1"></i> Xuất báo cáo
                 </button>
               </div>
             </div>
@@ -796,12 +791,16 @@ export default function ReportsPage() {
                         <td>{index + 1}</td>
                         <td>{product.sku}</td>
                         <td>
-                          <Link
-                            href={`/admin/products/${product.id}`}
-                            className="text-primary"
+                          <button
+                            className="btn btn-link text-primary p-0"
+                            onClick={() => handleNavigateToProduct(product.id)}
+                            style={{
+                              textDecoration: "none",
+                              cursor: "pointer",
+                            }}
                           >
                             {product.name}
-                          </Link>
+                          </button>
                         </td>
                         <td>{product.category}</td>
                         <td>{product.sales}</td>
@@ -947,7 +946,18 @@ export default function ReportsPage() {
                     lowStockProducts.map((product: LowStockProduct) => (
                       <tr key={product.id}>
                         <td>{product.sku}</td>
-                        <td>{product.name}</td>
+                        <td>
+                          <button
+                            className="btn btn-link text-primary p-0"
+                            onClick={() => handleNavigateToProduct(product.id)}
+                            style={{
+                              textDecoration: "none",
+                              cursor: "pointer",
+                            }}
+                          >
+                            {product.name}
+                          </button>
+                        </td>
                         <td>{product.category}</td>
                         <td>
                           <span
@@ -974,7 +984,7 @@ export default function ReportsPage() {
                                 ) => (
                                   <div key={idx} className="mb-1">
                                     <small>
-                                      {colorToVietnamese[variant.color]},{" "}
+                                      {colorToVietnamese[variant.color]} -{" "}
                                       {variant.size}:{" "}
                                       <span
                                         className={
@@ -998,12 +1008,12 @@ export default function ReportsPage() {
                           )}
                         </td>
                         <td>
-                          <Link
-                            href={`/admin/products/${product.id}`}
+                          <button
                             className="btn btn-sm btn-info"
+                            onClick={() => handleNavigateToProduct(product.id)}
                           >
                             <i className="fas fa-edit mr-1"></i> Cập nhật
-                          </Link>
+                          </button>
                         </td>
                       </tr>
                     ))
@@ -1202,7 +1212,7 @@ export default function ReportsPage() {
 
               <div className="row">
                 {/* Order Status Distribution */}
-                <div className="col-md-4">
+                <div className="col-md-6">
                   <div className="card">
                     <div className="card-header border-0">
                       <h3 className="card-title">Trạng thái đơn hàng</h3>
@@ -1244,64 +1254,8 @@ export default function ReportsPage() {
                   </div>
                 </div>
 
-                {/* Order Timeline */}
-                <div className="col-md-4">
-                  <div className="card">
-                    <div className="card-header border-0">
-                      <h3 className="card-title">Thông tin thời gian</h3>
-                    </div>
-                    <div className="card-body">
-                      <div className="info-box bg-light">
-                        <div className="info-box-content">
-                          <span className="info-box-text text-center text-muted">
-                            Thời gian xử lý trung bình
-                          </span>
-                          <span className="info-box-number text-center text-muted mb-0">
-                            {orderAnalysis.timelines.averageProcessingTime} ngày
-                          </span>
-                        </div>
-                      </div>
-                      <div className="info-box bg-light">
-                        <div className="info-box-content">
-                          <span className="info-box-text text-center text-muted">
-                            Thời gian giao hàng trung bình
-                          </span>
-                          <span className="info-box-number text-center text-muted mb-0">
-                            {orderAnalysis.timelines.averageDeliveryTime} ngày
-                          </span>
-                        </div>
-                      </div>
-                      <div className="info-box bg-light">
-                        <div className="info-box-content">
-                          <span className="info-box-text text-center text-muted">
-                            Tổng thời gian trung bình
-                          </span>
-                          <span className="info-box-number text-center text-muted mb-0">
-                            {orderAnalysis.timelines.averageTotalTime} ngày
-                          </span>
-                        </div>
-                      </div>
-                      <div className="progress-group">
-                        Tỷ lệ giao hàng đúng hạn
-                        <span className="float-right">
-                          <b>{orderAnalysis.timelines.onTimeDeliveryRate}</b>
-                          /100
-                        </span>
-                        <div className="progress">
-                          <div
-                            className="progress-bar bg-success"
-                            style={{
-                              width: `${orderAnalysis.timelines.onTimeDeliveryRate}%`,
-                            }}
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Payment Methods */}
-                <div className="col-md-4">
+                <div className="col-md-6">
                   <div className="card">
                     <div className="card-header border-0">
                       <h3 className="card-title">Phương thức thanh toán</h3>

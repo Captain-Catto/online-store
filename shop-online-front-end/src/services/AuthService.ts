@@ -64,7 +64,6 @@ export const AuthService = {
       }
 
       const data = await response.json();
-      console.log("Login response data:", data);
 
       // 1. Lưu accessToken trong memory hoặc sessionStorage (tồn tại trong tab)
       sessionStorage.setItem("authToken", data.accessToken);
@@ -88,10 +87,7 @@ export const AuthService = {
         email: email,
         role: decodedToken.role,
       };
-      console.log("safeUserData", safeUserData);
       localStorage.setItem("user", JSON.stringify(safeUserData));
-
-      console.log("Login successful:", data);
 
       // Kích hoạt sự kiện đăng nhập thành công
       const loginSuccessEvent = new CustomEvent("auth-login-success");
@@ -99,7 +95,6 @@ export const AuthService = {
 
       return data;
     } catch (error) {
-      console.error("Login failed:", error);
       throw error;
     }
   },
@@ -152,10 +147,7 @@ export const AuthService = {
 
       // Đảm bảo thời gian đủ để các component khác phản ứng
       await new Promise((resolve) => setTimeout(resolve, 300));
-
-      console.log("Logout completed successfully");
-    } catch (error) {
-      console.error("Logout failed:", error);
+    } catch {
       // Vẫn xóa dữ liệu phía client ngay cả khi API lỗi
       document.cookie = `auth_status=; max-age=0; path=/`;
       sessionStorage.removeItem("authToken");
@@ -178,8 +170,7 @@ export const AuthService = {
 
       const user = JSON.parse(userStr);
       return user.role === 1 || user.role === 2;
-    } catch (error) {
-      console.error("Error checking admin status:", error);
+    } catch {
       return false;
     }
   },
@@ -192,8 +183,7 @@ export const AuthService = {
         const { AuthClient } = await import("./AuthClient");
         const newToken = await AuthClient.refreshToken();
         return !!newToken;
-      } catch (error) {
-        console.error("Lỗi khởi tạo xác thực:", error);
+      } catch {
         return false;
       }
     }

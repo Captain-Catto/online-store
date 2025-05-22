@@ -261,8 +261,7 @@ export default function OrdersPage() {
     try {
       // Redirect to order detail page using link
       router.push(`/admin/orders/${orderId}`);
-    } catch (error) {
-      console.error("Error updating order status:", error);
+    } catch {
       showToast("Không thể cập nhật trạng thái đơn hàng", { type: "error" });
     }
   };
@@ -272,8 +271,7 @@ export default function OrdersPage() {
     try {
       await OrderService.printOrderInvoice(orderId);
       showToast("Đang chuẩn bị in hóa đơn", { type: "success" });
-    } catch (error) {
-      console.error("Error printing invoice:", error);
+    } catch {
       showToast("Không thể in hóa đơn", { type: "error" });
     }
   };

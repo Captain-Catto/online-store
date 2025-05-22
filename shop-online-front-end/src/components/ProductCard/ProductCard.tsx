@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import SizeSelector from "./SizeSelector";
 import { useToast } from "@/utils/useToast";
 import { SimpleProduct, VariantDetail } from "@/types/product";
 import { useDevice } from "@/contexts/DeviceContext";
+import { useRouter } from "next/navigation";
 
 interface ProductCardProps {
   product: SimpleProduct;
@@ -26,6 +26,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   secondaryImage,
   onColorSelect,
 }) => {
+  const router = useRouter();
   const { isMiniMobile } = useDevice();
   const [isHovered, setIsHovered] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -95,13 +96,19 @@ const ProductCard: React.FC<ProductCardProps> = ({
         },
         duration: 4000,
       });
-    } catch (error) {
-      console.error("Lỗi hiển thị toast:", error);
+    } catch {
+      showToast("Đã xảy ra lỗi khi thêm vào giỏ hàng", {
+        type: "error",
+      });
     }
   };
 
   const showPlaceholder =
     !imageLoaded || (isHovered && secondaryImage && !secondaryImageLoaded);
+
+  const navigateToProduct = () => {
+    router.push(`/products/${product.id}`);
+  };
 
   return (
     <div className="product-container w-full rounded-lg flex-shrink-0 mx-auto flex flex-col relative p-2">
@@ -116,7 +123,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
             Đáng mua
           </div>
         )}
-        <Link href={`/products/${product.id}`}>
+        <div className="cursor-pointer" onClick={navigateToProduct}>
           {/* Placeholder khi ảnh chưa load xong */}
           {showPlaceholder && (
             <div className="w-full aspect-[2/3] bg-gray-200 rounded-md animate-pulse"></div>
@@ -163,7 +170,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
               <span className="text-gray-400">Không có hình ảnh</span>
             </div>
           )}
-        </Link>
+        </div>
         {/* Size selector hiển thị đè lên hình ảnh */}
         {/* nếu isMiniMobile đúng thì ẩn đi */}
         {!isMiniMobile && (
@@ -185,12 +192,12 @@ const ProductCard: React.FC<ProductCardProps> = ({
       </div>
 
       {/* Thông tin sản phẩm */}
-      <Link
-        href={`/products/${product.id}`}
-        className="block hover:text-blue-600 mt-2"
+      <div
+        onClick={navigateToProduct}
+        className="block hover:text-blue-600 mt-2 cursor-pointer"
       >
         <h3 className="text-lg font-medium line-clamp-2">{product.name}</h3>
-      </Link>
+      </div>
 
       <div className="mt-2 space-y-2">
         {/* Giá sản phẩm */}

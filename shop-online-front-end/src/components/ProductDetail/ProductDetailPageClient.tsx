@@ -55,8 +55,6 @@ export default function ProductDetailPageClient({
 
           // Gọi API để lấy dữ liệu sản phẩm
           const productData = await ProductService.getProductById(productId);
-          console.log("Product data:", productData);
-
           if (!productData) {
             setError("Không tìm thấy sản phẩm");
             setLoading(false);
@@ -66,8 +64,7 @@ export default function ProductDetailPageClient({
           setProduct(productData);
           setInitialProductData(productData);
           setLoading(false);
-        } catch (err) {
-          console.error("Error loading product:", err);
+        } catch {
           setError("Không thể tải thông tin sản phẩm. Vui lòng thử lại sau.");
           setLoading(false);
         }
@@ -217,16 +214,8 @@ export default function ProductDetailPageClient({
     const price = variantDetail?.price;
     const productDetailId = variantDetail?.detailId;
 
-    console.log("Variant detail:", variantDetail);
-    console.log("ProductDetailId:", productDetailId);
-
     // Kiểm tra productDetailId
     if (!productDetailId) {
-      console.error(
-        "Thiếu productDetailId cho sản phẩm:",
-        product.name,
-        selectedColor
-      );
       showToast("Đã xảy ra lỗi khi thêm sản phẩm", { type: "error" });
       return;
     }

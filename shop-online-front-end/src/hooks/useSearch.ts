@@ -24,10 +24,8 @@ export function useSearch() {
         search: query,
       });
       setProducts(response.products || []);
-      console.log("Kết quả tìm kiếm:", response.products);
     } catch (error) {
-      console.error("Lỗi tìm kiếm:", error);
-      setError("Không thể tìm kiếm sản phẩm");
+      setError(error as string);
     } finally {
       setLoading(false);
     }
@@ -58,10 +56,9 @@ export function useSearch() {
   const loadCategories = async () => {
     try {
       const data = await CategoryService.getAllCategories();
-      console.log("Danh mục:", data);
       setCategories(data);
     } catch (error) {
-      console.error("Không thể tải danh mục:", error);
+      setError(error as string);
     }
   };
 

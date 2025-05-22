@@ -65,8 +65,6 @@ function SearchPageClient({ initialQuery }: SearchPageClientProps) {
           params
         );
 
-        console.log("Kết quả tìm kiếm:", response);
-
         setProducts(response.products || []);
         setTotalProducts(response.pagination.total || 0);
 
@@ -105,8 +103,7 @@ function SearchPageClient({ initialQuery }: SearchPageClientProps) {
           setProductImages((prev) => ({ ...prev, ...newProductImages }));
           setSecondaryImages((prev) => ({ ...prev, ...newSecondaryImages }));
         }
-      } catch (error) {
-        console.error("Lỗi khi tìm kiếm sản phẩm:", error);
+      } catch {
         setError("Không thể tải sản phẩm. Vui lòng thử lại sau.");
       } finally {
         setLoading(false);

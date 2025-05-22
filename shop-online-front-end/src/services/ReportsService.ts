@@ -20,7 +20,6 @@ export const ReportsService = {
 
       return await response.json();
     } catch (error) {
-      console.error("Error fetching summary report:", error);
       throw error;
     }
   },
@@ -44,7 +43,6 @@ export const ReportsService = {
 
       return await response.json();
     } catch (error) {
-      console.error("Error fetching revenue report:", error);
       throw error;
     }
   },
@@ -71,7 +69,6 @@ export const ReportsService = {
 
       return await response.json();
     } catch (error) {
-      console.error("Error fetching category revenue report:", error);
       throw error;
     }
   },
@@ -98,7 +95,6 @@ export const ReportsService = {
 
       return await response.json();
     } catch (error) {
-      console.error("Error fetching top products report:", error);
       throw error;
     }
   },
@@ -125,7 +121,6 @@ export const ReportsService = {
 
       return await response.json();
     } catch (error) {
-      console.error("Error fetching product performance report:", error);
       throw error;
     }
   },
@@ -152,7 +147,6 @@ export const ReportsService = {
 
       return await response.json();
     } catch (error) {
-      console.error("Error fetching category performance report:", error);
       throw error;
     }
   },
@@ -179,7 +173,6 @@ export const ReportsService = {
 
       return await response.json();
     } catch (error) {
-      console.error("Error fetching low stock products report:", error);
       throw error;
     }
   },
@@ -206,7 +199,6 @@ export const ReportsService = {
 
       return await response.json();
     } catch (error) {
-      console.error("Error fetching order analysis report:", error);
       throw error;
     }
   },

@@ -88,7 +88,6 @@ export default function OrderDetailPage() {
         }
 
         const data = await response.json();
-        console.log("Order data:", data);
         setOrder(data);
         setOrderStatus(data.status);
       } catch (error) {
@@ -150,7 +149,6 @@ export default function OrderDetailPage() {
       }
 
       const data = await response.json();
-      console.log("Update response data:", data);
 
       // Update order data with the response
       if (data.order) {
@@ -164,7 +162,6 @@ export default function OrderDetailPage() {
         duration: 3000,
       });
     } catch (error) {
-      console.error("Error updating status:", error);
       // Hiển thị toast lỗi
       showToast(
         error instanceof Error
@@ -238,7 +235,6 @@ export default function OrderDetailPage() {
       }
 
       const data = await response.json();
-      console.log("Cancel response data:", data);
 
       if (data.order) {
         setOrder(data.order);
@@ -255,7 +251,6 @@ export default function OrderDetailPage() {
       setCustomCancelReason("");
       setShowCancelModal(false);
     } catch (error) {
-      console.error("Error cancelling order:", error);
       showToast(
         error instanceof Error
           ? error.message

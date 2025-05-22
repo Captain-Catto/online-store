@@ -56,7 +56,6 @@ export default function AdminDashboardPage() {
 
         // Fetch orders data
         const orders = await OrderService.getAdminOrders();
-        console.log("Orders:", orders);
 
         // setTotalUsers để hiển thị cho stat card
         setTotalUsers(orders.pagination?.total || 0);
@@ -80,7 +79,6 @@ export default function AdminDashboardPage() {
             const date = new Date(dateString);
             return date.toLocaleDateString("vi-VN");
           };
-          console.log("Order:", order);
 
           return {
             id: order.id,
@@ -94,7 +92,6 @@ export default function AdminDashboardPage() {
 
         setRecentOrders(formattedOrders); // Fetch summary data for dashboard stats
         const summaryResponse = await ReportsService.getSummaryReport();
-        console.log("Summary Report Response:", summaryResponse);
         setSummaryData({
           totalRevenue: summaryResponse.totalRevenue || 0,
           totalOrders: summaryResponse.totalOrders || 0,
@@ -108,8 +105,7 @@ export default function AdminDashboardPage() {
         const totalUsersCount = await UserService.getTotalUsers();
         setTotalUsers(totalUsersCount);
       } catch (error) {
-        console.error("Error fetching data:", error);
-        setError("Không thể tải dữ liệu");
+        setError(error as string);
       } finally {
         setLoading(false);
       }

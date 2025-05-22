@@ -18,12 +18,6 @@ function PaymentStatus() {
   useEffect(() => {
     const processPayment = async () => {
       try {
-        // Log all search params for debugging
-        console.log(
-          "Search params:",
-          Object.fromEntries(searchParams.entries())
-        );
-
         const vnp_ResponseCode = searchParams.get("vnp_ResponseCode");
         const vnp_TxnRef = searchParams.get("vnp_TxnRef");
 
@@ -31,7 +25,8 @@ function PaymentStatus() {
           setStatus("error");
           setMessage("Không nhận được phản hồi từ VNPay");
           return;
-        } // Check payment result based on response code
+        }
+        // kiểm tra mã phản hồi từ VNPay dựa vào mã vnp_ResponseCode
         if (vnp_ResponseCode === "00") {
           // Payment successful
           setStatus("success");
@@ -45,13 +40,8 @@ function PaymentStatus() {
             // Update payment status to "Paid" (paymentStatusId=2)
             try {
               await OrderService.updatePaymentStatus(orderId, 2);
-              console.log(
-                `Payment status updated successfully for order ${orderId}`
-              );
-            } catch (error) {
-              console.error("Failed to update payment status:", error);
-              // Continue with the payment success flow even if the status update fails
-              // The status can be updated later by admin if needed
+            } catch {
+              // tiếp tục luồng thanh toán ngay cả khi không thành công
             }
           }
 
@@ -68,9 +58,10 @@ function PaymentStatus() {
           }, 3000);
         }
       } catch (error) {
-        console.error("Error processing payment return:", error);
         setStatus("error");
-        setMessage("Có lỗi xảy ra khi xử lý kết quả thanh toán");
+        setMessage(
+          (error as string) || "Có lỗi xảy ra khi xử lý kết quả thanh toán"
+        );
       }
     };
 
@@ -172,7 +163,7 @@ export default function VNPayReturnPage() {
     <>
       <Header />
       <main className="container mx-auto px-4 py-12 min-h-screen">
-        <div className="max-w-lg mx-auto bg-white p-6 rounded-lg shadow-md">
+        <div className="w-fit mx-auto bg-white p-6 rounded-lg shadow-md">
           <Suspense
             fallback={
               <div className="flex justify-center py-10">

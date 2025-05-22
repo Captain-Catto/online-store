@@ -44,19 +44,12 @@ export function useAdminMenu() {
 
         // Bây giờ kiểm tra xem jsonData có phải là mảng không
         if (!Array.isArray(jsonData)) {
-          console.error("Invalid menu data format received:", jsonData); // Log dữ liệu không hợp lệ
           throw new Error("Invalid menu data received");
         }
 
-        console.log("Admin menu data:", jsonData); // Log dữ liệu JSON đã parse
         setMenuItems(jsonData); // Lưu dữ liệu JSON vào state
         setError(null);
-      } catch (err) {
-        // Log lỗi cụ thể hơn nếu có thể
-        console.error(
-          "Failed to fetch admin menu:",
-          err instanceof Error ? err.message : err
-        );
+      } catch {
         setError("Không thể tải menu.");
       } finally {
         setLoading(false);

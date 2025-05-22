@@ -25,14 +25,11 @@ export const OrderService = {
 
       return await response.json();
     } catch (error) {
-      console.error("Error fetching orders:", error);
       throw error;
     }
   },
   getOrderById: async (orderId: number): Promise<Order> => {
     try {
-      console.log(`Getting order details for order ID ${orderId}...`);
-
       const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
         method: "GET",
         headers: {
@@ -40,14 +37,11 @@ export const OrderService = {
         },
       });
 
-      console.log(`Order API response`, response);
       const responseText = await response.text();
-      console.log("Response text:", responseText);
       let responseJson;
       try {
         responseJson = JSON.parse(responseText);
-      } catch (err) {
-        console.error("Failed to parse response as JSON:", err);
+      } catch {
         throw new Error(`Invalid response format: ${responseText}`);
       }
       // Kiểm tra status code
@@ -60,14 +54,11 @@ export const OrderService = {
       // Trả về dữ liệu đã parse
       return await responseJson;
     } catch (error) {
-      console.error(`Error fetching order ${orderId}:`, error);
       throw error;
     }
   },
   placeOrder: async (orderData: OrderCreate): Promise<OrderFullResponse> => {
     try {
-      console.log("Sending order data:", JSON.stringify(orderData));
-
       // Get authentication token
       const token = sessionStorage.getItem("authToken");
 
@@ -81,15 +72,12 @@ export const OrderService = {
       });
 
       // Log đầy đủ response để debug
-      console.log(`Order API response`, response);
       const responseText = await response.text();
-      console.log("Response text:", responseText);
 
       let responseData;
       try {
         responseData = JSON.parse(responseText);
-      } catch (err) {
-        console.error("Failed to parse response as JSON:", err);
+      } catch {
         throw new Error(`Invalid response format: ${responseText}`);
       }
 
@@ -104,7 +92,6 @@ export const OrderService = {
       // Trả về dữ liệu đã parse
       return responseData;
     } catch (error) {
-      console.error("Error placing order:", error);
       throw error;
     }
   },
@@ -160,7 +147,6 @@ export const OrderService = {
       }
       return await response.json();
     } catch (error) {
-      console.error("Error fetching admin orders:", error);
       throw error;
     }
   },
@@ -216,7 +202,6 @@ export const OrderService = {
       }
       return await response.json();
     } catch (error) {
-      console.error("Error fetching employee orders:", error);
       throw error;
     }
   },
@@ -388,7 +373,6 @@ export const OrderService = {
         printWindow.print();
       }, 1000);
     } catch (error) {
-      console.error("Error printing invoice:", error);
       throw error;
     }
   },
@@ -420,7 +404,6 @@ export const OrderService = {
 
       return await response.json();
     } catch (error) {
-      console.error(`Error updating order ${orderId} status:`, error);
       throw error;
     }
   },
@@ -455,7 +438,6 @@ export const OrderService = {
 
       return await response.json();
     } catch (error) {
-      console.error("Error calculating shipping fee:", error);
       throw error;
     }
   },
@@ -477,7 +459,6 @@ export const OrderService = {
 
       return await response.json();
     } catch (error) {
-      console.error("Error fetching voucher:", error);
       throw error;
     }
   },
@@ -485,9 +466,6 @@ export const OrderService = {
   // Thêm phương thức validateVoucher để kiểm tra giá trị đơn hàng:
   validateVoucher: async (code: string, orderTotal: number) => {
     try {
-      console.log(
-        `Validating voucher ${code} for order total ${orderTotal}...`
-      );
       const response = await fetch(`${API_BASE_URL}/vouchers/validate`, {
         method: "POST",
         headers: {
@@ -503,7 +481,6 @@ export const OrderService = {
 
       return await response.json();
     } catch (error) {
-      console.error("Error validating voucher:", error);
       throw error;
     }
   },
@@ -531,7 +508,6 @@ export const OrderService = {
 
       return await response.json();
     } catch (error) {
-      console.error("Error canceling order:", error);
       throw error;
     }
   },
@@ -563,10 +539,6 @@ export const OrderService = {
 
       return await response.json();
     } catch (error) {
-      console.error(
-        `Error updating payment status for order ${orderId}:`,
-        error
-      );
       throw error;
     }
   },

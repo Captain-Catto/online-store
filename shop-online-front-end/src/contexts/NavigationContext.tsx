@@ -45,8 +45,7 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
       const data = await NavigationService.getPublicMenu();
       setMenuItems(data);
       setError(null);
-    } catch (err) {
-      console.error("Lỗi khi tải menu:", err);
+    } catch {
       setError("Không thể tải menu navigation");
     } finally {
       setLoading(false);
@@ -65,8 +64,7 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
       const data = await NavigationService.getPublicMenu();
       setMenuItems(data);
       setError(null);
-    } catch (err) {
-      console.error("Lỗi khi tải menu:", err);
+    } catch {
       setError("Không thể tải menu navigation");
     } finally {
       setLoading(false);

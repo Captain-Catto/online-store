@@ -59,8 +59,7 @@ const AddressesTab = ({
         const locationData = await import("@/data/location.json");
         setLocations(locationData.default);
         setCities(Object.keys(locationData.default));
-      } catch (error) {
-        console.error("Failed to load location data:", error);
+      } catch {
         setErrors({
           general: "Không thể tải dữ liệu địa điểm. Vui lòng làm mới trang.",
         });
@@ -261,8 +260,7 @@ const AddressesTab = ({
           fetchUserData();
         }
       }, 500); // Giảm thời gian delay để trải nghiệm mượt hơn
-    } catch (error) {
-      console.error("Error saving address:", error);
+    } catch {
       showToast("Đã xảy ra lỗi khi lưu địa chỉ. Vui lòng thử lại sau.", {
         type: "error",
       });
@@ -313,8 +311,7 @@ const AddressesTab = ({
       if (fetchUserData) {
         await fetchUserData();
       }
-    } catch (error) {
-      console.error("Error deleting address:", error);
+    } catch {
       showToast("Đã xảy ra lỗi khi xóa địa chỉ. Vui lòng thử lại sau.", {
         type: "error",
       });
@@ -337,8 +334,7 @@ const AddressesTab = ({
       if (fetchUserData) {
         await fetchUserData();
       }
-    } catch (error) {
-      console.error("Error setting default address:", error);
+    } catch {
       showToast(
         "Đã xảy ra lỗi khi đặt địa chỉ mặc định. Vui lòng thử lại sau.",
         { type: "error" }

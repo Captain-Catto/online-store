@@ -65,7 +65,6 @@ export class PaymentService {
 
       return await response.json();
     } catch (error) {
-      console.error("Error creating VNPAY payment URL:", error);
       throw error;
     }
   }
@@ -104,7 +103,6 @@ export class PaymentService {
 
       return await response.json();
     } catch (error) {
-      console.error("Error processing VNPAY return:", error);
       throw error;
     }
   }
@@ -133,7 +131,6 @@ export class PaymentService {
 
       return await response.json();
     } catch (error) {
-      console.error("Error checking payment status:", error);
       throw error;
     }
   }

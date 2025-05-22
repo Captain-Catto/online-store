@@ -54,12 +54,9 @@ export class AuthClient {
           }
         } catch {
           // Token không hợp lệ, tiếp tục để refresh
-          console.log(
-            "Token không hợp lệ hoặc không thể giải mã, tiến hành refresh"
-          );
         }
       } else {
-        console.log("Không tìm thấy token trong session, tiến hành refresh");
+        // "Không tìm thấy token trong session, tiến hành refresh"
       }
 
       // Gọi API refresh token
@@ -75,8 +72,6 @@ export class AuthClient {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        console.error("Refresh token API error:", response.status);
-
         // Gọi API logout để xóa cookie refreshToken ở server
         if (response.status === 401) {
           try {
@@ -84,13 +79,11 @@ export class AuthClient {
               method: "POST",
               credentials: "include",
             });
-            console.log("Đã logout do refresh token không hợp lệ");
             // xóa thông tin đăng nhập ở client
             document.cookie = `auth_status=; max-age=0; path=/`;
             localStorage.removeItem("isLoggedIn");
             localStorage.removeItem("user");
-          } catch (logoutError) {
-            console.error("Lỗi khi logout:", logoutError);
+          } catch {
             // Vẫn phải xóa cookie ngay cả khi API lỗi
             document.cookie = `auth_status=; max-age=0; path=/`;
             localStorage.removeItem("isLoggedIn");
@@ -108,22 +101,19 @@ export class AuthClient {
       const newToken = data.accessToken;
 
       if (!newToken) {
-        console.error("Không có accessToken trong response");
         isRefreshing = false;
         return null;
       }
 
       // Lưu token mới
       sessionStorage.setItem("authToken", newToken);
-      console.log("Refresh token thành công, đã lưu token mới");
 
       // Thông báo cho các subscribers
       onRefreshed(newToken);
       isRefreshing = false;
 
       return newToken;
-    } catch (error) {
-      console.error("Lỗi refresh token:", error);
+    } catch {
       isRefreshing = false;
       return null;
     }
@@ -151,7 +141,6 @@ export class AuthClient {
           }
         } catch {
           // Token không hợp lệ, thử refresh
-          console.log("Token không hợp lệ, thử refresh");
           const newToken = await this.refreshToken();
           if (newToken) {
             token = newToken;
@@ -161,7 +150,6 @@ export class AuthClient {
         }
       } else if (AuthService.isLoggedIn()) {
         // Không có token nhưng có dấu hiệu đăng nhập
-        console.log("Không có token nhưng có dấu hiệu đăng nhập, thử refresh");
         const newToken = await this.refreshToken();
         if (newToken) {
           token = newToken;
@@ -186,7 +174,6 @@ export class AuthClient {
         credentials: "include",
       });
     } catch (error) {
-      console.error("AuthClient.fetchWithAuth error:", error);
       throw error;
     }
   }

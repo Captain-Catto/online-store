@@ -110,8 +110,11 @@ export const useBreadcrumb = (
             }
             break;
         }
-      } catch (error) {
-        console.error("Error loading breadcrumbs:", error);
+      } catch {
+        setBreadcrumbs([
+          { label: "Trang chủ", href: "/" },
+          { label: "Lỗi", href: pathname, isLast: true },
+        ]);
       } finally {
         setLoading(false);
       }

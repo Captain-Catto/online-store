@@ -138,7 +138,6 @@ export default function UserDetailPage() {
       // Thoát khỏi chế độ chỉnh sửa
       setIsEditing(false);
     } catch (error) {
-      console.error("[ERROR] Failed to update user:", error);
       setUpdateError(
         error instanceof Error
           ? error.message
@@ -208,7 +207,6 @@ export default function UserDetailPage() {
           startDate,
           endDate
         );
-        console.log("[INFO] Fetching user orders from:", url);
 
         const response = await AuthClient.fetchWithAuth(url);
 
@@ -227,7 +225,6 @@ export default function UserDetailPage() {
           }
         );
       } catch (error) {
-        console.error("[ERROR] Failed to fetch user orders:", error);
         setOrdersError(
           error instanceof Error
             ? error.message
@@ -257,7 +254,6 @@ export default function UserDetailPage() {
       const userData = await response.json();
       setUser(userData);
     } catch (error) {
-      console.error("[ERROR] Failed to fetch user data:", error);
       setUserError(
         error instanceof Error
           ? error.message
@@ -387,7 +383,6 @@ export default function UserDetailPage() {
       // Đóng modal sau khi thành công
       setShowStatusModal(false);
     } catch (error) {
-      console.error("[ERROR] Failed to toggle user status:", error);
       setStatusError(
         error instanceof Error
           ? error.message
@@ -409,7 +404,6 @@ export default function UserDetailPage() {
       const data = await UserService.getUserNotes(Number(id));
       setNotes(data.notes || []);
     } catch (error) {
-      console.error("[ERROR] Failed to fetch user notes:", error);
       setNotesError(
         error instanceof Error
           ? error.message
@@ -437,7 +431,6 @@ export default function UserDetailPage() {
       await fetchUserNotes();
       setNewNote("");
     } catch (error) {
-      console.error("[ERROR] Error adding note:", error);
       setNotesError(
         error instanceof Error ? error.message : "Không thể thêm ghi chú"
       );
@@ -457,7 +450,6 @@ export default function UserDetailPage() {
       await fetchUserNotes();
       setEditingNote(null);
     } catch (error) {
-      console.error("[ERROR] Error updating note:", error);
       setNotesError(
         error instanceof Error ? error.message : "Không thể cập nhật ghi chú"
       );
@@ -484,7 +476,6 @@ export default function UserDetailPage() {
       await fetchUserNotes();
       setDeleteNoteModal({ show: false, noteId: null });
     } catch (error) {
-      console.error("[ERROR] Error deleting note:", error);
       setNotesError(
         error instanceof Error ? error.message : "Không thể xóa ghi chú"
       );

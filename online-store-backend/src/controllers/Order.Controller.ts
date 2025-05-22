@@ -39,6 +39,14 @@ export const createOrder = async (
       return;
     }
 
+    // validate số điện thoại việt nam
+    const phoneRegex = /^(0[3|5|7|8|9]|[1-9][0-9])[0-9]{8,14}$/;
+    if (!phoneRegex.test(shippingPhoneNumber)) {
+      await t.rollback();
+      res.status(400).json({ message: "Số điện thoại không hợp lệ" });
+      return;
+    }
+
     // Validate items và tính tổng giá
     let total = 0;
     const orderItems = [];

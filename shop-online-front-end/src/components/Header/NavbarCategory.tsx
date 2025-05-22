@@ -25,8 +25,8 @@ export default function NavBarCategory() {
       try {
         const data = await CategoryService.getNavCategories();
         setMenuItems(data);
-      } catch (error) {
-        console.error("Failed to fetch categories:", error);
+      } catch {
+        // console.error("Failed to fetch categories:", error);
       } finally {
         setLoading(false);
       }
@@ -34,7 +34,6 @@ export default function NavBarCategory() {
 
     fetchCategories();
   }, []);
-  console.log("đang chạy NavBarCategory");
   const renderMenuItem = (category: CategoryNav) => (
     <li key={category.id} className="relative group">
       <Link

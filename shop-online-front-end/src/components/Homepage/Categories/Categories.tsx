@@ -52,8 +52,7 @@ const Categories: React.FC = () => {
         );
 
         setCategories(childCategories);
-      } catch (err) {
-        console.error("Lỗi khi lấy danh mục:", err);
+      } catch {
         setError("Không thể tải danh mục. Vui lòng thử lại sau.");
       } finally {
         setLoading(false);

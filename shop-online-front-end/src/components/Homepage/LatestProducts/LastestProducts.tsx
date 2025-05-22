@@ -106,8 +106,7 @@ const LatestProducts: React.FC = () => {
           setLoading(false);
           setInitialLoadComplete(true);
         }, 100);
-      } catch (error) {
-        console.error("Failed to fetch products:", error);
+      } catch {
         setError("Không thể tải sản phẩm. Vui lòng thử lại sau.");
         setLoading(false);
       }

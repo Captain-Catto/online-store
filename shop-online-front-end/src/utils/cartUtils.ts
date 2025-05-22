@@ -16,9 +16,8 @@ export const getCartFromCookie = (): CartItem[] => {
   try {
     // nếu có thì parse thành mảng và trả về vì cookie chỉ lưu dưới dạng string
     return JSON.parse(cartJson);
-  } catch (error) {
+  } catch {
     // nếu có lỗi khi parse, in ra console và trả về mảng rỗng
-    console.error("Error parsing cart cookie:", error);
     return [];
   }
 };

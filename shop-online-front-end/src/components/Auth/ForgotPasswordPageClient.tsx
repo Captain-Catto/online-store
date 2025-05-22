@@ -33,7 +33,6 @@ export default function ForgotPasswordPageClient() {
 
       setSuccess(true);
     } catch (error) {
-      console.error("Lỗi quên mật khẩu:", error);
       setError(
         error instanceof Error
           ? error.message

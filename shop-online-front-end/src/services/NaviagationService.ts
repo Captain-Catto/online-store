@@ -34,8 +34,7 @@ export class NavigationService {
       }
 
       return await response.json();
-    } catch (error) {
-      console.error("Lỗi khi lấy menu:", error);
+    } catch {
       return [];
     }
   }
@@ -53,8 +52,7 @@ export class NavigationService {
       }
 
       return await response.json();
-    } catch (error) {
-      console.error("Lỗi khi lấy danh sách menu:", error);
+    } catch {
       return [];
     }
   }
@@ -81,7 +79,6 @@ export class NavigationService {
 
       return await response.json();
     } catch (error) {
-      console.error("Lỗi khi tạo menu:", error);
       throw error;
     }
   }
@@ -109,7 +106,6 @@ export class NavigationService {
 
       return await response.json();
     } catch (error) {
-      console.error("Lỗi khi cập nhật menu:", error);
       throw error;
     }
   }
@@ -128,7 +124,6 @@ export class NavigationService {
         throw new Error("Không thể xóa menu");
       }
     } catch (error) {
-      console.error("Lỗi khi xóa menu:", error);
       throw error;
     }
   }

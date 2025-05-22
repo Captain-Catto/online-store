@@ -115,7 +115,6 @@ export const CartService = {
   mergeCartFromCookies: async (): Promise<{ message: string }> => {
     try {
       const cartItems = getCartFromCookie();
-      console.log("Merging items from cookie:", cartItems);
 
       if (!cartItems.length) {
         return { message: "No items to merge" };
@@ -161,14 +160,12 @@ export const CartService = {
         }
 
         const result = await response.json();
-        console.log("Merge successful:", result);
         return result;
       } catch (error) {
         clearTimeout(timeoutId);
         throw error;
       }
     } catch (error) {
-      console.error("Error merging cart from cookies:", error);
       throw error;
     }
   },
@@ -185,8 +182,6 @@ export const CartService = {
     }[];
   }> => {
     try {
-      console.log("Items being sent for stock check:", items);
-
       const response = await fetch(`${API_BASE_URL}/cart/check-stock`, {
         method: "POST",
         headers: {
@@ -206,8 +201,7 @@ export const CartService = {
       }
 
       return await response.json();
-    } catch (error) {
-      console.error("Error checking stock:", error);
+    } catch {
       // Fallback kiểm tra cục bộ nếu API gặp lỗi
       return {
         valid: true, // Cho phép tiếp tục để không làm gián đoạn UX

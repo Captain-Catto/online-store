@@ -86,8 +86,8 @@ const User: React.FC = () => {
 
           // FAQ không cần fetch dữ liệu vì nó là nội dung tĩnh
         }
-      } catch (error) {
-        console.error(`Error fetching data for ${activeTab}:`, error);
+      } catch {
+        // thông báo lỗi nhưng ở product thì ko hiển thị
       } finally {
         setIsLoading(false);
       }

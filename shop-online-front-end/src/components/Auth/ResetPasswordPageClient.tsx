@@ -63,7 +63,6 @@ export default function ResetPasswordPageClient({
 
       setSuccess(true);
     } catch (error) {
-      console.error("Lỗi đặt lại mật khẩu:", error);
       setError(
         error instanceof Error ? error.message : "Không thể đặt lại mật khẩu"
       );

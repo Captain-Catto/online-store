@@ -24,8 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     }
 
     return createProductMetadata(product);
-  } catch (error) {
-    console.error("Error generating product metadata:", error);
+  } catch {
     return {
       title: "Lỗi tải sản phẩm",
       description:
@@ -52,8 +51,7 @@ export default async function ProductDetailPage({ params }: Props) {
 
     // Pass initial product data to Client Component
     return <ProductDetailPageClient productId={id} initialProduct={product} />;
-  } catch (error) {
-    console.error("Error loading product in server component:", error);
+  } catch {
     // Pass productId and let client component handle error/loading
     const { id } = await params;
     return <ProductDetailPageClient productId={id} />;

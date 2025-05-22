@@ -112,8 +112,7 @@ export default function NavigationManagement() {
         setExpandedMenuItems(new Set(parentMenuIds));
 
         setError(null);
-      } catch (error) {
-        console.error("Lỗi khi tải dữ liệu:", error);
+      } catch {
         setError("Không thể tải dữ liệu. Vui lòng thử lại sau.");
       } finally {
         setLoading(false);
@@ -157,8 +156,7 @@ export default function NavigationManagement() {
       const menuData = await NavigationService.getAllMenuItems();
       setMenuItems(menuData);
       await refreshNavigation();
-    } catch (error) {
-      console.error("Lỗi khi lưu menu:", error);
+    } catch {
       setError("Không thể lưu menu. Vui lòng thử lại.");
     }
   };
@@ -224,8 +222,7 @@ export default function NavigationManagement() {
 
       // Hiển thị thông báo thành công
       showToast("Xóa mục menu thành công", { type: "success" });
-    } catch (error) {
-      console.error("Lỗi khi xóa menu:", error);
+    } catch {
       setError("Không thể xóa menu. Vui lòng thử lại.");
       showToast("Không thể xóa menu", { type: "error" });
     } finally {
@@ -289,8 +286,7 @@ export default function NavigationManagement() {
       await refreshNavigation();
 
       showToast("Đã thay đổi vị trí menu thành công", { type: "success" });
-    } catch (error) {
-      console.error("Lỗi khi cập nhật thứ tự:", error);
+    } catch {
       showToast("Không thể thay đổi vị trí menu. Vui lòng thử lại.", {
         type: "error",
       });

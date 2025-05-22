@@ -39,7 +39,6 @@ class UserService {
         throw new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
       }
 
-      console.error("Error fetching user profile:", error);
       throw error;
     }
   }
@@ -78,7 +77,6 @@ class UserService {
         throw new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
       }
 
-      console.error("Error updating user profile:", error);
       throw error;
     }
   }
@@ -117,7 +115,6 @@ class UserService {
         throw new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
       }
 
-      console.error("Error changing password:", error);
       throw error;
     }
   }
@@ -147,7 +144,6 @@ class UserService {
         throw new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
       }
 
-      console.error("Error fetching addresses:", error);
       throw error;
     }
   }
@@ -182,7 +178,6 @@ class UserService {
         throw new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
       }
 
-      console.error("Error adding address:", error);
       throw error;
     }
   }
@@ -217,7 +212,6 @@ class UserService {
         throw new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
       }
 
-      console.error("Error updating address:", error);
       throw error;
     }
   }
@@ -251,7 +245,6 @@ class UserService {
         throw new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
       }
 
-      console.error("Error deleting address:", error);
       throw error;
     }
   }
@@ -285,7 +278,6 @@ class UserService {
         throw new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
       }
 
-      console.error("Error setting default address:", error);
       throw error;
     }
   }
@@ -318,7 +310,6 @@ class UserService {
         throw new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
       }
 
-      console.error("Error fetching user notes:", error);
       throw error;
     }
   }
@@ -359,7 +350,6 @@ class UserService {
         throw new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
       }
 
-      console.error("Error adding user note:", error);
       throw error;
     }
   }
@@ -398,7 +388,6 @@ class UserService {
         throw new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
       }
 
-      console.error("Error updating user note:", error);
       throw error;
     }
   }
@@ -432,7 +421,6 @@ class UserService {
         throw new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
       }
 
-      console.error("Error deleting user note:", error);
       throw error;
     }
   }
@@ -468,7 +456,6 @@ class UserService {
         throw new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
       }
 
-      console.error("Error updating user by admin:", error);
       throw error;
     }
   }
@@ -583,8 +570,8 @@ class UserService {
 
       const data = await response.json();
       return data.pagination.total || 0;
-    } catch (error) {
-      console.error("Error fetching total users:", error);
+    } catch {
+      // nếu có lỗi xảy ra, trả về 0
       return 0;
     }
   }

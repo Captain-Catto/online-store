@@ -169,7 +169,6 @@ const ProductDetailModal = ({
       size: selectedSize,
       image: images.length > 0 ? images[0].url : "/images/placeholder.jpg",
     };
-    console.log("img", images[0].url);
 
     onAddToCart(cartItem);
     onClose();
@@ -524,8 +523,7 @@ export default function WishlistPageClient() {
       const data = await WishlistService.getWishlist(page, 10);
       setWishlistItems(data.items);
       setPagination(data.pagination);
-    } catch (error) {
-      console.error("Error fetching wishlist:", error);
+    } catch {
       setError("Không thể tải danh sách yêu thích. Vui lòng thử lại sau.");
     } finally {
       setLoading(false);
@@ -546,8 +544,7 @@ export default function WishlistPageClient() {
       showToast("Đã xóa sản phẩm khỏi danh sách yêu thích", {
         type: "success",
       });
-    } catch (error) {
-      console.error("Error removing from wishlist:", error);
+    } catch {
       showToast("Không thể xóa sản phẩm. Vui lòng thử lại.", {
         type: "error",
       });

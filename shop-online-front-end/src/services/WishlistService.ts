@@ -18,8 +18,9 @@ export class WishlistService {
       }
 
       return await response.json();
-    } catch (error) {
-      console.error("Error fetching wishlist:", error);
+    } catch {
+      // Nếu có lỗi trong quá trình lấy danh sách yêu thích,
+      // trả về một đối tượng mặc định
       return {
         items: [],
         pagination: {
@@ -54,7 +55,6 @@ export class WishlistService {
 
       return await response.json();
     } catch (error) {
-      console.error("Error adding to wishlist:", error);
       throw error;
     }
   }
@@ -77,7 +77,6 @@ export class WishlistService {
 
       return await response.json();
     } catch (error) {
-      console.error("Error removing from wishlist:", error);
       throw error;
     }
   }
@@ -95,8 +94,8 @@ export class WishlistService {
 
       const data: WishlistCheckResponse = await response.json();
       return data.inWishlist;
-    } catch (error) {
-      console.error("Error checking wishlist status:", error);
+    } catch {
+      // nếu có lỗi trong quá trình kiểm tra, trả về false
       return false;
     }
   }

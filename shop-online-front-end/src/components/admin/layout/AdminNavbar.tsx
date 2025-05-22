@@ -54,9 +54,9 @@ export default function AdminNavbar({ toggleSidebar }: AdminNavbarProps) {
             <i className="fas fa-user-circle"></i>
           </a>
           <div className="dropdown-menu dropdown-menu-lg dropdown-menu-right">
-            <span className="dropdown-item dropdown-header">Admin User</span>
+            <span className="dropdown-header">Admin User</span>
             <div className="dropdown-divider"></div>
-            <Link href="/admin/profile" className="dropdown-item">
+            <Link href="/account" className="dropdown-item">
               <i className="fas fa-user mr-2"></i> Hồ sơ
             </Link>
             <div className="dropdown-divider"></div>

@@ -38,7 +38,6 @@ export const CategoryService = {
 
       return await response.json();
     } catch (error) {
-      console.error("Lỗi khi lấy danh mục:", error);
       throw error;
     }
   },
@@ -51,8 +50,7 @@ export const CategoryService = {
         throw new Error("Không thể lấy danh mục cho navbar");
       }
       return await response.json();
-    } catch (error) {
-      console.error("Lỗi khi lấy danh mục cho navbar:", error);
+    } catch {
       return [];
     }
   },
@@ -66,7 +64,6 @@ export const CategoryService = {
       }
       return await response.json();
     } catch (error) {
-      console.error("Lỗi khi lấy danh mục theo slug:", error);
       throw error;
     }
   },
@@ -82,7 +79,6 @@ export const CategoryService = {
 
       return await response.json();
     } catch (error) {
-      console.error("Lỗi khi lấy danh mục theo ID:", error);
       throw error;
     }
   },
@@ -114,7 +110,6 @@ export const CategoryService = {
 
       return await response.json();
     } catch (error) {
-      console.error("Lỗi khi tạo danh mục:", error);
       throw error;
     }
   },
@@ -148,7 +143,6 @@ export const CategoryService = {
 
       return await response.json();
     } catch (error) {
-      console.error("Lỗi khi cập nhật danh mục:", error);
       throw error;
     }
   },
@@ -168,7 +162,6 @@ export const CategoryService = {
         throw new Error(errorData.message || "Không thể xóa danh mục");
       }
     } catch (error) {
-      console.error("Lỗi khi xóa danh mục:", error);
       throw error;
     }
   },
@@ -204,7 +197,6 @@ export const CategoryService = {
 
       // Tạo URL hoàn chỉnh
       const url = `${API_BASE_URL}/categories/slug/${categorySlug}/products?${queryParams.toString()}`;
-      console.log("URL:", url);
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
@@ -212,7 +204,6 @@ export const CategoryService = {
 
       return await response.json();
     } catch (error) {
-      console.error("Lỗi khi lấy sản phẩm theo danh mục:", error);
       throw error;
     }
   },
@@ -243,7 +234,6 @@ export const CategoryService = {
 
       return await response.json();
     } catch (error) {
-      console.error("Lỗi khi cập nhật trạng thái danh mục:", error);
       throw error;
     }
   },
@@ -263,7 +253,6 @@ export const CategoryService = {
 
       return await response.json();
     } catch (error) {
-      console.error("Lỗi khi lấy danh sách danh mục con:", error);
       throw error;
     }
   },

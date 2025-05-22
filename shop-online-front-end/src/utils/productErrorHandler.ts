@@ -72,6 +72,8 @@ export const handleProductVariantError = async (
   } catch (e) {
     // Nếu không parse được JSON
     console.error("Failed to parse error response:", e);
+    // Trả về thông báo lỗi mặc định
+    return errorMsg;
   }
 
   return errorMsg;

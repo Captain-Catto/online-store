@@ -29,12 +29,14 @@ export default function WishlistButton({
         const inWishlist = await WishlistService.checkInWishlist(productId);
         setIsInWishlist(inWishlist);
       } catch (error) {
-        console.error("Error checking wishlist status:", error);
+        showToast(error instanceof Error ? error.message : "Đã xảy ra lỗi", {
+          type: "error",
+        });
       }
     };
 
     checkWishlistStatus();
-  }, [productId]);
+  }, [productId, showToast]);
 
   const handleWishlistClick = async () => {
     if (isLoading) return;
@@ -59,7 +61,6 @@ export default function WishlistButton({
 
       setIsInWishlist(!isInWishlist);
     } catch (error) {
-      console.error("Error updating wishlist:", error);
       showToast(error instanceof Error ? error.message : "Đã xảy ra lỗi", {
         type: "error",
       });

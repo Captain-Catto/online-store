@@ -118,8 +118,7 @@ const AddProductPageContent: React.FC = () => {
 
       setCategoryList(categories.filter((cat: Category) => !cat.parentId));
       setSuitabilities(suitData);
-    } catch (error) {
-      console.error("Error fetching categories:", error);
+    } catch {
       showToast("Không thể tải dữ liệu danh mục hoặc kích thước", {
         type: "error",
       });
@@ -140,8 +139,7 @@ const AddProductPageContent: React.FC = () => {
         .then((data) => {
           setSubtypes(data);
         })
-        .catch((error) => {
-          console.error("Error fetching subtypes:", error);
+        .catch(() => {
           showToast("Không thể tải dữ liệu loại sản phẩm", { type: "error" });
         });
     }
@@ -182,8 +180,7 @@ const AddProductPageContent: React.FC = () => {
             { type: "warning" }
           );
         }
-      } catch (error) {
-        console.error("Error fetching sizes:", error);
+      } catch {
         showToast("Không thể tải dữ liệu kích thước", { type: "error" });
         // chuyển về kích thước mặc định nếu không tìm thấy
         // hoặc có lỗi
@@ -246,7 +243,6 @@ const AddProductPageContent: React.FC = () => {
         showToast(errorMessage, { type: "error" });
 
         // Log all errors for debugging
-        console.error("Product validation errors:", validation.errors);
         dispatch({ type: "SET_SUBMITTING", payload: false });
         return;
       } // Prepare data for API
@@ -286,7 +282,6 @@ const AddProductPageContent: React.FC = () => {
           imageMainMapping[index] = img.isMain;
         });
 
-        console.log("data đang gửi đi", productData);
         // Create product with images
         const result = await ProductService.createProductWithImages(
           productData,
@@ -296,11 +291,9 @@ const AddProductPageContent: React.FC = () => {
         );
 
         // Log the entire response to see its structure
-        console.log("API Response for product creation:", result);
 
         // Check if we have a product ID in the response
         if (!result || !result.id) {
-          console.error("No product ID in response:", result);
           showToast("Sản phẩm đã được tạo, nhưng không lấy được ID sản phẩm", {
             type: "warning",
           });
@@ -312,12 +305,10 @@ const AddProductPageContent: React.FC = () => {
         showToast("Sản phẩm đã được tạo thành công", { type: "success" });
 
         // Redirect to product detail page with correct product ID
-        console.log("Redirecting to product detail page with ID:", result.id);
         router.push(`/admin/products/${result.id}`);
       } else {
         // Create product without images
         const result = await ProductService.createProduct(productData);
-        console.log("Product created:", result);
         showToast(
           "Sản phẩm đã được tạo thành công. Hãy thêm hình ảnh cho sản phẩm.",
           { type: "success" }
@@ -327,7 +318,6 @@ const AddProductPageContent: React.FC = () => {
         router.push(`/admin/products/${result.id}`);
       }
     } catch (error) {
-      console.error("Error creating product:", error);
       showToast(
         error instanceof Error
           ? error.message
@@ -367,7 +357,6 @@ const AddProductPageContent: React.FC = () => {
     // If no color is selected but we have colors available, auto-select the first color
     if (!state.selectedImageColor && state.product.details.length > 0) {
       const firstColor = state.product.details[0].color;
-      console.log("Auto-selecting first color:", firstColor);
       dispatch({ type: "SET_SELECTED_IMAGE_COLOR", payload: firstColor });
 
       // Show a notice to the user
@@ -392,14 +381,6 @@ const AddProductPageContent: React.FC = () => {
       (d) => d.color === state.selectedImageColor
     );
 
-    // Log for debugging
-    console.log("Selected Color:", state.selectedImageColor);
-    console.log(
-      "Available Colors:",
-      state.product.details.map((d) => d.color)
-    );
-    console.log("Detail Index:", detailIndex);
-
     // Handle case when detailIndex is -1 (selected color doesn't exist in details)
     if (detailIndex < 0) {
       showToast(
@@ -410,7 +391,6 @@ const AddProductPageContent: React.FC = () => {
       // Reset selection and select first available color
       if (state.product.details.length > 0) {
         const firstColor = state.product.details[0].color;
-        console.log("Switching to first available color:", firstColor);
         dispatch({ type: "SET_SELECTED_IMAGE_COLOR", payload: firstColor });
         showToast(`Đã chuyển sang màu ${firstColor} - vui lòng thử lại`, {
           type: "info",
@@ -423,7 +403,6 @@ const AddProductPageContent: React.FC = () => {
 
     const selectedFiles = Array.from(fileInput.files);
     const currentColorImages = state.product.details[detailIndex].images || [];
-    console.log("Current Color Images:", currentColorImages);
 
     // Check if adding these images would exceed the limit of 10
     if (currentColorImages.length + selectedFiles.length > 10) {

@@ -138,9 +138,7 @@ export default function CheckoutPage() {
             setUserId(Number(userData.id));
           }
         }
-      } catch (error) {
-        console.error("Error retrieving user data:", error);
-      }
+      } catch {}
     }
   }, [isLoggedIn, loading]);
 
@@ -154,18 +152,15 @@ export default function CheckoutPage() {
 
       try {
         const addressData = await UserService.getAddresses();
-        console.log("Địa chỉ người dùng:", addressData);
         setAddresses(addressData);
 
         // Tự động chọn địa chỉ mặc định nếu có
         const defaultAddress = addressData.find((addr) => addr.isDefault);
-        console.log("Địa chỉ mặc định:", defaultAddress);
         if (defaultAddress) {
           setSelectedAddressId(Number(defaultAddress.id));
           populateShippingInfo(defaultAddress);
         }
-      } catch (error) {
-        console.error("Lỗi khi lấy địa chỉ:", error);
+      } catch {
         setAddressError(
           "Không thể tải địa chỉ của bạn. Vui lòng nhập thông tin giao hàng."
         );
@@ -221,8 +216,9 @@ export default function CheckoutPage() {
 
           return;
         }
-      } catch (error) {
-        console.error("Error loading order data from session storage:", error);
+      } catch {
+        // báo lỗi khi không lấy được orderdata
+        setOrderError("Không thể tải dữ liệu đơn hàng. Vui lòng thử lại.");
       }
 
       // Fallback: calculate from cart items if session storage data isn't available
@@ -296,8 +292,7 @@ export default function CheckoutPage() {
           JSON.stringify(updatedOrderData)
         );
       }
-    } catch (error) {
-      console.error("Error calculating shipping fee:", error);
+    } catch {
       // Sử dụng phí vận chuyển mặc định nếu có lỗi
     } finally {
       setCalculatingShippingFee(false);
@@ -387,11 +382,8 @@ export default function CheckoutPage() {
           orderData.voucherCode = voucherData.code;
 
           sessionStorage.setItem("pendingOrder", JSON.stringify(orderData));
-
-          console.log("Updated pendingOrder with voucher:", orderData);
         }
       } catch (error) {
-        console.error("Error applying voucher:", error);
         setVoucherError(
           error instanceof Error
             ? error.message
@@ -508,11 +500,9 @@ export default function CheckoutPage() {
         shippingCity: shippingInfo.city,
         userId: userId, // Include the userId in the order payload
       };
-      console.log("Order payload:", orderPayload);
 
       // Gọi API để đặt hàng
       const response = await OrderService.placeOrder(orderPayload);
-      console.log("Order placed successfully:", response);
 
       // Kiểm tra orderId
       if (!response.orderId) {
@@ -546,7 +536,6 @@ export default function CheckoutPage() {
             }
           );
           const vnpayData = await vnpayResponse.json();
-          console.log("VNPAY URL received:", vnpayData.paymentUrl);
 
           // Đảm bảo URL có chứa vnp_SecureHash
           if (
@@ -555,7 +544,6 @@ export default function CheckoutPage() {
           ) {
             window.location.href = vnpayData.paymentUrl;
           } else {
-            console.error("VNPAY URL không hợp lệ:", vnpayData.paymentUrl);
             throw new Error("URL thanh toán không hợp lệ");
           }
 
@@ -572,16 +560,15 @@ export default function CheckoutPage() {
           } else {
             throw new Error("Không nhận được URL thanh toán");
           }
-        } catch (error) {
-          console.error("Lỗi khi tạo URL thanh toán VNPAY:", error);
+        } catch {
           setOrderError(
             "Không thể tạo liên kết thanh toán VNPAY. Vui lòng thử lại sau."
           );
 
           // Chuyển về trang xác nhận đơn hàng dù gặp lỗi VNPAY
-          // setTimeout(() => {
-          //   router.push("/order-confirmation");
-          // }, 100);
+          setTimeout(() => {
+            router.push("/order-confirmation");
+          }, 100);
         }
       } else {
         // Các phương thức thanh toán khác
@@ -590,8 +577,6 @@ export default function CheckoutPage() {
         }, 100);
       }
     } catch (error) {
-      console.error("Error placing order:", error);
-
       // Xử lý hiển thị lỗi - giữ nguyên code của bạn
       if (error instanceof Error) {
         try {
