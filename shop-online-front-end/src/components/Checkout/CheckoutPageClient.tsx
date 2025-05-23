@@ -74,6 +74,8 @@ export default function CheckoutPage() {
     subtotal: 0,
     discount: 0,
     deliveryFee: 0,
+    baseShippingFee: 0,
+    shippingDiscount: 0,
     total: 0,
   });
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>(
@@ -211,6 +213,8 @@ export default function CheckoutPage() {
             subtotal: orderData.summary.subtotal || 0,
             discount: orderData.summary.voucherDiscount || 0,
             deliveryFee: orderData.summary.deliveryFee || 0,
+            baseShippingFee: orderData.summary.baseShippingFee || 0,
+            shippingDiscount: orderData.summary.shippingDiscount || 0,
             total: orderData.summary.total || orderData.summary.subtotal || 0,
           });
 
@@ -230,7 +234,9 @@ export default function CheckoutPage() {
       setOrderSummary({
         subtotal,
         discount: 0,
-        deliveryFee: 0,
+        deliveryFee: 0, // Phí vận chuyển sau khi giảm giá
+        baseShippingFee: 0, // Phí vận chuyển gốc
+        shippingDiscount: 0, // Giảm giá vận chuyển
         total: subtotal,
       });
     }
@@ -259,6 +265,7 @@ export default function CheckoutPage() {
 
       // Gọi API để tính phí vận chuyển
       const response = await OrderService.getShippingFee(requestData);
+      console.log("response shipping fee", response);
 
       // Kiểm tra nếu response không có trường shipping hoặc finalFee
       if (
@@ -271,11 +278,15 @@ export default function CheckoutPage() {
 
       // Lấy finalFee từ đối tượng shipping trong response
       const shippingFee = response.shipping.finalFee;
+      const baseShippingFee = response.shipping.baseFee;
+      const shippingDiscount = response.shipping.discount;
 
       // Cập nhật order summary với phí vận chuyển mới
       setOrderSummary((prev) => ({
         ...prev,
         deliveryFee: shippingFee,
+        baseShippingFee: baseShippingFee,
+        shippingDiscount: shippingDiscount,
         total: prev.subtotal - prev.discount + shippingFee,
       }));
 
@@ -1137,9 +1148,19 @@ export default function CheckoutPage() {
                       )}
                     </span>
                     <span className="font-medium">
-                      {orderSummary.deliveryFee.toLocaleString("vi-VN")} VND
+                      {orderSummary.baseShippingFee.toLocaleString("vi-VN")} VND
                     </span>
                   </div>
+
+                  {orderSummary.shippingDiscount > 0 && (
+                    <div className="flex justify-between py-2">
+                      <span className="text-gray-600">Giảm giá vận chuyển</span>
+                      <span className="font-medium text-red-600">
+                        -{orderSummary.shippingDiscount.toLocaleString("vi-VN")}{" "}
+                        VND
+                      </span>
+                    </div>
+                  )}
 
                   <div className="flex justify-between py-2 pt-3">
                     <span className="font-semibold">Tổng</span>

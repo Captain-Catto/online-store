@@ -15,6 +15,10 @@ import { useCart } from "@/contexts/CartContext";
 import BreadcrumbTrail from "@/components/Breadcrumb/BreadcrumbTrail";
 import { useBreadcrumb } from "@/hooks/useBreadcrumb";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
+import freeshipImg from "@/assets/imgs/freeship.png";
+import doitraImg from "@/assets/imgs/doitra.svg";
+import lienlacImg from "@/assets/imgs/lienlac.svg";
+import diachiImg from "@/assets/imgs/diachi.svg";
 
 interface ProductDetailPageClientProps {
   productId: string;
@@ -515,6 +519,71 @@ export default function ProductDetailPageClient({
                     className="px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-100"
                     showText={true}
                   />
+                  {/* Policy Section - Thêm vào sau nút Thêm vào giỏ hàng và nút yêu thích */}
+                  <div className="mt-6 pt-6 border-t border-gray-200 w-full">
+                    <div className="grid grid-cols-2 gap-4">
+                      <Link href="/policy/shipping" className="group">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 flex-shrink-0">
+                            <Image
+                              src={freeshipImg}
+                              alt="Free shipping"
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                          <span className="text-sm text-gray-700 group-hover:text-blue-600 transition-colors">
+                            Free ship cho đơn từ 1 triệu
+                          </span>
+                        </div>
+                      </Link>
+
+                      <Link href="/policy/return" className="group">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 flex-shrink-0">
+                            <Image
+                              src={doitraImg}
+                              alt="Return policy"
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                          <span className="text-sm text-gray-700 group-hover:text-blue-600 transition-colors">
+                            365 Ngày đổi trả vì bất kỳ lý do gì
+                          </span>
+                        </div>
+                      </Link>
+
+                      <Link href="/policy/warranty" className="group">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 flex-shrink-0">
+                            <Image
+                              src={diachiImg}
+                              alt="Warranty policy"
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                          <span className="text-sm text-gray-700 group-hover:text-blue-600 transition-colors">
+                            Bảo hành từ 30 ngày đến 2 năm
+                          </span>
+                        </div>
+                      </Link>
+
+                      <Link href="/contact" className="group">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 flex-shrink-0">
+                            <Image
+                              src={lienlacImg}
+                              alt="Contact support"
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                          <span className="text-sm text-gray-700 group-hover:text-blue-600 transition-colors">
+                            Hotline 1800.1234 hỗ trợ
+                            <br /> từ 8h30 - 22h mỗi ngày
+                          </span>
+                        </div>
+                      </Link>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

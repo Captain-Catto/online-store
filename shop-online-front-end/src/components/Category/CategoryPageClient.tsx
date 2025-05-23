@@ -28,6 +28,7 @@ interface FilterState {
   size: string[];
   color: string;
   childCategory: string;
+  price: { min: number; max: number };
 }
 
 // Định nghĩa interface cho filters mở
@@ -37,6 +38,7 @@ interface FiltersOpenState {
   color: boolean;
   categories: boolean;
   mainCategory: boolean;
+  price: boolean;
 }
 
 interface CategoryClientProps {
@@ -101,10 +103,18 @@ export default function CategoryPageClient({ slug }: CategoryClientProps) {
     color: true,
     categories: true,
     mainCategory: false,
+    price: true,
   });
 
   // Initialize filters from URL params
   const [filters, setFilters] = useState<FilterState>(() => {
+    const minPrice = searchParams.get("minPrice")
+      ? Number(searchParams.get("minPrice"))
+      : 0;
+    const maxPrice = searchParams.get("maxPrice")
+      ? Number(searchParams.get("maxPrice"))
+      : 0;
+
     return {
       suitability: searchParams.get("suitability")
         ? searchParams.get("suitability")!.split(",")
@@ -114,12 +124,28 @@ export default function CategoryPageClient({ slug }: CategoryClientProps) {
         : [],
       color: searchParams.get("color") || "",
       childCategory: searchParams.get("childCategory") || "",
+      price: { min: minPrice, max: maxPrice }, // Khởi tạo từ URL params
     };
   });
 
   // Thêm state để theo dõi nếu danh mục hiện tại là danh mục con
   const [isCurrentCategoryChild, setIsCurrentCategoryChild] =
     useState<boolean>(false);
+
+  // Xử lý bộ lọc giá
+  const handlePriceFilter = useCallback(
+    (minPrice: string, maxPrice: string): void => {
+      const minPriceNum = parseInt(minPrice, 10) || 0;
+      const maxPriceNum = parseInt(maxPrice, 10) || 0;
+
+      setFilters((prev) => ({
+        ...prev,
+        price: { min: minPriceNum, max: maxPriceNum },
+      }));
+      setCurrentPage(1); // Reset lại trang đầu tiên khi thay đổi bộ lọc
+    },
+    []
+  );
 
   // Fetch all categories for navigation
   useEffect(() => {
@@ -182,6 +208,15 @@ export default function CategoryPageClient({ slug }: CategoryClientProps) {
       params.set("childCategory", filters.childCategory);
     }
 
+    if (filters.price.min > 0) {
+      params.set("minPrice", filters.price.min.toString());
+    }
+
+    // Sửa lại điều kiện kiểm tra maxPrice
+    if (filters.price.max > 0) {
+      params.set("maxPrice", filters.price.max.toString());
+    }
+
     if (sortOption) {
       params.set("sort", sortOption);
     }
@@ -238,6 +273,14 @@ export default function CategoryPageClient({ slug }: CategoryClientProps) {
           apiFilters.childCategory = filters.childCategory;
         }
 
+        if (filters.price.min > 0) {
+          apiFilters.minPrice = filters.price.min.toString();
+        }
+        if (filters.price.max > 0) {
+          apiFilters.maxPrice = filters.price.max.toString();
+        }
+        console.log("apiFilters", apiFilters);
+
         if (sortOption) {
           apiFilters.sort = sortOption;
         }
@@ -248,6 +291,7 @@ export default function CategoryPageClient({ slug }: CategoryClientProps) {
           itemsPerPage,
           apiFilters
         );
+        console.log("response", response);
 
         const {
           products: productsData,
@@ -497,6 +541,22 @@ export default function CategoryPageClient({ slug }: CategoryClientProps) {
         // Khi người dùng chọn "Tất cả" trong bộ lọc danh mục con
         // KHÔNG chuyển hướng đến URL mới, chỉ cập nhật query params
         const params = new URLSearchParams(searchParams.toString());
+        const minPrice = params.get("minPrice")
+          ? Number(params.get("minPrice"))
+          : 0;
+        const maxPrice = params.get("maxPrice")
+          ? Number(params.get("maxPrice"))
+          : 0;
+
+        if (minPrice > 0 || maxPrice > 0) {
+          setFilters((prev) => ({
+            ...prev,
+            price: {
+              min: minPrice > 0 ? minPrice : prev.price.min,
+              max: maxPrice > 0 ? maxPrice : prev.price.max,
+            },
+          }));
+        }
         params.delete("childCategory"); // Xóa tham số childCategory
 
         // Cập nhật URL với các tham số còn lại, giữ nguyên slug danh mục hiện tại
@@ -564,6 +624,27 @@ export default function CategoryPageClient({ slug }: CategoryClientProps) {
     setCurrentPage(page);
   }, []);
 
+  // hàm reset bộ lọc
+  const handleResetAllFilters = useCallback((): void => {
+    // Reset tất cả các filter về giá trị mặc định
+    setFilters({
+      suitability: [],
+      size: [],
+      color: "",
+      childCategory: "",
+      price: { min: 0, max: 0 },
+    });
+
+    // Reset trang về 1
+    setCurrentPage(1);
+
+    // Reset sorting option
+    setSortOption("");
+
+    // Chuyển hướng về URL cơ bản không có query params
+    router.push(pathname, { scroll: false });
+  }, [pathname, router]);
+
   return (
     <>
       <Header />
@@ -587,6 +668,7 @@ export default function CategoryPageClient({ slug }: CategoryClientProps) {
               ...filters,
               category: categoryId ? parseInt(categoryId) : undefined,
               childCategory: filters.childCategory,
+              price: filters.price,
             }}
             toggleFilter={toggleFilter}
             handleSuitabilityFilter={handleSuitabilityFilter}
@@ -594,6 +676,8 @@ export default function CategoryPageClient({ slug }: CategoryClientProps) {
             handleColorFilter={handleColorFilter}
             handleChildCategoryFilter={handleChildCategoryFilter}
             handleCategoryFilter={handleCategoryFilter}
+            handlePriceFilter={handlePriceFilter}
+            handleResetAllFilters={handleResetAllFilters}
             availableSuitability={availableSuitability}
             childCategories={childCategories}
             mainCategories={mainCategories}

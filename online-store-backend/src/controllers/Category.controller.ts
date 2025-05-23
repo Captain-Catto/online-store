@@ -323,6 +323,7 @@ export const getProductsByCategorySlug = async (
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 12;
     const offset = (page - 1) * limit;
+    console.log("max price", req.query.maxPrice);
 
     // Filter parameters
     const color = req.query.color as string;
@@ -565,7 +566,7 @@ export const getProductsByCategorySlug = async (
         subImage,
         price: prices.length === 1 ? prices[0] : null,
         originalPrice: originalPrices.length === 1 ? originalPrices[0] : null,
-        priceRange:
+        activeRange:
           prices.length > 1
             ? {
                 min: minProductPrice,
@@ -646,7 +647,7 @@ export const getProductsByCategorySlug = async (
             )
           ),
         ],
-        priceRange: {
+        activeRange: {
           min: Math.min(
             ...products.flatMap((p) => (p.details ?? []).map((d) => d.price))
           ),
