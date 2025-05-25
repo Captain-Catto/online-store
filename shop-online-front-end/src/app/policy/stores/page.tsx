@@ -11,7 +11,7 @@ import img1 from "@/assets/imgs/store/store1.webp";
 const storeLocations = [
   {
     id: 1,
-    name: "Shop Online Flagship Store",
+    name: "Online Store Flagship Store",
     address: "123 Đường Nguyễn Huệ, Quận 1",
     city: "TP. Hồ Chí Minh",
     phone: "028 1234 5678",
@@ -23,7 +23,7 @@ const storeLocations = [
   },
   {
     id: 2,
-    name: "Shop Online - Aeon Mall",
+    name: "Online Store - Aeon Mall",
     address:
       "Tầng 2, AEON Mall Tân Phú, 30 Bờ Bao Tân Thắng, P. Sơn Kỳ, Quận Tân Phú",
     city: "TP. Hồ Chí Minh",
@@ -36,7 +36,7 @@ const storeLocations = [
   },
   {
     id: 3,
-    name: "Shop Online - Vincom Center",
+    name: "Online Store - Vincom Center",
     address:
       "Tầng 3, Vincom Center Đồng Khởi, 72 Lê Thánh Tôn, P. Bến Nghé, Quận 1",
     city: "TP. Hồ Chí Minh",
@@ -49,7 +49,7 @@ const storeLocations = [
   },
   {
     id: 4,
-    name: "Shop Online - Royal City",
+    name: "Online Store - Royal City",
     address: "Tầng B1, TTTM Royal City, 72A Nguyễn Trãi, Thanh Xuân",
     city: "Hà Nội",
     phone: "024 1234 5678",
@@ -61,7 +61,7 @@ const storeLocations = [
   },
   {
     id: 5,
-    name: "Shop Online - Times City",
+    name: "Online Store - Times City",
     address: "Tầng B1, TTTM Times City, 458 Minh Khai, Hai Bà Trưng",
     city: "Hà Nội",
     phone: "024 1234 5679",
@@ -73,7 +73,7 @@ const storeLocations = [
   },
   {
     id: 6,
-    name: "Shop Online - Đà Nẵng",
+    name: "Online Store - Đà Nẵng",
     address: "Tầng 1, Vincom Plaza Ngô Quyền, 910 Ngô Quyền, Quận Sơn Trà",
     city: "Đà Nẵng",
     phone: "0236 1234 5678",

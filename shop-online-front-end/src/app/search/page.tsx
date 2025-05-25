@@ -24,13 +24,13 @@ export async function generateMetadata({
   return {
     title: `${title}`,
     description: query
-      ? `Khám phá các sản phẩm liên quan đến "${query}" tại Shop Online. Tìm kiếm dễ dàng, mua sắm thông minh.`
-      : "Tìm kiếm sản phẩm yêu thích của bạn tại Shop Online.",
+      ? `Khám phá các sản phẩm liên quan đến "${query}" tại Online Store. Tìm kiếm dễ dàng, mua sắm thông minh.`
+      : "Tìm kiếm sản phẩm yêu thích của bạn tại Online Store.",
     openGraph: {
       title: title,
       description: query
-        ? `Khám phá các sản phẩm liên quan đến "${query}" tại Shop Online.`
-        : "Tìm kiếm sản phẩm yêu thích của bạn tại Shop Online.",
+        ? `Khám phá các sản phẩm liên quan đến "${query}" tại Online Store.`
+        : "Tìm kiếm sản phẩm yêu thích của bạn tại Online Store.",
     },
     robots: query
       ? {}

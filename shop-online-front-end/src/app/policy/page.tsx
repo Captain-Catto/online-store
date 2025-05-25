@@ -63,7 +63,7 @@ export default function PolicyPage() {
               Chính Sách & Điều Khoản
             </h1>
             <p className="text-gray-600">
-              Shop Online cam kết mang đến trải nghiệm mua sắm tốt nhất với các
+              Online Store cam kết mang đến trải nghiệm mua sắm tốt nhất với các
               chính sách rõ ràng và khách hàng là trọng tâm.
             </p>
           </div>

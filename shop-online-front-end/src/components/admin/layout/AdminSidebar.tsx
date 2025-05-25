@@ -101,7 +101,7 @@ export default function AdminSidebar({
     <aside className="main-sidebar sidebar-dark-primary elevation-4">
       {/* Brand Logo */}
       <Link href={getHomePath()} className="brand-link">
-        <span className="brand-text font-weight-light">Shop Online Admin</span>
+        <span className="brand-text font-weight-light">Online Store Admin</span>
       </Link>
 
       {/* Sidebar */}
@@ -111,7 +111,7 @@ export default function AdminSidebar({
           <div className="flex items-center justify-center w-12 h-12">
             <Image
               src={logo}
-              alt="Shop Online Logo"
+              alt="Online Store Logo"
               sizes="100%"
               priority={false}
               loading="lazy"

@@ -23,21 +23,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     }
 
     return {
-      title: `${category.name} | Shop Online`,
+      title: `${category.name} | Online Store`,
       description:
         category.description ||
-        `Khám phá bộ sưu tập ${category.name} tại Shop Online. Đa dạng sản phẩm, giá tốt nhất.`,
+        `Khám phá bộ sưu tập ${category.name} tại Online Store. Đa dạng sản phẩm, giá tốt nhất.`,
       openGraph: {
         title: category.name,
         description:
           category.description ||
-          `Khám phá bộ sưu tập ${category.name} tại Shop Online`,
+          `Khám phá bộ sưu tập ${category.name} tại Online Store`,
       },
     };
   } catch {
     return {
-      title: "Danh mục sản phẩm | Shop Online",
-      description: "Khám phá các danh mục sản phẩm đa dạng tại Shop Online",
+      title: "Danh mục sản phẩm | Online Store",
+      description: "Khám phá các danh mục sản phẩm đa dạng tại Online Store",
     };
   }
 }

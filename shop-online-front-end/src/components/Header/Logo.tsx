@@ -9,7 +9,7 @@ const Logo: React.FC = () => {
     <div>
       <Link href="/" className="hidden md:flex md:items-center py-1">
         <LogoIcon className="h-12 w-12" />
-        <span className="ml-2 text-xl font-bold">Shop Online</span>
+        <span className="ml-2 text-xl font-bold">Online Store</span>
       </Link>
       <Link href="/" className="md:hidden flex items-center">
         <LogoIcon className="h-10 w-10" />

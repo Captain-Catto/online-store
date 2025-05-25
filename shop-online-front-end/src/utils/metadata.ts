@@ -4,14 +4,14 @@ import { Product } from "@/types/product";
 export const DEFAULT_METADATA: Metadata = {
   title: {
     template: "%s ",
-    default: "Shop Online - Quần áo thời trang",
+    default: "Online Store - Quần áo thời trang",
   },
   description:
-    "Shop Online - Nơi mua sắm thời trang với nhiều sản phẩm đa dạng và chất lượng.",
+    "Online Store - Nơi mua sắm thời trang với nhiều sản phẩm đa dạng và chất lượng.",
   openGraph: {
     type: "website",
     locale: "vi_VN",
-    siteName: "Shop Online",
+    siteName: "Online Store",
   },
 };
 
@@ -23,11 +23,11 @@ export function createCategoryMetadata(
   return {
     title: categoryName,
     description:
-      description || `Mua sắm ${categoryName} chất lượng cao tại Shop Online`,
+      description || `Mua sắm ${categoryName} chất lượng cao tại Online Store`,
     openGraph: {
       title: `${categoryName} `,
       description:
-        description || `Khám phá bộ sưu tập ${categoryName} tại Shop Online`,
+        description || `Khám phá bộ sưu tập ${categoryName} tại Online Store`,
       images: imageUrl ? [{ url: imageUrl }] : undefined,
     },
   };
@@ -36,10 +36,10 @@ export function createCategoryMetadata(
 export function createCartMetadata(): Metadata {
   return {
     title: "Giỏ hàng",
-    description: "Quản lý giỏ hàng và thực hiện thanh toán tại Shop Online",
+    description: "Quản lý giỏ hàng và thực hiện thanh toán tại Online Store",
     openGraph: {
       title: "Giỏ hàng ",
-      description: "Quản lý giỏ hàng và thực hiện thanh toán tại Shop Online",
+      description: "Quản lý giỏ hàng và thực hiện thanh toán tại Online Store",
       type: "website",
     },
   };
@@ -48,7 +48,7 @@ export function createCartMetadata(): Metadata {
 export function createContactMetadata(): Metadata {
   const title = "Liên hệ";
   const description =
-    "Liên hệ với Shop Online - Hỗ trợ khách hàng 24/7 qua hotline, email và messenger";
+    "Liên hệ với Online Store - Hỗ trợ khách hàng 24/7 qua hotline, email và messenger";
 
   return {
     title,
@@ -73,7 +73,7 @@ export function createAccountMetadata(): Metadata {
     },
     openGraph: {
       title: "Tài khoản của tôi ",
-      description: "Quản lý tài khoản và đơn hàng của bạn tại Shop Online",
+      description: "Quản lý tài khoản và đơn hàng của bạn tại Online Store",
       type: "profile",
     },
   };
@@ -141,19 +141,19 @@ export function createFaqMetadata(): Metadata {
 
 export function createAboutMetadata(): Metadata {
   return {
-    title: "Giới thiệu về Shop Online",
+    title: "Giới thiệu về Online Store",
     description:
-      "Tìm hiểu về câu chuyện, sứ mệnh và giá trị cốt lõi của Shop Online - Thương hiệu thời trang Việt Nam với sứ mệnh mang đến sản phẩm chất lượng cao với giá cả hợp lý.",
+      "Tìm hiểu về câu chuyện, sứ mệnh và giá trị cốt lõi của Online Store - Thương hiệu thời trang Việt Nam với sứ mệnh mang đến sản phẩm chất lượng cao với giá cả hợp lý.",
     openGraph: {
-      title: "Giới thiệu về Shop Online",
+      title: "Giới thiệu về Online Store",
       description:
-        "Tìm hiểu về câu chuyện, sứ mệnh và giá trị cốt lõi của Shop Online - Thương hiệu thời trang Việt Nam.",
+        "Tìm hiểu về câu chuyện, sứ mệnh và giá trị cốt lõi của Online Store - Thương hiệu thời trang Việt Nam.",
       images: [
         {
           url: "/images/about-banner.jpg", // Cập nhật đường dẫn nếu cần
           width: 1200,
           height: 630,
-          alt: "Shop Online - Thời trang phản ánh cá tính của bạn",
+          alt: "Online Store - Thời trang phản ánh cá tính của bạn",
         },
       ],
       locale: "vi_VN",
@@ -169,7 +169,7 @@ export function createCheckoutMetadata(): Metadata {
   return {
     title: "Thanh toán",
     description:
-      "Hoàn tất đơn hàng và chọn phương thức thanh toán tại Shop Online",
+      "Hoàn tất đơn hàng và chọn phương thức thanh toán tại Online Store",
     robots: {
       index: false, // Không cho phép bots index trang thanh toán
       follow: false, // Không theo dõi các liên kết từ trang này
@@ -181,7 +181,7 @@ export function createCheckoutMetadata(): Metadata {
     },
     openGraph: {
       title: "Thanh toán ",
-      description: "Hoàn tất đơn hàng của bạn tại Shop Online",
+      description: "Hoàn tất đơn hàng của bạn tại Online Store",
       type: "website",
     },
     other: {
@@ -198,7 +198,7 @@ export function createCheckoutMetadata(): Metadata {
 export function createOrderConfirmationMetadata(): Metadata {
   return {
     title: "Đặt hàng thành công",
-    description: "Xác nhận đơn hàng của bạn tại Shop Online",
+    description: "Xác nhận đơn hàng của bạn tại Online Store",
     robots: {
       index: false, // Không cho phép bots index trang xác nhận đơn hàng (thông tin cá nhân)
       follow: false,
@@ -218,7 +218,7 @@ export function createOrderConfirmationMetadata(): Metadata {
         "@context": "https://schema.org",
         "@type": "CheckoutPage",
         name: "Xác nhận đơn hàng",
-        description: "Cảm ơn bạn đã đặt hàng tại Shop Online",
+        description: "Cảm ơn bạn đã đặt hàng tại Online Store",
       }),
     },
   };
@@ -260,7 +260,7 @@ export function createProductMetadata(product: Product | null): Metadata {
   // Tạo metadata cơ bản
   return {
     title: product.name,
-    description: shortDescription || `${product.name} - Shop Online`,
+    description: shortDescription || `${product.name} - Online Store`,
     keywords: [
       product.name,
       product.brand || "",
@@ -273,7 +273,7 @@ export function createProductMetadata(product: Product | null): Metadata {
     ].filter(Boolean),
     openGraph: {
       title: product.name,
-      description: shortDescription || `${product.name} - Shop Online`,
+      description: shortDescription || `${product.name} - Online Store`,
       type: "website",
       images: [
         {
@@ -293,7 +293,7 @@ export function createProductMetadata(product: Product | null): Metadata {
         description: product.description,
         brand: {
           "@type": "Brand",
-          name: product.brand || "Shop Online",
+          name: product.brand || "Online Store",
         },
         sku: product.sku,
         mpn: product.sku,
@@ -332,13 +332,13 @@ export async function generateMetadata({
   return {
     title: query ? `Kết quả tìm kiếm cho "${query}" ` : "Tìm kiếm sản phẩm ",
     description: query
-      ? `Khám phá các sản phẩm liên quan đến "${query}" tại Shop Online. Tìm kiếm dễ dàng, mua sắm thông minh.`
-      : "Tìm kiếm sản phẩm yêu thích của bạn tại Shop Online. Chúng tôi cung cấp nhiều sản phẩm chất lượng cao với giá cả hợp lý.",
+      ? `Khám phá các sản phẩm liên quan đến "${query}" tại Online Store. Tìm kiếm dễ dàng, mua sắm thông minh.`
+      : "Tìm kiếm sản phẩm yêu thích của bạn tại Online Store. Chúng tôi cung cấp nhiều sản phẩm chất lượng cao với giá cả hợp lý.",
     openGraph: {
       title: query ? `Kết quả tìm kiếm cho "${query}"` : "Tìm kiếm sản phẩm",
       description: query
-        ? `Khám phá các sản phẩm liên quan đến "${query}" tại Shop Online.`
-        : "Tìm kiếm sản phẩm yêu thích của bạn tại Shop Online.",
+        ? `Khám phá các sản phẩm liên quan đến "${query}" tại Online Store.`
+        : "Tìm kiếm sản phẩm yêu thích của bạn tại Online Store.",
       images: ["/images/og-image.jpg"], // Thay thế bằng đường dẫn thực tế của hình ảnh
     },
   };
@@ -349,7 +349,7 @@ export function createLoginMetadata(): Metadata {
   return {
     title: "Đăng nhập",
     description:
-      "Đăng nhập vào tài khoản Shop Online để mua sắm và quản lý đơn hàng của bạn",
+      "Đăng nhập vào tài khoản Online Store để mua sắm và quản lý đơn hàng của bạn",
     robots: {
       index: false,
       follow: false,
@@ -362,7 +362,7 @@ export function createRegisterMetadata(): Metadata {
   return {
     title: "Đăng ký tài khoản ",
     description:
-      "Đăng ký tài khoản mới tại Shop Online để trải nghiệm mua sắm tốt nhất",
+      "Đăng ký tài khoản mới tại Online Store để trải nghiệm mua sắm tốt nhất",
     robots: {
       index: false,
       follow: false,
@@ -374,7 +374,7 @@ export function createRegisterMetadata(): Metadata {
 export function createForgotPasswordMetadata(): Metadata {
   return {
     title: "Quên mật khẩu ",
-    description: "Khôi phục mật khẩu tài khoản Shop Online của bạn",
+    description: "Khôi phục mật khẩu tài khoản Online Store của bạn",
     robots: {
       index: false,
       follow: false,
@@ -387,7 +387,7 @@ export function createForgotPasswordMetadata(): Metadata {
 export function createResetPasswordMetadata(): Metadata {
   return {
     title: "Đặt lại mật khẩu ",
-    description: "Đặt lại mật khẩu tài khoản Shop Online của bạn",
+    description: "Đặt lại mật khẩu tài khoản Online Store của bạn",
     robots: {
       index: false,
       follow: false,

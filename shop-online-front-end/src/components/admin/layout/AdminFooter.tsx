@@ -2,7 +2,7 @@ export default function AdminFooter() {
   return (
     <footer className="main-footer">
       <strong>
-        Copyright © 2025 <a href="#">Shop Online</a>.
+        Copyright © 2025 <a href="#">Online Store</a>.
       </strong>{" "}
       All rights reserved.
       <div className="float-right d-none d-sm-inline-block">

@@ -132,7 +132,7 @@ export default function ShippingPolicyPage() {
               Chính Sách Vận Chuyển
             </h1>
             <p className="text-gray-600">
-              Shop Online cam kết mang đến trải nghiệm mua sắm thuận tiện nhất
+              Online Store cam kết mang đến trải nghiệm mua sắm thuận tiện nhất
               với chính sách vận chuyển rõ ràng và ưu đãi.
             </p>
           </div>

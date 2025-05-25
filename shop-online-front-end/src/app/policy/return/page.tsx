@@ -145,8 +145,8 @@ export default function ReturnPolicyPage() {
               Chính Sách Đổi Trả 365 Ngày
             </h1>
             <p className="text-gray-600">
-              Shop Online cam kết bạn sẽ hài lòng với mọi sản phẩm của chúng tôi
-              với chính sách đổi trả miễn phí trong 365 ngày.
+              Online Store cam kết bạn sẽ hài lòng với mọi sản phẩm của chúng
+              tôi với chính sách đổi trả miễn phí trong 365 ngày.
             </p>
           </div>
 

@@ -146,7 +146,7 @@ export default function WarrantyPage() {
               Bảo hành từ 30 ngày đến 2 năm
             </h2>
             <p className="text-blue-700">
-              Tất cả sản phẩm quần áo chính hãng được mua tại Shop Online đều
+              Tất cả sản phẩm quần áo chính hãng được mua tại Online Store đều
               được bảo hành từ 30 ngày đến 2 năm tùy theo loại sản phẩm.
             </p>
           </div>
@@ -160,7 +160,7 @@ export default function WarrantyPage() {
               </h2>
               <div className="space-y-4">
                 <p>
-                  Tất cả sản phẩm thời trang do Shop Online bán ra đều được bảo
+                  Tất cả sản phẩm thời trang do Online Store bán ra đều được bảo
                   hành về chất lượng vải, đường may, và các chi tiết khác theo
                   chính sách của nhãn hàng.
                 </p>

@@ -4,11 +4,11 @@ import CategoryPageClient from "@/components/Category/CategoryPageClient";
 import LoadingSpinner from "@/components/UI/LoadingSpinner"; // Import your loading component
 
 export const metadata: Metadata = {
-  title: "Danh mục sản phẩm | Shop Online",
-  description: "Khám phá các danh mục sản phẩm đa dạng tại Shop Online",
+  title: "Danh mục sản phẩm | Online Store",
+  description: "Khám phá các danh mục sản phẩm đa dạng tại Online Store",
   openGraph: {
-    title: "Danh mục sản phẩm | Shop Online",
-    description: "Khám phá các danh mục sản phẩm đa dạng tại Shop Online",
+    title: "Danh mục sản phẩm | Online Store",
+    description: "Khám phá các danh mục sản phẩm đa dạng tại Online Store",
   },
 };
 

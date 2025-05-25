@@ -32,7 +32,7 @@ export default function AboutPage() {
     {
       title: "Phong cách",
       description:
-        "Thiết kế theo xu hướng mới nhất kết hợp với phong cách đặc trưng riêng của Shop Online.",
+        "Thiết kế theo xu hướng mới nhất kết hợp với phong cách đặc trưng riêng của Online Store.",
       icon: (
         <svg
           className="w-8 h-8 text-pink-600"
@@ -125,8 +125,8 @@ export default function AboutPage() {
                   Thời trang phản ánh cá tính của bạn
                 </h1>
                 <p className="text-white text-lg lg:text-xl opacity-90">
-                  Shop Online - Thương hiệu thời trang Việt với sứ mệnh mang đến
-                  những sản phẩm chất lượng cao với giá cả hợp lý.
+                  Online Store - Thương hiệu thời trang Việt với sứ mệnh mang
+                  đến những sản phẩm chất lượng cao với giá cả hợp lý.
                 </p>
               </div>
             </div>
@@ -141,7 +141,7 @@ export default function AboutPage() {
                 </h2>
                 <div className="space-y-4 text-gray-700">
                   <p>
-                    Shop Online được thành lập vào năm 2015 với một ý tưởng đơn
+                    Online Store được thành lập vào năm 2015 với một ý tưởng đơn
                     giản: tạo ra những sản phẩm thời trang chất lượng cao mà
                     người Việt có thể tiếp cận với mức giá hợp lý.
                   </p>
@@ -152,7 +152,7 @@ export default function AboutPage() {
                     nhanh chóng được đón nhận và yêu thích.
                   </p>
                   <p>
-                    Ngày nay, Shop Online đã phát triển thành một thương hiệu
+                    Ngày nay, Online Store đã phát triển thành một thương hiệu
                     thời trang được yêu thích với nhiều cửa hàng trên toàn quốc
                     và kênh bán hàng online phục vụ hàng nghìn khách hàng mỗi
                     ngày.
@@ -176,7 +176,7 @@ export default function AboutPage() {
               <h2 className="text-3xl font-bold mb-6">Sứ mệnh của chúng tôi</h2>
               <p className="text-xl text-gray-700 mb-8">
                 &quot;Chúng tôi tin rằng thời trang không chỉ là về quần áo, mà
-                còn là cách bạn thể hiện bản thân. Sứ mệnh của Shop Online là
+                còn là cách bạn thể hiện bản thân. Sứ mệnh của Online Store là
                 giúp mọi người tìm thấy phong cách riêng của họ thông qua những
                 sản phẩm thời trang chất lượng, bền vững và giá cả phải
                 chăng.&quot;
@@ -220,7 +220,7 @@ export default function AboutPage() {
                 </h2>
                 <div className="space-y-4 text-gray-700">
                   <p>
-                    Các sản phẩm tại Shop Online được thiết kế với tiêu chí ưu
+                    Các sản phẩm tại Online Store được thiết kế với tiêu chí ưu
                     tiên chất lượng và sự thoải mái. Chúng tôi chọn lọc kỹ lưỡng
                     nguyên liệu và hợp tác với các nhà sản xuất uy tín để đảm
                     bảo mỗi chiếc áo, mỗi chiếc quần đều đạt tiêu chuẩn cao
@@ -365,7 +365,7 @@ export default function AboutPage() {
           {/* Call to Action */}
           <section className="text-center mb-16 py-8">
             <h2 className="text-3xl font-bold mb-4">
-              Sẵn sàng trải nghiệm Shop Online?
+              Sẵn sàng trải nghiệm Online Store?
             </h2>
             <p className="text-gray-700 mb-6 max-w-2xl mx-auto">
               Khám phá bộ sưu tập mới nhất của chúng tôi và tìm cho mình những

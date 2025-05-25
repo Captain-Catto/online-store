@@ -55,7 +55,7 @@ export default function AdminLayout({
   return (
     <>
       <Head>
-        <title>{title} - Shop Online</title>
+        <title>{title} - Online Store</title>
       </Head>
 
       {/* AdminLTE CSS và script */}

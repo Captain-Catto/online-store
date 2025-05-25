@@ -21,16 +21,16 @@ export const metadata: Metadata = {
   ),
   title: {
     template: "%s",
-    default: "Shop Online - Quần áo thời trang",
+    default: "Online Store - Quần áo thời trang",
   },
   description:
-    "Shop Online - Nơi mua sắm thời trang hàng đầu với nhiều sản phẩm đa dạng và chất lượng.",
+    "Online Store - Nơi mua sắm thời trang hàng đầu với nhiều sản phẩm đa dạng và chất lượng.",
   keywords: ["thời trang", "quần áo", "online store", "mua sắm"],
   openGraph: {
     type: "website",
     locale: "vi_VN",
     url: "/",
-    siteName: "Shop Online",
+    siteName: "Online Store",
   },
   icons: {
     icon: [
