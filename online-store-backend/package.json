@@ -2,8 +2,7 @@
   "scripts": {
     "dev": "nodemon src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
-    "seed": "nodemon ./src/seeders/seed.ts"
+    "start": "node dist/index.js"
   },
   "dependencies": {
     "aws-sdk": "^2.1692.0",

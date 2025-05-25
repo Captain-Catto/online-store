@@ -2,7 +2,24 @@ import { Request, Response } from "express";
 import Voucher from "../models/Voucher";
 import { Op } from "sequelize";
 
-// tạo voucher
+/**
+ * Tạo mã giảm giá mới
+ *
+ * Quy trình:
+ * 1. Kiểm tra mã giảm giá đã tồn tại chưa
+ * 2. Tạo voucher mới với các thông tin:
+ *    - Mã giảm giá (code)
+ *    - Loại giảm giá (cố định hoặc phần trăm)
+ *    - Giá trị giảm
+ *    - Ngày hết hạn
+ *    - Giá trị đơn hàng tối thiểu
+ *    - Mô tả
+ *    - Giới hạn sử dụng
+ * 3. Trả về thông tin voucher đã tạo
+ *
+ * @param req - Request chứa thông tin voucher cần tạo
+ * @param res - Response trả về thông tin voucher đã tạo
+ */
 export const createVoucher = async (
   req: Request,
   res: Response
@@ -53,7 +70,18 @@ export const createVoucher = async (
   }
 };
 
-// lấy danh sách tất cả các Voucher
+/**
+ * Lấy danh sách tất cả các mã giảm giá
+ *
+ * Quy trình:
+ * 1. Lọc theo trạng thái nếu được chỉ định (active/inactive)
+ * 2. Đối với trạng thái active:
+ *    - Chỉ lấy những mã chưa hết hạn
+ * 3. Trả về danh sách đã lọc
+ *
+ * @param req - Request có thể chứa query param status
+ * @param res - Response trả về danh sách voucher
+ */
 export const getVouchers = async (
   req: Request,
   res: Response
@@ -79,7 +107,21 @@ export const getVouchers = async (
   }
 };
 
-// lấy chi tiết một voucher theo code
+/**
+ * Lấy thông tin chi tiết một mã giảm giá theo code
+ *
+ * Quy trình:
+ * 1. Tìm voucher theo mã
+ * 2. Kiểm tra các điều kiện:
+ *    - Voucher tồn tại
+ *    - Chưa hết hạn
+ *    - Đang active
+ *    - Chưa vượt quá giới hạn sử dụng
+ * 3. Trả về thông tin chi tiết nếu hợp lệ
+ *
+ * @param req - Request chứa code của voucher
+ * @param res - Response trả về thông tin chi tiết voucher
+ */
 export const getVoucherByCode = async (
   req: Request,
   res: Response
@@ -126,7 +168,18 @@ export const getVoucherByCode = async (
   }
 };
 
-// cập nhật một voucher
+/**
+ * Cập nhật thông tin mã giảm giá
+ *
+ * Quy trình:
+ * 1. Tìm voucher theo ID
+ * 2. Kiểm tra nếu thay đổi code:
+ *    - Đảm bảo code mới chưa tồn tại
+ * 3. Cập nhật thông tin mới
+ *
+ * @param req - Request chứa ID và thông tin cần cập nhật
+ * @param res - Response trả về thông tin sau khi cập nhật
+ */
 export const updateVoucher = async (
   req: Request,
   res: Response
@@ -177,7 +230,16 @@ export const updateVoucher = async (
   }
 };
 
-// Xóa một voucher
+/**
+ * Xóa một mã giảm giá
+ *
+ * Quy trình:
+ * 1. Tìm voucher theo ID
+ * 2. Xóa voucher khỏi database
+ *
+ * @param req - Request chứa ID voucher cần xóa
+ * @param res - Response trả về kết quả xóa
+ */
 export const deleteVoucher = async (
   req: Request,
   res: Response
@@ -199,7 +261,22 @@ export const deleteVoucher = async (
   }
 };
 
-// Áp dụng voucher vào đơn hàng (kiểm tra giá trị đơn hàng)
+/**
+ * Kiểm tra tính hợp lệ của mã giảm giá với giá trị đơn hàng
+ *
+ * Quy trình:
+ * 1. Kiểm tra các điều kiện:
+ *    - Voucher tồn tại
+ *    - Đang active
+ *    - Chưa hết hạn
+ *    - Chưa vượt quá giới hạn sử dụng
+ *    - Đạt giá trị đơn hàng tối thiểu
+ * 2. Tính toán số tiền được giảm:
+ *    - Theo phần trăm hoặc giá trị cố định
+ *
+ * @param req - Request chứa code voucher và giá trị đơn hàng
+ * @param res - Response trả về thông tin giảm giá
+ */
 export const validateVoucher = async (
   req: Request,
   res: Response
@@ -267,7 +344,17 @@ export const validateVoucher = async (
   }
 };
 
-// Cập nhật lượng sử dụng voucher
+/**
+ * Tăng số lần sử dụng của voucher
+ *
+ * Quy trình:
+ * 1. Tìm voucher theo ID
+ * 2. Tăng biến đếm số lần sử dụng
+ * 3. Cập nhật vào database
+ *
+ * @param req - Request chứa ID voucher
+ * @param res - Response trả về số lần sử dụng mới
+ */
 export const incrementVoucherUsage = async (
   req: Request,
   res: Response
@@ -295,7 +382,20 @@ export const incrementVoucherUsage = async (
   }
 };
 
-// Lấy danh sách voucher khả dụng cho người dùng
+/**
+ * Lấy danh sách mã giảm giá có thể sử dụng cho người dùng
+ *
+ * Quy trình:
+ * 1. Kiểm tra người dùng đã đăng nhập
+ * 2. Lọc voucher theo điều kiện:
+ *    - Đang active
+ *    - Chưa hết hạn
+ *    - Còn lượt sử dụng hoặc không giới hạn
+ * 3. Định dạng thông tin hiển thị
+ *
+ * @param req - Request chứa thông tin user từ middleware
+ * @param res - Response trả về danh sách voucher khả dụng
+ */
 export const getUserAvailableVouchers = async (
   req: Request,
   res: Response
@@ -339,7 +439,12 @@ export const getUserAvailableVouchers = async (
   }
 };
 
-// Hàm hỗ trợ format tiêu đề voucher
+/**
+ * Định dạng tiêu đề hiển thị cho voucher
+ *
+ * @param voucher - Thông tin voucher cần định dạng
+ * @returns Chuỗi tiêu đề đã định dạng
+ */
 function formatVoucherTitle(voucher: any): string {
   if (voucher.type === "percentage") {
     return `Giảm ${voucher.value}% cho đơn hàng`;

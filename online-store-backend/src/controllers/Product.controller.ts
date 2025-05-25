@@ -67,7 +67,7 @@ export const createProductWithDetails = async (
       categories,
     } = req.body;
 
-    // Parse JSON data sent as strings from form-data
+    // Phân tích dữ liệu JSON được gửi dưới dạng chuỗi từ form-data
     const details = JSON.parse(req.body.details || "[]");
     const categoriesData = JSON.parse(req.body.categories || "[]");
     const imageIsMain = JSON.parse(req.body.imageIsMain || "{}");
@@ -77,7 +77,7 @@ export const createProductWithDetails = async (
       res.status(400).json({ message: "Thiếu thông tin tên và mã sản phẩm" });
       return;
     }
-    // Check if product with same SKU already exists
+    // Kiểm tra xem sản phẩm với cùng SKU đã tồn tại chưa
     if (sku) {
       const existingProduct = await Product.findOne({
         where: { sku },
@@ -89,9 +89,7 @@ export const createProductWithDetails = async (
         res.status(400).json({ message: "Sản phẩm với SKU này đã tồn tại" });
         return;
       }
-    }
-
-    // Create new product
+    } // Tạo sản phẩm mới
     const newProduct = await Product.create(
       {
         name,
@@ -106,7 +104,7 @@ export const createProductWithDetails = async (
       { transaction: t }
     );
 
-    // Map to track which images belong to which color
+    // Bản đồ để theo dõi hình ảnh nào thuộc màu sắc nào
     const colorImageMap = new Map();
     // Xử lý suitability đúng cách
     let suitabilityIds = [];
@@ -158,9 +156,7 @@ export const createProductWithDetails = async (
             : req.body.imageIsMain || {};
       } catch (e) {
         console.error("Error parsing image metadata:", e);
-      }
-
-      // group các hình ảnh theo màu sắc
+      } // group các hình ảnh theo màu sắc
       files.forEach((file, index) => {
         const indexKey = index.toString();
         const color = imageColors[indexKey] || "default";
@@ -428,25 +424,30 @@ export const getProductsWithVariants = async (
       as: "details",
       include: [
         {
+          // Thêm model ProductInventory để lấy thông tin tồn kho
           model: ProductInventory,
           as: "inventories",
+          // Nếu có filter theo size, thêm điều kiện lọc size
           where: sizes.length > 0 ? { size: { [Op.in]: sizes } } : undefined,
         },
+        // Thêm model ProductImage để lấy hình ảnh sản phẩm
         { model: ProductImage, as: "images" },
       ],
     };
 
+    // Nếu có filter theo màu sắc, thêm điều kiện lọc màu vào chi tiết sản phẩm
     if (color) {
       detailsInclude.where = { color };
     }
 
+    // Thêm điều kiện lọc chi tiết sản phẩm vào mảng include
     include.push(detailsInclude);
 
     // Đếm tổng số sản phẩm phù hợp với bộ lọc
     const count = await Product.count({
       where,
       include,
-      distinct: true,
+      distinct: true, // Dùng distinct để tránh đếm trùng khi join nhiều bảng
     } as ExtendedFindOptions);
 
     // Lấy sản phẩm đã lọc
@@ -761,7 +762,7 @@ export const getProductById = async (
 
     // Generate status label and CSS class
     let statusLabel = "";
-    let statusClass = "";
+    let statusClass = "success";
 
     switch ((product as any).status) {
       case "active":
@@ -1045,19 +1046,17 @@ export const getProductsByCategory = async (
     // Apply color filter if provided
     if (color) {
       detailsInclude.where = { color };
-    }
-
-    // Add details include to main include array
+    } // thêm detailsInclude vào include
     include.push(detailsInclude);
 
-    // Count total matching products
+    // Đếm tổng số sản phẩm phù hợp với bộ lọc
     const count = await Product.count({
       where,
       include,
       distinct: true,
     } as ExtendedFindOptions);
 
-    // Get filtered products
+    // Lấy danh sách sản phẩm đã lọc
     const products = await Product.findAll({
       where,
       include,
@@ -1067,11 +1066,10 @@ export const getProductsByCategory = async (
       distinct: true,
     } as ExtendedFindOptions);
 
-    // Format sản phẩm (giữ nguyên phần này)
     const formattedProducts = products.map((product: any, index: number) => {
       const details = product.details || [];
 
-      // Get all unique colors
+      // Lấy tất cả các màu sắc duy nhất
       const uniqueColors = [
         ...new Set(details.map((detail: any) => detail.color)),
       ];
@@ -1096,7 +1094,7 @@ export const getProductsByCategory = async (
         0
       );
 
-      // Create variant map
+      // Create mapping for each color: images, price and available sizes
       const variantMap: Record<string, any> = {};
 
       uniqueColors.forEach((color) => {
@@ -1110,7 +1108,7 @@ export const getProductsByCategory = async (
         // Get inventory for this color
         const inventories = detailWithColor.inventories || [];
 
-        // Map inventory to a simple size->stock object
+        // Map inventory to a simple size->stock object and calculate variants
         const sizeInventory: Record<string, number> = {};
         const variants = [];
 
@@ -1141,14 +1139,13 @@ export const getProductsByCategory = async (
         };
       });
 
-      // Generate status label
+      // Generate status label and CSS class
       let statusLabel = "";
-      let statusClass = "";
+      let statusClass = "success"; // Default to success class
 
       switch (product.status) {
         case "active":
           statusLabel = "Đang bán";
-          statusClass = "success";
           break;
         case "outofstock":
           statusLabel = "Hết hàng";
@@ -1160,7 +1157,7 @@ export const getProductsByCategory = async (
           break;
       }
 
-      // Return formatted product
+      // trả về sản phẩm đã định dạng
       return {
         id: product.id,
         name: product.name,
@@ -1384,7 +1381,7 @@ export const getProductVariantsById = async (
           model: Category,
           as: "categories",
           attributes: ["id", "name"],
-          through: { attributes: [] }, // Ẩn bảng trung gian
+          through: { attributes: [] }, // Ẩn bảng liên kết
         },
         {
           model: Suitability,
@@ -1483,7 +1480,8 @@ export const updateProductBasicInfo = async (
         transaction: t,
       });
 
-      // Add new suitability relationships
+      // thêm suitabilities mới
+      // Chuyển đổi suitabilities sang định dạng phù hợp với bulkCreate
       const suitabilityEntries = suitabilities.map((suitabilityId: number) => ({
         productId: Number(id),
         suitabilityId,

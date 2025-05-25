@@ -5,8 +5,26 @@ import { Op } from "sequelize";
 import Users from "../models/Users";
 import Address from "../models/UserAddress";
 
+interface AddressInput {
+  fullName: string;
+  phoneNumber: string;
+  streetAddress: string;
+  ward: string;
+  district: string;
+  city: string;
+  isDefault?: boolean;
+}
+
 /**
- * Create a new address for the logged-in user
+ * Tạo địa chỉ mới cho người dùng đang đăng nhập
+ *
+ * Quy trình:
+ * 1. Kiểm tra thông tin người dùng từ token
+ * 2. Nếu đặt làm mặc định, reset các địa chỉ mặc định khác
+ * 3. Tạo địa chỉ mới trong database
+ *
+ * @param req - Request chứa thông tin địa chỉ mới và user từ middleware
+ * @param res - Response trả về thông tin địa chỉ đã tạo
  */
 export const createAddress = async (
   req: Request,
@@ -15,6 +33,7 @@ export const createAddress = async (
   const t = await sequelize.transaction();
 
   try {
+    // Bước 1: Kiểm tra thông tin người dùng
     const {
       fullName,
       phoneNumber,
@@ -32,16 +51,15 @@ export const createAddress = async (
     }
     const userId = req.user.id;
 
-    // Check if this is the first address or set as default
+    // Bước 2: Xử lý địa chỉ mặc định
     if (isDefault) {
-      // Reset any existing default address
       await UserAddress.update(
         { isDefault: false },
         { where: { userId }, transaction: t }
       );
     }
 
-    // Create new address
+    // Bước 3: Tạo địa chỉ mới
     const newAddress = await UserAddress.create(
       {
         userId,
@@ -72,7 +90,14 @@ export const createAddress = async (
 };
 
 /**
- * Get all addresses for the logged-in user
+ * Lấy tất cả địa chỉ của người dùng đang đăng nhập
+ *
+ * Quy trình:
+ * 1. Kiểm tra thông tin người dùng
+ * 2. Lấy và sắp xếp danh sách địa chỉ
+ *
+ * @param req - Request chứa thông tin user từ middleware
+ * @param res - Response trả về danh sách địa chỉ
  */
 export const getUserAddresses = async (
   req: Request,
@@ -105,7 +130,14 @@ export const getUserAddresses = async (
 };
 
 /**
- * Get address by ID (only if it belongs to the logged-in user)
+ * Lấy thông tin một địa chỉ cụ thể của người dùng
+ *
+ * Quy trình:
+ * 1. Kiểm tra quyền truy cập địa chỉ
+ * 2. Trả về thông tin địa chỉ nếu tồn tại
+ *
+ * @param req - Request chứa ID địa chỉ và thông tin user
+ * @param res - Response trả về thông tin địa chỉ
  */
 export const getAddressById = async (
   req: Request,
@@ -131,7 +163,15 @@ export const getAddressById = async (
 };
 
 /**
- * Update an address (only if it belongs to the logged-in user)
+ * Cập nhật thông tin địa chỉ
+ *
+ * Quy trình:
+ * 1. Kiểm tra quyền sở hữu địa chỉ
+ * 2. Nếu đặt làm mặc định, reset các địa chỉ mặc định khác
+ * 3. Cập nhật thông tin địa chỉ
+ *
+ * @param req - Request chứa ID và thông tin cập nhật
+ * @param res - Response trả về thông tin sau khi cập nhật
  */
 export const updateAddress = async (
   req: Request,
@@ -158,7 +198,7 @@ export const updateAddress = async (
     }
     const userId = req.user.id;
 
-    // Find address and check ownership
+    // Tìm địa chỉ và kiểm tra quyền sở hữu
     const address = await UserAddress.findOne({
       where: { id, userId },
       transaction: t,
@@ -170,7 +210,7 @@ export const updateAddress = async (
       return;
     }
 
-    // If setting as default, reset other addresses
+    // Nếu đặt làm địa chỉ mặc định, hủy địa chỉ mặc định hiện tại
     if (isDefault && !address.getDataValue("isDefault")) {
       await UserAddress.update(
         { isDefault: false },
@@ -178,7 +218,7 @@ export const updateAddress = async (
       );
     }
 
-    // Update the address
+    // Cập nhật địa chỉ
     await address.update(
       {
         fullName: fullName || address.getDataValue("fullName"),
@@ -211,7 +251,15 @@ export const updateAddress = async (
 };
 
 /**
- * Set an address as default
+ * Đặt địa chỉ làm mặc định
+ *
+ * Quy trình:
+ * 1. Kiểm tra quyền sở hữu địa chỉ
+ * 2. Reset tất cả địa chỉ mặc định khác
+ * 3. Đặt địa chỉ được chọn làm mặc định
+ *
+ * @param req - Request chứa ID địa chỉ cần đặt mặc định
+ * @param res - Response trả về kết quả thao tác
  */
 export const setDefaultAddress = async (
   req: Request,
@@ -228,7 +276,7 @@ export const setDefaultAddress = async (
     }
     const userId = req.user.id;
 
-    // Find address and check ownership
+    // Tìm địa chỉ và kiểm tra quyền sở hữu
     const address = await UserAddress.findOne({
       where: { id, userId },
       transaction: t,
@@ -240,13 +288,13 @@ export const setDefaultAddress = async (
       return;
     }
 
-    // Reset all addresses for this user
+    // Hủy địa chỉ mặc định hiện tại
     await UserAddress.update(
       { isDefault: false },
       { where: { userId }, transaction: t }
     );
 
-    // Set this address as default
+    // Đặt địa chỉ mới làm mặc định
     await address.update({ isDefault: true }, { transaction: t });
 
     await t.commit();
@@ -262,7 +310,15 @@ export const setDefaultAddress = async (
 };
 
 /**
- * Delete an address (only if it belongs to the logged-in user)
+ * Xóa một địa chỉ
+ *
+ * Quy trình:
+ * 1. Kiểm tra quyền sở hữu địa chỉ
+ * 2. Nếu là địa chỉ mặc định và có địa chỉ khác, đặt địa chỉ đầu tiên làm mặc định
+ * 3. Xóa địa chỉ khỏi database
+ *
+ * @param req - Request chứa ID địa chỉ cần xóa
+ * @param res - Response trả về kết quả xóa
  */
 export const deleteAddress = async (
   req: Request,
@@ -279,7 +335,7 @@ export const deleteAddress = async (
     }
     const userId = req.user.id;
 
-    // Find address and check ownership
+    // Tìm địa chỉ và kiểm tra quyền sở hữu
     const address = await UserAddress.findOne({
       where: { id, userId },
       transaction: t,
@@ -291,16 +347,16 @@ export const deleteAddress = async (
       return;
     }
 
-    // Check if it's the only address
+    // Đếm số lượng địa chỉ của người dùng
     const addressCount = await UserAddress.count({
       where: { userId },
       transaction: t,
     });
 
-    // Delete the address
+    // Xóa địa chỉ
     await address.destroy({ transaction: t });
 
-    // If deleted address was default and there are other addresses, set the first one as default
+    // Nếu địa chỉ xóa là địa chỉ mặc định và còn địa chỉ khác, đặt địa chỉ đầu tiên còn lại làm mặc định
     if (address.getDataValue("isDefault") && addressCount > 1) {
       const firstAddress = await UserAddress.findOne({
         where: { userId },
@@ -324,7 +380,14 @@ export const deleteAddress = async (
 // ADMIN CONTROLLERS
 
 /**
- * Lấy tất cả địa chỉ của một người dùng cụ thể (chỉ admin)
+ * Lấy tất cả địa chỉ của một người dùng cụ thể (Chỉ dành cho Admin)
+ *
+ * Quy trình:
+ * 1. Kiểm tra người dùng tồn tại
+ * 2. Lấy và sắp xếp tất cả địa chỉ của người dùng đó
+ *
+ * @param req - Request chứa ID người dùng cần xem địa chỉ
+ * @param res - Response trả về danh sách địa chỉ
  */
 export const getAddressesByUserId = async (
   req: Request,
@@ -357,7 +420,14 @@ export const getAddressesByUserId = async (
 };
 
 /**
- * Lấy thông tin một địa chỉ cụ thể (chỉ admin)
+ * Lấy thông tin một địa chỉ cụ thể (Chỉ dành cho Admin)
+ *
+ * Quy trình:
+ * 1. Tìm địa chỉ theo ID
+ * 2. Trả về thông tin chi tiết địa chỉ
+ *
+ * @param req - Request chứa ID địa chỉ cần xem
+ * @param res - Response trả về thông tin địa chỉ
  */
 export const getAddressByIdForAdmin = async (
   req: Request,
@@ -380,7 +450,16 @@ export const getAddressByIdForAdmin = async (
 };
 
 /**
- * Tạo địa chỉ mới cho người dùng (chỉ admin)
+ * Tạo địa chỉ mới cho một người dùng (Chỉ dành cho Admin)
+ *
+ * Quy trình:
+ * 1. Kiểm tra người dùng tồn tại
+ * 2. Validate dữ liệu đầu vào
+ * 3. Xử lý địa chỉ mặc định nếu cần
+ * 4. Tạo địa chỉ mới
+ *
+ * @param req - Request chứa ID người dùng và thông tin địa chỉ mới
+ * @param res - Response trả về thông tin địa chỉ đã tạo
  */
 export const createAddressByAdmin = async (
   req: Request,
@@ -452,7 +531,16 @@ export const createAddressByAdmin = async (
 };
 
 /**
- * Cập nhật địa chỉ người dùng (chỉ admin)
+ * Cập nhật địa chỉ người dùng (Chỉ dành cho Admin)
+ *
+ * Quy trình:
+ * 1. Tìm địa chỉ cần cập nhật
+ * 2. Validate dữ liệu đầu vào
+ * 3. Xử lý địa chỉ mặc định nếu cần
+ * 4. Cập nhật thông tin địa chỉ
+ *
+ * @param req - Request chứa ID địa chỉ và thông tin cập nhật
+ * @param res - Response trả về thông tin sau khi cập nhật
  */
 export const updateAddressByAdmin = async (
   req: Request,
@@ -523,7 +611,16 @@ export const updateAddressByAdmin = async (
 };
 
 /**
- * Đặt địa chỉ mặc định (chỉ admin)
+ * Đặt địa chỉ mặc định (Chỉ dành cho Admin)
+ *
+ * Quy trình:
+ * 1. Tìm địa chỉ cần đặt mặc định
+ * 2. Kiểm tra trạng thái hiện tại
+ * 3. Reset địa chỉ mặc định cũ
+ * 4. Đặt địa chỉ mới làm mặc định
+ *
+ * @param req - Request chứa ID địa chỉ cần đặt mặc định
+ * @param res - Response trả về kết quả thao tác
  */
 export const setDefaultAddressByAdmin = async (
   req: Request,
@@ -568,7 +665,7 @@ export const setDefaultAddressByAdmin = async (
 };
 
 /**
- * Xóa địa chỉ người dùng (chỉ admin)
+ * Xóa địa chỉ người dùng (Chỉ dành cho Admin)
  */
 export const deleteAddressByAdmin = async (
   req: Request,

@@ -9,28 +9,41 @@ import Suitability from "../models/Suitability";
 import { upload, deleteFile } from "../services/categoryImageUpload";
 
 // Tạo mới một category với upload ảnh lên S3
+/**
+ * Tạo mới một danh mục với hình ảnh được upload lên Amazon S3
+ * Flow:
+ * Step 1: Upload ảnh lên S3 sử dụng middleware multer-s3
+ * Step 2: Validate thông tin danh mục
+ * Step 3: Kiểm tra xem slug đã tồn tại chưa
+ * Step 4: Lấy URL hình ảnh từ S3 (nếu có)
+ * Step 5: Tạo danh mục mới trong database
+ * Step 6: Trả về thông tin danh mục đã tạo
+ */
 export const createCategory = async (
   req: Request,
   res: Response
 ): Promise<void> => {
+  // Step 1: Upload ảnh lên S3 sử dụng middleware multer-s3
   upload(req, res, async (err) => {
     if (err) {
       return res.status(400).json({ message: `Lỗi upload: ${err.message}` });
     }
 
     try {
+      // Step 2: Validate thông tin danh mục
       const { name, slug, description, parentId, isActive } = req.body;
 
-      // Kiểm tra nếu Category đã tồn tại
+      // Step 3: Kiểm tra xem slug đã tồn tại chưa
       const existingCategory = await Category.findOne({ where: { slug } });
       if (existingCategory) {
         return res.status(400).json({ message: "Slug danh mục đã tồn tại" });
       }
 
-      // Lấy URL hình ảnh từ S3 nếu có upload
+      // Step 4: Lấy URL hình ảnh từ S3 nếu có upload
       const file = req.file as Express.MulterS3.File;
       const imageUrl = file ? file.location : null; // multer-s3 tự động cung cấp location là URL của file
 
+      // Step 5: Tạo danh mục mới trong database
       const newCategory = await Category.create({
         name,
         slug: slug || name.toLowerCase().replace(/\s+/g, "-"),
@@ -40,6 +53,7 @@ export const createCategory = async (
         isActive: isActive === "true" || isActive === true,
       });
 
+      // Step 6: Trả về thông tin danh mục đã tạo
       res.status(201).json(newCategory);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -48,10 +62,22 @@ export const createCategory = async (
 };
 
 // Cập nhật function updateCategory để sử dụng S3
+/**
+ * Cập nhật thông tin danh mục bao gồm cả hình ảnh (sử dụng Amazon S3)
+ * Flow:
+ * Step 1: Upload ảnh mới lên S3 (nếu có) sử dụng middleware multer-s3
+ * Step 2: Tìm kiếm danh mục cần cập nhật theo ID
+ * Step 3: Kiểm tra slug mới có bị trùng với danh mục khác không
+ * Step 4: Chuẩn bị dữ liệu cập nhật
+ * Step 5: Xử lý trường hợp upload hình ảnh mới (xóa ảnh cũ, cập nhật URL mới)
+ * Step 6: Cập nhật thông tin danh mục vào database
+ * Step 7: Trả về kết quả cập nhật
+ */
 export const updateCategory = async (
   req: Request,
   res: Response
 ): Promise<void> => {
+  // Step 1: Upload ảnh mới lên S3 (nếu có) sử dụng middleware multer-s3
   upload(req, res, async (err) => {
     if (err) {
       return res.status(400).json({ message: `Lỗi upload: ${err.message}` });
@@ -61,12 +87,13 @@ export const updateCategory = async (
       const { id } = req.params;
       const { name, slug, description, parentId, isActive } = req.body;
 
+      // Step 2: Tìm kiếm danh mục cần cập nhật theo ID
       const category = await Category.findByPk(id);
       if (!category) {
         return res.status(404).json({ message: "Danh mục không tồn tại" });
       }
 
-      // Kiểm tra slug trùng lặp (trừ slug hiện tại)
+      // Step 3: Kiểm tra slug mới có bị trùng với danh mục khác không
       if (slug && slug !== category.slug) {
         const existingCategory = await Category.findOne({
           where: {
@@ -79,7 +106,7 @@ export const updateCategory = async (
         }
       }
 
-      // Tạo object cập nhật
+      // Step 4: Chuẩn bị dữ liệu cập nhật
       const updateData: any = {
         name: name || category.name,
         slug: slug || category.slug,
@@ -89,7 +116,7 @@ export const updateCategory = async (
           isActive !== undefined ? isActive === "true" : category.isActive,
       };
 
-      // Nếu có upload file mới
+      // Step 5: Xử lý trường hợp upload hình ảnh mới
       const file = req.file as Express.MulterS3.File;
       if (file) {
         // Xóa ảnh cũ trên S3 nếu có
@@ -104,8 +131,10 @@ export const updateCategory = async (
         updateData.image = file.location;
       }
 
-      // Cập nhật category
+      // Step 6: Cập nhật thông tin danh mục vào database
       await category.update(updateData);
+
+      // Step 7: Trả về kết quả cập nhật
       res.status(200).json({ message: "Cập nhật thành công", category });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -114,13 +143,25 @@ export const updateCategory = async (
 };
 
 // lấy chi tiết một category theo ID
+/**
+ * Lấy thông tin chi tiết của một danh mục theo ID
+ * Flow:
+ * Step 1: Lấy ID danh mục từ params request
+ * Step 2: Truy vấn database để tìm danh mục theo ID và lấy thông tin chi tiết
+ * Step 3: Kèm theo các danh mục con (nếu có)
+ * Step 4: Kiểm tra nếu không tìm thấy danh mục
+ * Step 5: Trả về thông tin danh mục nếu tìm thấy
+ */
 export const getCategoryById = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
+    // Step 1: Lấy ID danh mục từ params request
     const { id } = req.params;
 
+    // Step 2: Truy vấn database để tìm danh mục theo ID
+    // Step 3: Kèm theo các danh mục con (nếu có)
     const category = await Category.findByPk(id, {
       attributes: [
         "id",
@@ -142,11 +183,13 @@ export const getCategoryById = async (
       ],
     });
 
+    // Step 4: Kiểm tra nếu không tìm thấy danh mục
     if (!category) {
       res.status(404).json({ message: "Danh mục không tồn tại" });
       return;
     }
 
+    // Step 5: Trả về thông tin danh mục nếu tìm thấy
     res.status(200).json(category);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -154,20 +197,34 @@ export const getCategoryById = async (
 };
 
 // Xóa category và hình ảnh S3 kèm theo
+/**
+ * Xóa danh mục và hình ảnh kèm theo trên Amazon S3
+ * Flow:
+ * Step 1: Lấy ID danh mục cần xóa từ params request
+ * Step 2: Tìm danh mục theo ID
+ * Step 3: Kiểm tra nếu không tìm thấy danh mục
+ * Step 4: Xóa hình ảnh trên S3 nếu có
+ * Step 5: Xóa danh mục khỏi database
+ * Step 6: Trả về thông báo xóa thành công
+ */
 export const deleteCategory = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
+    // Step 1: Lấy ID danh mục cần xóa từ params request
     const { id } = req.params;
 
+    // Step 2: Tìm danh mục theo ID
     const category = await Category.findByPk(id);
+
+    // Step 3: Kiểm tra nếu không tìm thấy danh mục
     if (!category) {
       res.status(404).json({ message: "Category không tồn tại" });
       return;
     }
 
-    // Xóa hình ảnh trên S3 nếu có
+    // Step 4: Xóa hình ảnh trên S3 nếu có
     if (
       category.image &&
       category.image.includes(process.env.S3_BUCKET || "")
@@ -175,8 +232,10 @@ export const deleteCategory = async (
       await deleteFile(category.image);
     }
 
-    // Xóa Category
+    // Step 5: Xóa danh mục khỏi database
     await category.destroy();
+
+    // Step 6: Trả về thông báo xóa thành công
     res.status(200).json({ message: "Xóa Category thành công" });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -184,12 +243,21 @@ export const deleteCategory = async (
 };
 
 // lấy tất cả categories và subtypes kể cả không active
+/**
+ * Lấy tất cả danh mục bao gồm cả danh mục con, không phân biệt trạng thái active
+ * Flow:
+ * Step 1: Truy vấn database lấy tất cả danh mục
+ * Step 2: Sắp xếp các danh mục theo tên (A-Z)
+ * Step 3: Tổ chức lại dữ liệu thành cấu trúc cha-con
+ * Step 4: Trả về danh sách danh mục đã được tổ chức
+ */
 export const getAllCategories = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    // Lấy tất cả các danh mục
+    // Step 1: Truy vấn database lấy tất cả danh mục
+    // Step 2: Sắp xếp các danh mục theo tên (A-Z)
     const categories = await Category.findAll({
       attributes: [
         "id",
@@ -203,7 +271,7 @@ export const getAllCategories = async (
       order: [["name", "ASC"]],
     });
 
-    // Sắp xếp thành cấu trúc cha-con
+    // Step 3: Tổ chức lại dữ liệu thành cấu trúc cha-con
     const result = categories.reduce((acc, category) => {
       if (!category.parentId) {
         // Nếu là danh mục cha
@@ -217,6 +285,7 @@ export const getAllCategories = async (
       return acc;
     }, [] as any[]);
 
+    // Step 4: Trả về danh sách danh mục đã được tổ chức
     res.status(200).json(result);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -224,12 +293,23 @@ export const getAllCategories = async (
 };
 
 // Lấy danh mục cho navigation (danh mục cha và con)
+/**
+ * Lấy danh sách danh mục cho thanh điều hướng (navigation menu)
+ * Flow:
+ * Step 1: Lấy tất cả danh mục gốc (cha) có trạng thái active
+ * Step 2: Sắp xếp danh mục cha theo tên (A-Z)
+ * Step 3: Với mỗi danh mục cha, lấy tất cả danh mục con có trạng thái active
+ * Step 4: Sắp xếp danh mục con theo tên (A-Z)
+ * Step 5: Tổ chức dữ liệu thành cấu trúc phù hợp cho thanh điều hướng
+ * Step 6: Trả về kết quả đã tổ chức
+ */
 export const getNavCategories = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    // Lấy tất cả danh mục cha (parentId = null và isActive = true)
+    // Step 1: Lấy tất cả danh mục gốc (cha) có trạng thái active
+    // Step 2: Sắp xếp danh mục cha theo tên (A-Z)
     const parentCategories = await Category.findAll({
       where: {
         parentId: null,
@@ -239,7 +319,9 @@ export const getNavCategories = async (
       order: [["name", "ASC"]],
     });
 
-    // Tạo mảng kết quả với cấu trúc phù hợp cho navbar
+    // Step 3: Với mỗi danh mục cha, lấy tất cả danh mục con có trạng thái active
+    // Step 4: Sắp xếp danh mục con theo tên (A-Z)
+    // Step 5: Tổ chức dữ liệu thành cấu trúc phù hợp cho thanh điều hướng
     const result = await Promise.all(
       parentCategories.map(async (parent) => {
         // Lấy tất cả danh mục con của danh mục cha hiện tại
@@ -265,6 +347,7 @@ export const getNavCategories = async (
       })
     );
 
+    // Step 6: Trả về kết quả đã tổ chức
     res.status(200).json(result);
   } catch (error: any) {
     console.error("Lỗi khi lấy danh mục cho navbar:", error);
@@ -273,13 +356,25 @@ export const getNavCategories = async (
 };
 
 // Lấy danh mục theo slug
+/**
+ * Lấy thông tin chi tiết của một danh mục theo slug
+ * Flow:
+ * Step 1: Lấy slug từ params request
+ * Step 2: Truy vấn database để tìm danh mục theo slug
+ * Step 3: Kèm theo các danh mục con nếu có (chỉ lấy những danh mục con có trạng thái active)
+ * Step 4: Kiểm tra nếu không tìm thấy danh mục
+ * Step 5: Trả về thông tin danh mục nếu tìm thấy
+ */
 export const getCategoryBySlug = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
+    // Step 1: Lấy slug từ params request
     const { slug } = req.params;
 
+    // Step 2: Truy vấn database để tìm danh mục theo slug
+    // Step 3: Kèm theo các danh mục con nếu có
     const category = await Category.findOne({
       where: { slug, isActive: true },
       attributes: [
@@ -302,11 +397,13 @@ export const getCategoryBySlug = async (
       ],
     });
 
+    // Step 4: Kiểm tra nếu không tìm thấy danh mục
     if (!category) {
       res.status(404).json({ message: "Danh mục không tồn tại" });
       return;
     }
 
+    // Step 5: Trả về thông tin danh mục nếu tìm thấy
     res.status(200).json(category);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -314,18 +411,35 @@ export const getCategoryBySlug = async (
 };
 
 // Lấy sản phẩm theo slug của danh mục
+/**
+ * Lấy danh sách sản phẩm theo slug của danh mục với nhiều tùy chọn lọc và phân trang
+ * Flow:
+ * Step 1: Lấy thông tin từ request (slug danh mục, tham số phân trang và lọc)
+ * Step 2: Xử lý các tham số lọc (màu sắc, kích thước, thương hiệu, giá, v.v.)
+ * Step 3: Nếu không có slug, trả về tất cả danh mục có trạng thái active
+ * Step 4: Tìm danh mục theo slug
+ * Step 5: Xác định các ID danh mục cần lọc (bao gồm cả danh mục con nếu cần)
+ * Step 6: Xây dựng các điều kiện lọc cho sản phẩm (status, brand, featured)
+ * Step 7: Xây dựng các điều kiện lọc cho chi tiết sản phẩm (màu sắc, giá)
+ * Step 8: Xây dựng các điều kiện lọc cho tồn kho (kích thước)
+ * Step 9: Xác định thứ tự sắp xếp
+ * Step 10: Truy vấn database để lấy sản phẩm theo điều kiện
+ * Step 11: Format dữ liệu sản phẩm để dễ sử dụng ở frontend
+ * Step 12: Trả về kết quả bao gồm sản phẩm, thông tin phân trang, danh mục và bộ lọc
+ */
 export const getProductsByCategorySlug = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
+    // Step 1: Lấy thông tin từ request (slug danh mục, tham số phân trang và lọc)
     const { slug } = req.params;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 12;
     const offset = (page - 1) * limit;
     console.log("max price", req.query.maxPrice);
 
-    // Filter parameters
+    // Step 2: Xử lý các tham số lọc
     const color = req.query.color as string;
     const sizeParam = req.query.size as string;
     const sizes = sizeParam ? sizeParam.split(",") : [];
@@ -337,9 +451,7 @@ export const getProductsByCategorySlug = async (
 
     const suitabilityParam = req.query.suitability as string;
     const suitabilities = suitabilityParam ? suitabilityParam.split(",") : [];
-    const childCategorySlug = req.query.childCategory as string;
-
-    // nếu không có slug thì lấy hết categories
+    const childCategorySlug = req.query.childCategory as string; // Step 3: Nếu không có slug thì lấy hết categories
     if (!slug) {
       const categories = await Category.findAll({
         where: { isActive: true },
@@ -349,7 +461,7 @@ export const getProductsByCategorySlug = async (
       return;
     }
 
-    // Tìm category theo slug
+    // Step 4: Tìm category theo slug
     const category = await Category.findOne({
       where: { slug, isActive: true },
       include: [
@@ -367,14 +479,12 @@ export const getProductsByCategorySlug = async (
       return;
     }
 
-    // Lấy tất cả ID danh mục (bao gồm danh mục con)
-    let categoryIds = [category.id];
-
-    // Xử lý childCategorySlug
+    // Step 5: Xác định các ID danh mục cần lọc (bao gồm cả danh mục con nếu cần)
+    let categoryIds = [category.id]; // Xử lý childCategorySlug
     if (category.parentId === null) {
       // Nếu là danh mục cha
       if (childCategorySlug) {
-        // Tìm danh mục con theo slug
+        // Step 5.1: Tìm danh mục con theo slug
         const childCategory = await Category.findOne({
           where: {
             slug: childCategorySlug,
@@ -395,7 +505,7 @@ export const getProductsByCategorySlug = async (
           );
         }
       } else {
-        // Nếu không có childCategorySlug, lấy tất cả sản phẩm của danh mục cha và con
+        // Step 5.2: Nếu không có childCategorySlug, lấy tất cả sản phẩm của danh mục cha và con
         const childCategories = await Category.findAll({
           where: { parentId: category.id, isActive: true },
           attributes: ["id"],
@@ -406,18 +516,18 @@ export const getProductsByCategorySlug = async (
         ];
       }
     } else {
-      // Nếu là danh mục con, chỉ lấy sản phẩm của danh mục này
+      // Step 5.3: Nếu là danh mục con, chỉ lấy sản phẩm của danh mục này
       categoryIds = [category.id];
     }
 
-    // Xây dựng điều kiện lọc cho sản phẩm
+    // Step 6: Xây dựng điều kiện lọc cho sản phẩm
     const productWhere: any = {
       status: { [Op.ne]: "draft" }, // Chỉ lấy sản phẩm không phải là bản nháp
     };
     if (brand) productWhere.brand = brand;
     if (featured !== undefined) productWhere.featured = featured;
 
-    // Xây dựng điều kiện lọc cho product details
+    // Step 7: Xây dựng điều kiện lọc cho product details
     const detailWhere: any = {};
     if (color) detailWhere.color = color;
 
@@ -428,14 +538,14 @@ export const getProductsByCategorySlug = async (
       };
     }
 
-    // Xây dựng điều kiện lọc cho inventories
+    // Step 8: Xây dựng điều kiện lọc cho inventories
     const inventoryWhere: any = {};
     if (sizes.length > 0) {
       inventoryWhere.size = { [Op.in]: sizes };
       inventoryWhere.stock = { [Op.gt]: 0 }; // Chỉ lấy size còn hàng
     }
 
-    // Xác định thứ tự sắp xếp
+    // Step 9: Xác định thứ tự sắp xếp
     let order: any[] = [];
 
     // Sắp xếp theo giá là trường hợp đặc biệt vì giá nằm trong ProductDetail
@@ -670,23 +780,37 @@ export const getProductsByCategorySlug = async (
 };
 
 // lấy các categories con của category cha
+/**
+ * Lấy danh sách các danh mục con của một danh mục cha
+ * Flow:
+ * Step 1: Lấy ID danh mục cha từ params request
+ * Step 2: Truy vấn database để lấy tất cả danh mục con có parentId trùng với ID được cung cấp
+ * Step 3: Chỉ lấy các danh mục con có trạng thái active
+ * Step 4: Kiểm tra nếu không tìm thấy danh mục con nào
+ * Step 5: Trả về danh sách danh mục con nếu tìm thấy
+ */
 export const getSubCategories = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
+    // Step 1: Lấy ID danh mục cha từ params request
     const { id } = req.params;
 
+    // Step 2: Truy vấn database để lấy tất cả danh mục con có parentId trùng với ID được cung cấp
+    // Step 3: Chỉ lấy các danh mục con có trạng thái active
     const subCategories = await Category.findAll({
       where: { parentId: id, isActive: true },
       attributes: ["id", "name", "slug"],
     });
 
+    // Step 4: Kiểm tra nếu không tìm thấy danh mục con nào
     if (!subCategories) {
       res.status(404).json({ message: "Không tìm thấy danh mục con" });
       return;
     }
 
+    // Step 5: Trả về danh sách danh mục con nếu tìm thấy
     res.status(200).json(subCategories);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -695,30 +819,42 @@ export const getSubCategories = async (
 
 /**
  * Get category breadcrumb path
+ * Lấy đường dẫn breadcrumb cho danh mục
+ * Flow:
+ * Step 1: Lấy slug từ params request
+ * Step 2: Truy vấn database để tìm danh mục theo slug
+ * Step 3: Kiểm tra nếu không tìm thấy danh mục
+ * Step 4: Tạo breadcrumb mặc định bắt đầu từ trang chủ
+ * Step 5: Thêm danh mục cha vào breadcrumb nếu danh mục hiện tại là danh mục con
+ * Step 6: Thêm danh mục hiện tại vào breadcrumb
+ * Step 7: Trả về đường dẫn breadcrumb hoàn chỉnh
  */
 export const getCategoryBreadcrumb = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
+    // Step 1: Lấy slug từ params request
     const { slug } = req.params;
 
+    // Step 2: Truy vấn database để tìm danh mục theo slug
     const category = await Category.findOne({
       where: { slug },
       attributes: ["id", "name", "slug", "parentId"],
     });
 
+    // Step 3: Kiểm tra nếu không tìm thấy danh mục
     if (!category) {
       res.status(404).json({ message: "Category not found" });
       return;
     }
 
-    // tạo breadcrumb mặc định
+    // Step 4: Tạo breadcrumb mặc định bắt đầu từ trang chủ
     const breadcrumb: { label: string; href: string; isLast?: boolean }[] = [
       { label: "Trang chủ", href: "/", isLast: false },
     ];
 
-    // Thêm parent category nếu có
+    // Step 5: Thêm danh mục cha vào breadcrumb nếu danh mục hiện tại là danh mục con
     if (category.parentId) {
       const parentCategory = await Category.findByPk(category.parentId, {
         attributes: ["id", "name", "slug"],
@@ -732,13 +868,14 @@ export const getCategoryBreadcrumb = async (
       }
     }
 
-    // Thêm category hiện tại
+    // Step 6: Thêm danh mục hiện tại vào breadcrumb
     breadcrumb.push({
       label: category.name,
       href: `/category/${slug}`,
       isLast: true,
     });
 
+    // Step 7: Trả về đường dẫn breadcrumb hoàn chỉnh
     res.status(200).json(breadcrumb);
   } catch (error: any) {
     console.error("Error generating category breadcrumb:", error);

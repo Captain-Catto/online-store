@@ -33,17 +33,30 @@ interface ProductSaleResult {
   totalRevenue: string;
 }
 
-// Get summary stats for dashboard
-// data đầu vào: dateRange, nếu không có thì mặc định là 7 ngày
-// nếu là custom thì có thêm fromDate và toDate
-// data đầu ra: tổng doanh thu, tổng đơn hàng, giá trị đơn hàng trung bình,
-// tổng sản phẩm, số lượng sản phẩm tồn kho thấp, danh mục bán chạy nhất
+/**
+ * Lấy thống kê tổng quan cho bảng điều khiển
+ *
+ * Quy trình:
+ * 1. Lấy và xử lý tham số khoảng thời gian
+ * 2. Lấy dữ liệu đơn hàng đã hoàn thành trong khoảng thời gian
+ * 3. Tính toán các chỉ số thống kê:
+ *    - Tổng doanh thu
+ *    - Tổng số đơn hàng
+ *    - Giá trị đơn hàng trung bình
+ *    - Tổng số sản phẩm
+ *    - Số lượng sản phẩm tồn kho thấp
+ *    - Danh mục bán chạy nhất
+ * 4. Trả về kết quả thống kê
+ *
+ * @param req - Request chứa tham số khoảng thời gian (dateRange, fromDate, toDate)
+ * @param res - Response trả về dữ liệu thống kê
+ */
 export const getSummaryReport = async (req: Request, res: Response) => {
   try {
-    // Get date range parameters or default to last 7 days
+    // Lấy tham số khoảng thời gian hoặc mặc định là 7 ngày gần nhất
     const { dateRange, fromDate, toDate } = req.query;
     console.log("dateRange", dateRange);
-    // Calculate date range
+    // Tính toán khoảng thời gian
     let endDate = new Date();
     let startDate = new Date();
 
@@ -67,9 +80,7 @@ export const getSummaryReport = async (req: Request, res: Response) => {
         default:
           startDate.setDate(endDate.getDate() - 7);
       }
-    }
-
-    // Get total revenue from completed orders
+    } // Lấy tổng doanh thu từ các đơn hàng đã hoàn thành
     const orders = await Order.findAll({
       where: {
         createdAt: {
@@ -80,21 +91,17 @@ export const getSummaryReport = async (req: Request, res: Response) => {
           [Op.eq]: "delivered",
         },
       },
-    });
-
-    // Calculate total revenue
+    }); // Tính tổng doanh thu
     const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
 
-    // Count total orders
+    // Đếm tổng số đơn hàng
     const totalOrders = orders.length;
 
-    // Calculate average order value
+    // Tính giá trị đơn hàng trung bình
     const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
-    // Count total products
-    const totalProducts = await Product.count();
-
-    // Get low stock products count (products with stock <= 10)
+    // Đếm tổng số sản phẩm
+    const totalProducts = await Product.count(); // Lấy số lượng sản phẩm có tồn kho thấp (sản phẩm có tồn kho <= 10)
     const productDetails = await ProductDetail.findAll({
       include: [
         {
@@ -109,9 +116,7 @@ export const getSummaryReport = async (req: Request, res: Response) => {
       ],
     });
 
-    const lowStockProducts = productDetails.length;
-
-    // Get top category by sales
+    const lowStockProducts = productDetails.length; // Lấy danh mục bán chạy nhất
     const orderDetails = await OrderDetail.findAll({
       where: {
         orderId: {
@@ -131,9 +136,7 @@ export const getSummaryReport = async (req: Request, res: Response) => {
           ],
         },
       ],
-    });
-
-    // Count sales by category
+    }); // Đếm số lượng bán theo danh mục
     const categorySales: { [key: number]: { name: string; count: number } } =
       {};
     orderDetails.forEach((detail) => {
@@ -152,9 +155,7 @@ export const getSummaryReport = async (req: Request, res: Response) => {
           categorySales[category.id].count += detail.quantity;
         });
       }
-    });
-
-    // Find top category
+    }); // Tìm danh mục bán chạy nhất
     let topCategory = "";
     let maxSales = 0;
 
@@ -163,9 +164,7 @@ export const getSummaryReport = async (req: Request, res: Response) => {
         maxSales = catSale.count;
         topCategory = catSale.name;
       }
-    });
-
-    // Return summary data
+    }); // Trả về dữ liệu tổng quan
     res.status(200).json({
       totalRevenue,
       totalOrders,
@@ -177,25 +176,38 @@ export const getSummaryReport = async (req: Request, res: Response) => {
     return;
   } catch (error) {
     console.error("Error getting summary report:", error);
-    res.status(500).json({ message: "Error getting summary report" });
+    res.status(500).json({ message: "Lỗi khi lấy báo cáo tổng quan" });
     return;
   }
 };
 
-// Get revenue data for main chart
+/**
+ * Lấy dữ liệu doanh thu cho biểu đồ chính
+ *
+ * Quy trình:
+ * 1. Lấy và xử lý tham số khoảng thời gian
+ * 2. Lấy dữ liệu đơn hàng và tính toán doanh thu theo ngày
+ * 3. Định dạng dữ liệu cho biểu đồ:
+ *    - Labels (tên các ngày)
+ *    - Dữ liệu doanh thu
+ *    - Dữ liệu số đơn hàng
+ * 4. Trả về dữ liệu đã định dạng
+ *
+ * @param req - Request chứa tham số khoảng thời gian
+ * @param res - Response trả về dữ liệu biểu đồ
+ */
 export const getRevenueReport = async (req: Request, res: Response) => {
   try {
     const { dateRange, fromDate, toDate } = req.query;
 
-    // Calculate date range
+    // Tính toán khoảng thời gian
     let endDate = new Date();
     let startDate = new Date();
     let groupByFormat: string;
-
     if (fromDate && toDate && dateRange === "custom") {
       startDate = new Date(fromDate as string);
       endDate = new Date(toDate as string);
-      // Default to day of week for custom range, or you can choose another format
+      // Mặc định là ngày trong tuần cho khoảng tùy chỉnh, hoặc bạn có thể chọn định dạng khác
       groupByFormat = "%w";
     } else {
       switch (dateRange) {
@@ -307,7 +319,19 @@ export const getRevenueReport = async (req: Request, res: Response) => {
   }
 };
 
-// Get category data for pie chart
+/**
+ * Lấy dữ liệu danh mục cho biểu đồ tròn
+ *
+ * Quy trình:
+ * 1. Lấy và xử lý tham số khoảng thời gian
+ * 2. Lấy dữ liệu đơn hàng và danh mục sản phẩm
+ * 3. Tính toán doanh số theo danh mục
+ * 4. Định dạng dữ liệu cho biểu đồ
+ * 5. Trả về top 5 danh mục có doanh số cao nhất
+ *
+ * @param req - Request chứa tham số khoảng thời gian
+ * @param res - Response trả về dữ liệu biểu đồ
+ */
 export const getCategoryReport = async (req: Request, res: Response) => {
   try {
     const { dateRange, fromDate, toDate } = req.query;
@@ -459,8 +483,20 @@ type ProductReport = {
   suitabilities: string[];
 };
 
-// Get top products data
-// Get top products data
+/**
+ * Lấy báo cáo top sản phẩm bán chạy
+ *
+ * Quy trình:
+ * 1. Lấy và xác thực tham số khoảng thời gian
+ * 2. Lấy dữ liệu bán hàng theo sản phẩm
+ * 3. Lấy thông tin chi tiết của các sản phẩm
+ * 4. Tính toán và kết hợp dữ liệu
+ * 5. Sắp xếp và lấy top 5 sản phẩm theo doanh thu
+ * 6. Trả về kết quả với thông tin đầy đủ của sản phẩm
+ *
+ * @param req - Request chứa tham số khoảng thời gian
+ * @param res - Response trả về danh sách top sản phẩm
+ */
 export const getTopProductsReport = async (req: Request, res: Response) => {
   try {
     const { dateRange, fromDate, toDate } = req.query;
@@ -508,8 +544,6 @@ export const getTopProductsReport = async (req: Request, res: Response) => {
           startDate.setDate(endDate.getDate() - 7);
       }
     }
-
-    // Thay thế đoạn truy vấn từ dòng 506-550 bằng đoạn code sau:
 
     // Bước 1: Lấy dữ liệu tổng hợp bán hàng theo sản phẩm
     const productSales = (await OrderDetail.findAll({
@@ -659,7 +693,19 @@ export const getTopProductsReport = async (req: Request, res: Response) => {
   }
 };
 
-// Get low stock products
+/**
+ * Lấy danh sách sản phẩm có tồn kho thấp
+ *
+ * Quy trình:
+ * 1. Lấy và xác thực ngưỡng tồn kho từ query params
+ * 2. Truy vấn các sản phẩm có tồn kho thấp hơn ngưỡng
+ * 3. Nhóm dữ liệu theo sản phẩm và tính toán các chỉ số
+ * 4. Sắp xếp theo mức tồn kho tăng dần
+ * 5. Trả về danh sách sản phẩm đã xử lý
+ *
+ * @param req - Request chứa ngưỡng tồn kho
+ * @param res - Response trả về danh sách sản phẩm tồn kho thấp
+ */
 export const getLowStockProducts = async (
   req: Request,
   res: Response
@@ -779,7 +825,20 @@ export const getLowStockProducts = async (
   }
 };
 
-// Get product performance data for line chart
+/**
+ * Lấy dữ liệu hiệu suất sản phẩm cho biểu đồ đường
+ *
+ * Quy trình:
+ * 1. Lấy và xử lý tham số khoảng thời gian
+ * 2. Lấy dữ liệu đơn hàng trong khoảng thời gian
+ * 3. Lấy chi tiết đơn hàng và tính toán doanh số theo sản phẩm
+ * 4. Lấy và định dạng top 3 sản phẩm có doanh số cao nhất
+ * 5. Tạo dữ liệu biểu đồ theo từng ngày
+ * 6. Trả về kết quả với datasets cho mỗi sản phẩm
+ *
+ * @param req - Request chứa tham số khoảng thời gian
+ * @param res - Response trả về dữ liệu biểu đồ hiệu suất
+ */
 export const getProductPerformance = async (req: Request, res: Response) => {
   try {
     const { dateRange, fromDate, toDate } = req.query;
@@ -928,7 +987,23 @@ export const getProductPerformance = async (req: Request, res: Response) => {
   return;
 };
 
-// // Get category performance data
+/**
+ * Lấy dữ liệu hiệu suất danh mục
+ *
+ * Quy trình:
+ * 1. Lấy và xử lý tham số khoảng thời gian
+ * 2. Tính toán khoảng thời gian so sánh
+ * 3. Lấy dữ liệu đơn hàng cho cả hai khoảng thời gian
+ * 4. Tính toán chỉ số hiệu suất cho từng danh mục:
+ *    - Doanh số
+ *    - Số lượng bán
+ *    - Tỷ lệ tăng trưởng
+ * 5. Sắp xếp và trả về kết quả theo doanh số
+ *
+ * @param req - Request chứa tham số khoảng thời gian
+ * @param res - Response trả về dữ liệu hiệu suất danh mục
+ */
+
 export const getCategoryPerformance = async (req: Request, res: Response) => {
   try {
     const { dateRange, fromDate, toDate } = req.query;
@@ -1075,7 +1150,7 @@ export const getCategoryPerformance = async (req: Request, res: Response) => {
           }
           currentCategoryStats[category.id].sales += detail.quantity;
           currentCategoryStats[category.id].revenue +=
-            detail.originalPrice * detail.quantity;
+            Number(detail.originalPrice) * Number(detail.quantity);
           currentCategoryStats[category.id].products.add(detail.productId);
         });
       }
@@ -1103,7 +1178,7 @@ export const getCategoryPerformance = async (req: Request, res: Response) => {
           }
           previousCategoryStats[category.id].sales += detail.quantity;
           previousCategoryStats[category.id].revenue +=
-            detail.originalPrice * detail.quantity;
+            Number(detail.originalPrice) * Number(detail.quantity);
         });
       }
     });
@@ -1145,13 +1220,38 @@ export const getCategoryPerformance = async (req: Request, res: Response) => {
   return;
 };
 
-// // Get order analysis data
+interface DateRangeQuery {
+  dateRange?: string;
+  timeRange?: string;
+  fromDate?: string;
+  toDate?: string;
+}
+
+/**
+ * Lấy dữ liệu phân tích đơn hàng
+ *
+ * Quy trình:
+ * 1. Lấy và xử lý tham số khoảng thời gian
+ * 2. Tính toán khoảng thời gian hiện tại và khoảng thời gian so sánh
+ * 3. Lấy dữ liệu đơn hàng cho cả hai khoảng thời gian
+ * 4. Tính toán các chỉ số:
+ *    - Tổng số đơn hàng
+ *    - Tỷ lệ hoàn thành
+ *    - Giá trị đơn hàng trung bình
+ *    - Phân bố trạng thái đơn hàng
+ *    - Phân bố phương thức thanh toán
+ * 5. Tính toán tỷ lệ tăng trưởng so với kỳ trước
+ * 6. Trả về kết quả phân tích chi tiết
+ *
+ * @param req - Request chứa tham số khoảng thời gian (dateRange/timeRange)
+ * @param res - Response trả về dữ liệu phân tích đơn hàng
+ */
 export const getOrderAnalysis = async (req: Request, res: Response) => {
   try {
     const timeRange = req.query.dateRange || req.query.timeRange || "week";
-    console.log("Time range:", timeRange);
+    console.log("Khoảng thời gian:", timeRange);
 
-    // Calculate date ranges
+    // Tính toán khoảng thời gian
     const endDate = new Date();
     let startDate = new Date();
     let previousEndDate = new Date();
@@ -1203,7 +1303,7 @@ export const getOrderAnalysis = async (req: Request, res: Response) => {
         previousStartDate.setDate(previousStartDate.getDate() - 6);
     }
 
-    // Get current period orders
+    // Lấy đơn hàng kỳ hiện tại
     const currentOrders = await Order.findAll({
       where: {
         createdAt: {
@@ -1218,7 +1318,7 @@ export const getOrderAnalysis = async (req: Request, res: Response) => {
       ],
     });
 
-    // Get previous period orders
+    // Lấy đơn hàng kỳ trước
     const previousOrders = await Order.findAll({
       where: {
         createdAt: {
@@ -1227,7 +1327,7 @@ export const getOrderAnalysis = async (req: Request, res: Response) => {
       },
     });
 
-    // Date labels for response
+    // Định dạng nhãn ngày tháng cho response
     interface FormatDate {
       (date: Date): string;
     }
@@ -1255,7 +1355,7 @@ export const getOrderAnalysis = async (req: Request, res: Response) => {
       )})`,
     };
 
-    // Calculate current period stats
+    // Tính toán thống kê kỳ hiện tại
     const currentStats = {
       totalOrders: currentOrders.length,
       completedOrders: currentOrders.filter(
@@ -1274,21 +1374,21 @@ export const getOrderAnalysis = async (req: Request, res: Response) => {
       },
     };
 
-    // Calculate completion rate
+    // Tính tỷ lệ hoàn thành
     const completionRate =
       currentStats.totalOrders > 0
         ? (currentStats.completedOrders / currentStats.totalOrders) * 100
         : 0;
 
-    // Calculate average order value
+    // Tính giá trị đơn hàng trung bình
     const avgOrderValue =
       currentStats.totalOrders > 0
         ? currentStats.totalValue / currentStats.totalOrders
         : 0;
 
-    // Count orders by status
+    // Đếm đơn hàng theo trạng thái và phương thức thanh toán
     currentOrders.forEach((order) => {
-      // Count by status
+      // Đếm theo trạng thái
       currentStats.statuses[
         order.status as keyof typeof currentStats.statuses
       ] =
@@ -1296,7 +1396,7 @@ export const getOrderAnalysis = async (req: Request, res: Response) => {
           order.status as keyof typeof currentStats.statuses
         ] || 0) + 1;
 
-      // Count by payment method
+      // Đếm theo phương thức thanh toán
       const paymentMethod =
         (order as any).paymentMethod && (order as any).paymentMethod.name
           ? (order as any).paymentMethod.name
@@ -1310,7 +1410,7 @@ export const getOrderAnalysis = async (req: Request, res: Response) => {
       currentStats.paymentMethods[paymentMethod].count += 1;
     });
 
-    // Calculate payment method percentages
+    // Tính phần trăm cho phương thức thanh toán
     Object.values(currentStats.paymentMethods).forEach((method: any) => {
       method.percentage =
         currentStats.totalOrders > 0
@@ -1318,7 +1418,7 @@ export const getOrderAnalysis = async (req: Request, res: Response) => {
           : 0;
     });
 
-    // Calculate previous period stats
+    // Tính toán thống kê kỳ trước
     const previousStats = {
       totalOrders: previousOrders.length,
       completedOrders: previousOrders.filter(
@@ -1327,19 +1427,19 @@ export const getOrderAnalysis = async (req: Request, res: Response) => {
       totalValue: previousOrders.reduce((sum, order) => sum + order.total, 0),
     };
 
-    // Calculate previous completion rate
+    // Tính tỷ lệ hoàn thành kỳ trước
     const previousCompletionRate =
       previousStats.totalOrders > 0
         ? (previousStats.completedOrders / previousStats.totalOrders) * 100
         : 0;
 
-    // Calculate previous average order value
+    // Tính giá trị đơn hàng trung bình kỳ trước
     const previousAvgOrderValue =
       previousStats.totalOrders > 0
         ? previousStats.totalValue / previousStats.totalOrders
         : 0;
 
-    // Calculate growth rates
+    // Tính tỷ lệ tăng trưởng
     const orderGrowth =
       previousStats.totalOrders > 0
         ? ((currentStats.totalOrders - previousStats.totalOrders) /
@@ -1359,8 +1459,7 @@ export const getOrderAnalysis = async (req: Request, res: Response) => {
           100
         : 100;
 
-    // Format response data
-    // Format response data
+    // Trả về dữ liệu đã định dạng
     res.status(200).json({
       dateLabels,
       current: {
@@ -1381,8 +1480,8 @@ export const getOrderAnalysis = async (req: Request, res: Response) => {
     });
     return;
   } catch (error) {
-    console.error("Error getting order analysis:", error);
-    res.status(500).json({ message: "Error getting order analysis" });
+    console.error("Lỗi khi lấy phân tích đơn hàng:", error);
+    res.status(500).json({ message: "Lỗi khi lấy phân tích đơn hàng" });
     return;
   }
 };

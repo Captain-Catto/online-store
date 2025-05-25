@@ -10,15 +10,28 @@ import Product from "../models/Product";
 import ProductImage from "../models/ProductImage";
 import Users from "../models/Users";
 /**
- * Create a new order
+ * Tạo mới một đơn hàng
+ * Flow:
+ * Step 1: Bắt đầu một transaction để đảm bảo tính toàn vẹn dữ liệu
+ * Step 2: Lấy thông tin đơn hàng từ request body
+ * Step 3: Kiểm tra và validate dữ liệu đầu vào
+ * Step 4: Kiểm tra tồn kho và tính tổng tiền cho đơn hàng
+ * Step 5: Áp dụng voucher nếu có
+ * Step 6: Tính phí vận chuyển
+ * Step 7: Tạo đơn hàng mới trong database
+ * Step 8: Tạo chi tiết đơn hàng và cập nhật tồn kho
+ * Step 9: Cập nhật trạng thái sản phẩm nếu hết hàng
+ * Step 10: Hoàn tất transaction và trả về kết quả
  */
 export const createOrder = async (
   req: Request,
   res: Response
 ): Promise<void> => {
+  // Step 1: Bắt đầu một transaction để đảm bảo tính toàn vẹn dữ liệu
   const t = await sequelize.transaction();
 
   try {
+    // Step 2: Lấy thông tin đơn hàng từ request body
     const {
       items,
       paymentMethodId,
@@ -33,13 +46,14 @@ export const createOrder = async (
     } = req.body;
     console.log("body", req.body);
 
+    // Step 3: Kiểm tra và validate dữ liệu đầu vào
     if (!items || !items.length) {
       await t.rollback();
       res.status(400).json({ message: "Giỏ hàng trống" });
       return;
     }
 
-    // validate số điện thoại việt nam
+    // Validate số điện thoại Việt Nam
     const phoneRegex = /^(0[3|5|7|8|9]|[1-9][0-9])[0-9]{8,14}$/;
     if (!phoneRegex.test(shippingPhoneNumber)) {
       await t.rollback();
@@ -47,12 +61,11 @@ export const createOrder = async (
       return;
     }
 
-    // Validate items và tính tổng giá
+    // Step 4: Kiểm tra tồn kho và tính tổng tiền cho đơn hàng
     let total = 0;
     const orderItems = [];
-
     for (const item of items) {
-      // Kiểm tra productDetail tồn tại và có màu phù hợp
+      // Step 4.1: Kiểm tra sản phẩm tồn tại và có màu phù hợp
       const productDetail = await ProductDetail.findOne({
         where: { productId: item.productId, color: item.color },
         transaction: t,
@@ -76,7 +89,7 @@ export const createOrder = async (
         return;
       }
 
-      // Kiểm tra size và stock
+      // Step 4.2: Kiểm tra kích thước và tồn kho
       const inventory = await ProductInventory.findOne({
         where: {
           productDetailId: productDetail.id,
@@ -93,6 +106,7 @@ export const createOrder = async (
         return;
       }
 
+      // Step 4.3: Kiểm tra số lượng tồn kho có đủ không
       if (inventory.getDataValue("stock") < item.quantity) {
         await t.rollback();
         res.status(400).json({
@@ -101,29 +115,27 @@ export const createOrder = async (
           } chỉ còn ${inventory.getDataValue("stock")} sản phẩm.`,
         });
         return;
-      }
-
-      // Lấy giá sản phẩm
+      } // Step 4.4: Lấy giá sản phẩm và tính toán
       const price = productDetail.getDataValue("price");
       const originalPrice =
         productDetail.getDataValue("originalPrice") || price;
 
-      // Tính phần trăm giảm giá
+      // Step 4.5: Tính phần trăm giảm giá
       const discountPercent =
         originalPrice > 0 ? Math.round((1 - price / originalPrice) * 100) : 0;
 
-      // Tính tổng tiền cho item
+      // Step 4.6: Tính tổng tiền cho sản phẩm
       const itemTotal = price * item.quantity;
       total += itemTotal;
 
-      // Image URL
+      // Step 4.7: Lấy URL hình ảnh chính của sản phẩm
       const mainImage =
         (productDetail as any).images &&
         (productDetail as any).images.length > 0
           ? (productDetail as any).images[0].url
           : null;
 
-      // Thêm vào mảng
+      // Step 4.8: Thêm vào mảng các mặt hàng đơn hàng
       orderItems.push({
         productId: item.productId,
         quantity: item.quantity,
@@ -138,11 +150,11 @@ export const createOrder = async (
       });
     }
 
-    // Áp dụng voucher nếu có
+    // Step 5: Áp dụng voucher nếu có
     let voucherDiscount = 0;
     let appliedVoucher = null;
-
     if (voucherCode) {
+      // Step 5.1: Tìm voucher hợp lệ trong database
       const voucher = await Voucher.findOne({
         where: {
           code: voucherCode,
@@ -159,25 +171,25 @@ export const createOrder = async (
         return;
       }
 
-      // Kiểm tra hạn sử dụng
+      // Step 5.2: Kiểm tra hạn sử dụng
       if (new Date(voucher.getDataValue("expirationDate")) < new Date()) {
         await t.rollback();
         res.status(400).json({ message: "Voucher đã hết hạn" });
         return;
       }
 
-      // Tính giảm giá
+      // Step 5.3: Tính giảm giá dựa trên loại voucher
       if (voucher.getDataValue("type") === "percentage") {
         voucherDiscount = (total * voucher.getDataValue("value")) / 100;
       } else {
         voucherDiscount = voucher.getDataValue("value");
       }
 
-      // Không cho phép giảm giá lớn hơn tổng đơn hàng
+      // Step 5.4: Không cho phép giảm giá lớn hơn tổng đơn hàng
       voucherDiscount = Math.min(voucherDiscount, total);
       appliedVoucher = voucher;
 
-      // Cập nhật số lần sử dụng của voucher
+      // Step 5.5: Cập nhật số lần sử dụng của voucher
       const currentUsageCount = voucher.getDataValue("usageCount") || 0;
       await voucher.update(
         {
@@ -186,7 +198,7 @@ export const createOrder = async (
         { transaction: t }
       );
 
-      // Kiểm tra giới hạn sử dụng nếu có
+      // Step 5.6: Kiểm tra giới hạn sử dụng và cập nhật trạng thái nếu cần
       const usageLimit = voucher.getDataValue("usageLimit");
       if (usageLimit > 0 && currentUsageCount + 1 >= usageLimit) {
         // Nếu đạt giới hạn sử dụng, đổi trạng thái voucher thành "inactive"
@@ -197,14 +209,12 @@ export const createOrder = async (
       }
     }
 
-    // Tính phí vận chuyển
+    // Step 6: Tính phí vận chuyển
     const shippingCalculation = calculateShippingFee(total, shippingCity);
     const shippingFee = shippingCalculation.finalFee;
 
-    // Tính tổng tiền sau khi áp dụng voucher
-    const finalTotal = total - voucherDiscount;
-
-    // Tạo đơn hàng mới
+    // Step 6.1: Tính tổng tiền sau khi áp dụng voucher
+    const finalTotal = total - voucherDiscount; // Step 7: Tạo đơn hàng mới trong database
     const newOrder = await Order.create(
       {
         userId,
@@ -227,8 +237,9 @@ export const createOrder = async (
       { transaction: t }
     );
 
-    // Tạo chi tiết đơn hàng
+    // Step 8: Tạo chi tiết đơn hàng và cập nhật tồn kho
     for (const item of orderItems) {
+      // Step 8.1: Tạo chi tiết đơn hàng
       await OrderDetail.create(
         {
           orderId: newOrder.id,
@@ -246,7 +257,7 @@ export const createOrder = async (
         { transaction: t }
       );
 
-      // Cập nhật tồn kho
+      // Step 8.2: Cập nhật tồn kho - giảm số lượng tồn kho
       const inventory = await ProductInventory.findByPk(item.inventoryId, {
         transaction: t,
       });
@@ -258,15 +269,12 @@ export const createOrder = async (
           { transaction: t }
         );
       }
-    }
-
-    // Kiểm tra tồn kho và xác định trạng thái của từng sản phẩm
+    } // Step 9: Cập nhật trạng thái sản phẩm nếu hết hàng
+    // Step 9.1: Theo dõi các sản phẩm đã cập nhật và biến thể hết hàng
     const updatedProductIds = new Set();
-
-    // Lưu biến thể hết hàng để kiểm tra sau
     const outOfStockDetails = new Set();
 
-    // Kiểm tra tồn kho của các biến thể sản phẩm
+    // Step 9.2: Kiểm tra tồn kho của các biến thể sản phẩm
     for (const item of orderItems) {
       // Kiểm tra tồn kho của biến thể hiện tại
       const totalVariantStock = await ProductInventory.sum("stock", {
@@ -290,7 +298,7 @@ export const createOrder = async (
       }
     }
 
-    // Kiểm tra và cập nhật trạng thái của từng sản phẩm chính
+    // Step 9.3: Kiểm tra và cập nhật trạng thái của từng sản phẩm chính
     for (const productId of updatedProductIds) {
       // Lấy tất cả biến thể của sản phẩm
       const details = await ProductDetail.findAll({
@@ -314,6 +322,8 @@ export const createOrder = async (
         }
       }
       console.log("totalDetailCount", totalDetailCount);
+
+      // Step 9.4: Cập nhật trạng thái sản phẩm
       // Nếu tất cả biến thể đều hết hàng, cập nhật trạng thái sản phẩm thành "outofstock"
       if (totalDetailCount > 0 && totalDetailCount === outOfStockCount) {
         await Product.update(
@@ -340,6 +350,7 @@ export const createOrder = async (
       }
     }
 
+    // Step 10: Hoàn tất transaction và trả về kết quả
     await t.commit();
 
     res.status(201).json({
@@ -357,34 +368,42 @@ export const createOrder = async (
 };
 
 /**
- * Get orders for current user
+ * Lấy danh sách đơn hàng của người dùng hiện tại
+ * Flow:
+ * Step 1: Kiểm tra xác thực người dùng
+ * Step 2: Lấy thông tin phân trang và bộ lọc từ request
+ * Step 3: Xây dựng điều kiện truy vấn
+ * Step 4: Đếm tổng số đơn hàng theo điều kiện
+ * Step 5: Lấy danh sách đơn hàng với phân trang
+ * Step 6: Trả về danh sách đơn hàng và thông tin phân trang
  */
 export const getUserOrders = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
+    // Step 1: Kiểm tra xác thực người dùng
     if (!req.user) {
       res.status(401).json({ message: "Unauthorized" });
       return;
     }
     const userId = req.user.id;
 
-    // Phân trang
+    // Step 2: Lấy thông tin phân trang và bộ lọc từ request
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const offset = (page - 1) * limit;
 
-    // Điều kiện lọc theo trạng thái (nếu có)
+    // Step 3: Xây dựng điều kiện truy vấn
     const where: any = { userId };
     if (req.query.status) {
       where.status = req.query.status;
     }
 
-    // Đếm tổng số đơn hàng
+    // Step 4: Đếm tổng số đơn hàng theo điều kiện
     const count = await Order.count({ where });
 
-    // Lấy danh sách đơn hàng
+    // Step 5: Lấy danh sách đơn hàng với phân trang
     const orders = await Order.findAll({
       where,
       include: [
@@ -405,6 +424,7 @@ export const getUserOrders = async (
       offset,
     });
 
+    // Step 6: Trả về danh sách đơn hàng và thông tin phân trang
     res.status(200).json({
       orders,
       pagination: {
@@ -421,14 +441,24 @@ export const getUserOrders = async (
 
 /**
  * Get order details by ID
+ * Lấy chi tiết đơn hàng theo ID
+ * Flow:
+ * Step 1: Lấy ID đơn hàng từ request params
+ * Step 2: Truy vấn database để tìm đơn hàng theo ID
+ * Step 3: Kèm theo thông tin chi tiết đơn hàng và thông tin sản phẩm
+ * Step 4: Kiểm tra nếu không tìm thấy đơn hàng
+ * Step 5: Trả về thông tin chi tiết đơn hàng
  */
 export const getOrderById = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
+    // Step 1: Lấy ID đơn hàng từ request params
     const orderId = parseInt(req.params.id);
 
+    // Step 2: Truy vấn database để tìm đơn hàng theo ID
+    // Step 3: Kèm theo thông tin chi tiết đơn hàng và thông tin sản phẩm
     const order = await Order.findByPk(orderId, {
       include: [
         {
@@ -450,11 +480,13 @@ export const getOrderById = async (
       ],
     });
 
+    // Step 4: Kiểm tra nếu không tìm thấy đơn hàng
     if (!order) {
       res.status(404).json({ message: "Đơn hàng không tồn tại" });
       return;
     }
 
+    // Step 5: Trả về thông tin chi tiết đơn hàng
     res.status(200).json(order);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -463,15 +495,26 @@ export const getOrderById = async (
 
 /**
  * Calculate shipping fee based on order total and shipping address
+ * Tính phí vận chuyển dựa trên tổng giá trị đơn hàng và địa chỉ giao hàng
+ * Flow:
+ * Step 1: Tính phí giao hàng cơ bản dựa trên địa điểm
+ * Step 2: Áp dụng phí cho các khu vực khác nhau (TP.HCM, Hà Nội, tỉnh thành khác)
+ * Step 3: Tính toán giảm giá vận chuyển cho đơn hàng lớn
+ * Step 4: Tính phí vận chuyển cuối cùng
+ * Step 5: Trả về thông tin chi tiết về phí vận chuyển
+ *
+ * @param subtotal Tổng giá trị đơn hàng trước phí vận chuyển
+ * @param shippingAddress Địa chỉ giao hàng
+ * @returns Thông tin chi tiết về phí vận chuyển
  */
 const calculateShippingFee = (
   subtotal: number,
   shippingAddress: string
 ): { baseFee: number; discount: number; finalFee: number } => {
-  // Tính phí giao hàng cơ bản dựa trên địa điểm
+  // Step 1: Tính phí giao hàng cơ bản dựa trên địa điểm
   let baseFee = 30000;
 
-  // Phí cao hơn cho các tỉnh xa
+  // Step 2: Áp dụng phí cho các khu vực khác nhau
   if (
     shippingAddress.toLowerCase().includes("hồ chí minh") ||
     shippingAddress.toLowerCase().includes("ho chi minh") ||
@@ -487,15 +530,17 @@ const calculateShippingFee = (
     baseFee = 120000; // Phí giao đến tỉnh thành khác
   }
 
+  // Step 3: Tính toán giảm giá vận chuyển cho đơn hàng lớn
   // Miễn phí vận chuyển cho đơn hàng từ 1,000,000đ (tối đa 100,000đ)
   let discount = 0;
   if (subtotal >= 1000000) {
     discount = Math.min(baseFee, 100000);
   }
 
-  // Tính phí vận chuyển cuối cùng
+  // Step 4: Tính phí vận chuyển cuối cùng
   const finalFee = baseFee - discount;
 
+  // Step 5: Trả về thông tin chi tiết về phí vận chuyển
   return {
     baseFee,
     discount,
@@ -505,15 +550,22 @@ const calculateShippingFee = (
 
 /**
  * Calculate shipping fee for current cart
+ * Tính phí vận chuyển cho giỏ hàng hiện tại
+ * Flow:
+ * Step 1: Lấy tổng giá trị giỏ hàng và địa chỉ giao hàng từ request
+ * Step 2: Kiểm tra dữ liệu đầu vào
+ * Step 3: Tính toán phí vận chuyển dựa trên tổng giá trị và địa chỉ
+ * Step 4: Trả về thông tin chi tiết về phí vận chuyển
  */
 export const calculateShippingFeeForCart = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
+    // Step 1: Lấy tổng giá trị giỏ hàng và địa chỉ giao hàng từ request
     const { subtotal, shippingAddress } = req.body;
 
-    // Validate input
+    // Step 2: Kiểm tra dữ liệu đầu vào
     if (!subtotal || !shippingAddress) {
       res.status(400).json({
         message: "Vui lòng cung cấp giá trị đơn hàng và địa chỉ giao hàng",
@@ -521,10 +573,10 @@ export const calculateShippingFeeForCart = async (
       return;
     }
 
-    // Tính phí vận chuyển
+    // Step 3: Tính toán phí vận chuyển dựa trên tổng giá trị và địa chỉ
     const shippingCalculation = calculateShippingFee(subtotal, shippingAddress);
 
-    // Chỉ trả về dữ liệu, không trả về message
+    // Step 4: Trả về thông tin chi tiết về phí vận chuyển
     res.status(200).json({
       shipping: {
         baseFee: shippingCalculation.baseFee,
@@ -538,17 +590,30 @@ export const calculateShippingFeeForCart = async (
 };
 
 // Lấy đơn hàng của một user cụ thể (chỉ dành cho admin)
+/**
+ * Lấy đơn hàng của một người dùng cụ thể (dành cho admin)
+ * Flow:
+ * Step 1: Kiểm tra quyền truy cập (chỉ admin và employee mới có quyền)
+ * Step 2: Lấy ID của người dùng từ params
+ * Step 3: Kiểm tra xem người dùng có tồn tại không
+ * Step 4: Lấy thông tin phân trang và bộ lọc từ request
+ * Step 5: Xây dựng điều kiện truy vấn (userId, status, orderId, khoảng thời gian)
+ * Step 6: Đếm tổng số đơn hàng theo điều kiện
+ * Step 7: Lấy danh sách đơn hàng với phân trang
+ * Step 8: Trả về danh sách đơn hàng và thông tin phân trang
+ */
 export const getUserOrdersByAdmin = async (req: Request, res: Response) => {
   try {
-    // Kiểm tra quyền admin và employee
+    // Step 1: Kiểm tra quyền truy cập (chỉ admin và employee mới có quyền)
     if (!req.user || (req.user.role !== 1 && req.user.role !== 2)) {
       res.status(403).json({ message: "Không có quyền truy cập" });
       return;
     }
 
+    // Step 2: Lấy ID của người dùng từ params
     const { userId } = req.params;
 
-    // Lấy thông tin user
+    // Step 3: Kiểm tra xem người dùng có tồn tại không
     const user = await Users.findByPk(userId, {
       attributes: { exclude: ["password"] },
     });
@@ -558,21 +623,25 @@ export const getUserOrdersByAdmin = async (req: Request, res: Response) => {
       return;
     }
 
-    // Phân trang
+    // Step 4: Lấy thông tin phân trang và bộ lọc từ request
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const offset = (page - 1) * limit;
 
-    // Điều kiện lọc theo trạng thái (nếu có)
+    // Step 5: Xây dựng điều kiện truy vấn
     const where: any = { userId };
+
+    // Điều kiện lọc theo trạng thái (nếu có)
     if (req.query.status) {
       where.status = req.query.status;
     }
-    // điều kiện lọc id đơn hàng orderId (nếu có)
+
+    // Điều kiện lọc ID đơn hàng (nếu có)
     if (req.query.orderId) {
       where.id = req.query.orderId;
     }
-    // điều kiện lọc theo khoảng thời gian (nếu có)
+
+    // Điều kiện lọc theo khoảng thời gian (nếu có)
     if (req.query.startDate || req.query.endDate) {
       where.createdAt = {};
 
@@ -599,10 +668,10 @@ export const getUserOrdersByAdmin = async (req: Request, res: Response) => {
       };
     }
 
-    // Đếm tổng số đơn hàng
+    // Step 6: Đếm tổng số đơn hàng theo điều kiện
     const count = await Order.count({ where });
 
-    // Lấy đơn hàng với phân trang
+    // Step 7: Lấy danh sách đơn hàng với phân trang
     const orders = await Order.findAll({
       where,
       include: [
@@ -623,7 +692,7 @@ export const getUserOrdersByAdmin = async (req: Request, res: Response) => {
       offset,
     });
 
-    // Trả về dữ liệu với thông tin phân trang
+    // Step 8: Trả về danh sách đơn hàng và thông tin phân trang
     res.status(200).json({
       orders,
       pagination: {
@@ -641,18 +710,28 @@ export const getUserOrdersByAdmin = async (req: Request, res: Response) => {
 
 /**
  * get all order by employee
+ * Lấy tất cả đơn hàng (dành cho nhân viên)
+ * Flow:
+ * Step 1: Lấy thông tin phân trang từ request
+ * Step 2: Xác định điều kiện truy vấn (bao gồm các mối quan hệ)
+ * Step 3: Đếm tổng số đơn hàng
+ * Step 4: Lấy danh sách đơn hàng với thông tin chi tiết
+ * Step 5: Xử lý ẩn thông tin cá nhân của khách hàng (bảo mật)
+ * Step 6: Trả về danh sách đơn hàng đã được xử lý và thông tin phân trang
+ *
+ * Lưu ý: employee chỉ xem được 4 chữ đầu email và 4 chữ cuối email trước @
+ * Xem được 4 số đầu và 3 số cuối của số điện thoại
  */
-// employee chỉ xem được 4 chữ đầu email và 4 chữ cuối email trước @
-// xem được 4 số đầu và 3 số cuối của sdt
 export const getAllOrdersByEmployee = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
+    // Step 1: Lấy thông tin phân trang từ request
     const { page = 1, limit = 10 } = req.query;
     const offset = (Number(page) - 1) * Number(limit);
 
-    // Định nghĩa include
+    // Step 2: Xác định điều kiện truy vấn (bao gồm các mối quan hệ)
     const includeOptions = [
       {
         model: OrderDetail,
@@ -675,13 +754,13 @@ export const getAllOrdersByEmployee = async (
       },
     ];
 
-    // Đếm tổng số đơn hàng
+    // Step 3: Đếm tổng số đơn hàng
     let count = await Order.count({
       distinct: true,
       include: includeOptions,
     });
 
-    // Lấy danh sách đơn hàng
+    // Step 4: Lấy danh sách đơn hàng với thông tin chi tiết
     const orders = await Order.findAll({
       include: [
         {
@@ -711,6 +790,7 @@ export const getAllOrdersByEmployee = async (
       offset,
     });
 
+    // Step 5: Xử lý ẩn thông tin cá nhân của khách hàng (bảo mật)
     // Chỉ lấy 4 chữ đầu và 4 chữ cuối của email và 4 số đầu và 3 số cuối của sdt
     const modifiedOrders = orders.map((order) => {
       const user = (order as any).user || {};
@@ -730,13 +810,15 @@ export const getAllOrdersByEmployee = async (
                 )}`
               : userEmail,
         },
-        // Nếu muốn, có thể bỏ luôn trường userEmail ở ngoài
+        // Ẩn một phần số điện thoại
         phoneNumber:
           userPhoneNumber.length > 7
             ? `${userPhoneNumber.slice(0, 4)}...${userPhoneNumber.slice(-3)}`
             : userPhoneNumber,
       };
     });
+
+    // Step 6: Trả về danh sách đơn hàng đã được xử lý và thông tin phân trang
     res.status(200).json({
       orders: modifiedOrders,
       pagination: {

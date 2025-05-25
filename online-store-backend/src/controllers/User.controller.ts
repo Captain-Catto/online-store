@@ -12,7 +12,18 @@ import { Op, Sequelize } from "sequelize";
 import Order from "../models/Order";
 import sequelize from "sequelize";
 
-// Tạo mới access token
+/**
+ * Tạo mới access token từ refresh token
+ *
+ * Quy trình:
+ * 1. Kiểm tra refresh token trong cookie
+ * 2. Xác thực token trong database
+ * 3. Tạo access token mới nếu hợp lệ
+ * 4. Xử lý các trường hợp lỗi và hết hạn
+ *
+ * @param req - Request chứa refresh token trong cookie
+ * @param res - Response trả về access token mới
+ */
 export const refreshToken = async (
   req: Request,
   res: Response
@@ -96,7 +107,17 @@ export const refreshToken = async (
   }
 };
 
-// Đăng ký
+/**
+ * Đăng ký tài khoản mới
+ *
+ * Quy trình:
+ * 1. Kiểm tra email đã tồn tại chưa
+ * 2. Mã hóa mật khẩu
+ * 3. Tạo tài khoản mới trong database
+ *
+ * @param req - Request chứa thông tin đăng ký (email, password)
+ * @param res - Response thông báo kết quả đăng ký
+ */
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
@@ -123,7 +144,19 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// Đăng nhập
+/**
+ * Đăng nhập vào hệ thống
+ *
+ * Quy trình:
+ * 1. Kiểm tra thông tin đăng nhập
+ * 2. Xác thực mật khẩu
+ * 3. Kiểm tra trạng thái tài khoản
+ * 4. Tạo access token và refresh token
+ * 5. Lưu refresh token vào database và cookie
+ *
+ * @param req - Request chứa thông tin đăng nhập (email, password, rememberMe)
+ * @param res - Response trả về access token
+ */
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password, rememberMe } = req.body;
@@ -188,7 +221,17 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// Đăng xuất
+/**
+ * Đăng xuất khỏi hệ thống
+ *
+ * Quy trình:
+ * 1. Xóa refresh token từ cookie
+ * 2. Xóa refresh token từ database
+ * 3. Xử lý các trường hợp lỗi
+ *
+ * @param req - Request chứa refresh token trong cookie
+ * @param res - Response thông báo kết quả đăng xuất
+ */
 export const logout = async (req: Request, res: Response): Promise<void> => {
   try {
     const refreshToken = req.cookies.refreshToken;
@@ -239,7 +282,17 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// Lấy thông tin người dùng hiện tại
+/**
+ * Lấy thông tin người dùng hiện tại
+ *
+ * Quy trình:
+ * 1. Kiểm tra thông tin người dùng từ token
+ * 2. Lấy thông tin chi tiết từ database
+ * 3. Bao gồm thông tin role và địa chỉ
+ *
+ * @param req - Request có chứa thông tin user từ middleware xác thực
+ * @param res - Response trả về thông tin chi tiết người dùng
+ */
 export const getCurrentUser = async (
   req: Request,
   res: Response
@@ -278,7 +331,18 @@ export const getCurrentUser = async (
   }
 };
 
-// Lấy thông tin người dùng theo ID (admin only)
+/**
+ * Lấy thông tin người dùng theo ID (Chỉ dành cho Admin)
+ *
+ * Quy trình:
+ * 1. Kiểm tra quyền admin
+ * 2. Tìm thông tin người dùng theo ID
+ * 3. Tính toán thống kê đơn hàng và chi tiêu
+ * 4. Ẩn thông tin nhạy cảm nếu người dùng không phải admin
+ *
+ * @param req - Request chứa ID người dùng cần tìm
+ * @param res - Response trả về thông tin chi tiết người dùng
+ */
 export const getUserById = async (
   req: Request,
   res: Response
@@ -371,7 +435,19 @@ export const getUserById = async (
   }
 };
 
-// chỉ admin
+/**
+ * Lấy danh sách tất cả người dùng (Chỉ dành cho Admin)
+ *
+ * Quy trình:
+ * 1. Kiểm tra quyền admin
+ * 2. Xử lý các tham số tìm kiếm và lọc
+ * 3. Thực hiện phân trang
+ * 4. Tính toán thống kê cho mỗi người dùng
+ * 5. Ẩn thông tin nhạy cảm nếu cần
+ *
+ * @param req - Request chứa các tham số tìm kiếm, lọc và phân trang
+ * @param res - Response trả về danh sách người dùng và thông tin phân trang
+ */
 export const getAllUsers = async (
   req: Request,
   res: Response
@@ -498,7 +574,17 @@ export const getAllUsers = async (
   }
 };
 
-// Cập nhật thông tin người dùng
+/**
+ * Cập nhật thông tin người dùng
+ *
+ * Quy trình:
+ * 1. Kiểm tra thông tin người dùng từ token
+ * 2. Cập nhật thông tin người dùng trong database
+ * 3. Trả về thông tin người dùng đã cập nhật
+ *
+ * @param req - Request chứa thông tin cần cập nhật
+ * @param res - Response trả về thông tin người dùng đã cập nhật
+ */
 export const updateUser = async (
   req: Request,
   res: Response
@@ -539,7 +625,18 @@ export const updateUser = async (
   }
 };
 
-// Đổi mật khẩu
+/**
+ * Đổi mật khẩu
+ *
+ * Quy trình:
+ * 1. Xác thực người dùng
+ * 2. Kiểm tra mật khẩu hiện tại
+ * 3. Cập nhật mật khẩu mới
+ * 4. Đảm bảo mật khẩu mới khác mật khẩu cũ
+ *
+ * @param req - Request chứa mật khẩu hiện tại và mật khẩu mới
+ * @param res - Response thông báo kết quả đổi mật khẩu
+ */
 export const changePassword = async (
   req: Request,
   res: Response
@@ -604,7 +701,18 @@ export const changePassword = async (
   }
 };
 
-// Quên mật khẩu
+/**
+ * Quên mật khẩu
+ *
+ * Quy trình:
+ * 1. Nhận email từ người dùng
+ * 2. Tìm người dùng theo email
+ * 3. Tạo token đặt lại mật khẩu và lưu vào database
+ * 4. Gửi email chứa liên kết đặt lại mật khẩu
+ *
+ * @param req - Request chứa email người dùng quên mật khẩu
+ * @param res - Response thông báo kết quả
+ */
 export const forgotPassword = async (
   req: Request,
   res: Response
@@ -680,7 +788,12 @@ export const forgotPassword = async (
   }
 };
 
-// Kiểm tra token đặt lại mật khẩu
+/**
+ * Kiểm tra token đặt lại mật khẩu
+ *
+ * @param req - Request chứa token đặt lại mật khẩu
+ * @param res - Response thông báo kết quả kiểm tra
+ */
 export const validateResetToken = async (
   req: Request,
   res: Response
@@ -709,7 +822,18 @@ export const validateResetToken = async (
   }
 };
 
-// Đặt lại mật khẩu
+/**
+ * Đặt lại mật khẩu
+ *
+ * Quy trình:
+ * 1. Xác thực token và kiểm tra hạn
+ * 2. Kiểm tra độ mạnh của mật khẩu mới
+ * 3. Cập nhật mật khẩu và xóa token
+ * 4. Đăng xuất khỏi tất cả thiết bị
+ *
+ * @param req - Request chứa token và mật khẩu mới
+ * @param res - Response thông báo kết quả đặt lại mật khẩu
+ */
 export const resetPassword = async (
   req: Request,
   res: Response
@@ -764,7 +888,18 @@ export const resetPassword = async (
   }
 };
 
-// Khóa/Mở khóa tài khoản người dùng (Admin only)
+/**
+ * Khóa/Mở khóa tài khoản người dùng (Admin only)
+ *
+ * Quy trình:
+ * 1. Kiểm tra quyền admin
+ * 2. Tìm người dùng theo ID
+ * 3. Đảo ngược trạng thái tài khoản
+ * 4. Xóa refresh tokens nếu tài khoản bị khóa
+ *
+ * @param req - Request chứa ID người dùng cần khóa/mở khóa
+ * @param res - Response thông báo kết quả
+ */
 export const toggleUserStatus = async (
   req: Request,
   res: Response
@@ -817,7 +952,18 @@ export const toggleUserStatus = async (
   }
 };
 
-// update thông tin người dùng (admin only)
+/**
+ * update thông tin người dùng (admin only)
+ *
+ * Quy trình:
+ * 1. Kiểm tra quyền admin
+ * 2. Xác thực dữ liệu đầu vào
+ * 3. Cập nhật thông tin người dùng trong database
+ * 4. Trả về thông tin người dùng đã cập nhật
+ *
+ * @param req - Request chứa ID người dùng và thông tin cần cập nhật
+ * @param res - Response trả về thông tin người dùng đã cập nhật
+ */
 export const updateUserByAdmin = async (
   req: Request,
   res: Response

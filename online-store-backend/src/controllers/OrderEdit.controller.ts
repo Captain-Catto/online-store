@@ -342,7 +342,18 @@ export const updatePaymentStatus = async (
 };
 
 /**
- * Update shipping address (admin only)
+ * Cập nhật địa chỉ giao hàng (chỉ dành cho admin)
+ *
+ * Quy trình:
+ * 1. Tạo transaction để đảm bảo tính toàn vẹn của dữ liệu
+ * 2. Kiểm tra các thông tin cập nhật có hợp lệ không
+ * 3. Tìm đơn hàng theo ID
+ * 4. Kiểm tra điều kiện: không thể cập nhật đơn hàng đã giao hoặc đã hủy
+ * 5. Cập nhật thông tin giao hàng mới
+ * 6. Lưu thay đổi và commit transaction
+ *
+ * @param req - Request chứa ID đơn hàng và thông tin giao hàng mới
+ * @param res - Response trả về kết quả cập nhật
  */
 export const updateShippingAddress = async (
   req: Request,
@@ -431,6 +442,7 @@ export const getAllOrders = async (
   res: Response
 ): Promise<void> => {
   try {
+    // Step 1: Xử lý tham số truy vấn
     const {
       page = 1,
       limit = 10,
@@ -442,7 +454,7 @@ export const getAllOrders = async (
 
     const offset = (Number(page) - 1) * Number(limit);
 
-    // Xây dựng điều kiện tìm kiếm cơ bản
+    // Step 2.1: Xây dựng điều kiện tìm kiếm cơ bản
     const baseConditions: any = {};
 
     // Thêm điều kiện status nếu có
@@ -468,7 +480,7 @@ export const getAllOrders = async (
     // Điều kiện tìm kiếm cơ bản
     let where = { ...baseConditions };
 
-    // Điều kiện tìm kiếm nâng cao
+    // Step 2.2: Điều kiện tìm kiếm nâng cao
     if (search) {
       const searchTerm = `%${search}%`;
       const searchConditions: {
@@ -489,7 +501,7 @@ export const getAllOrders = async (
       };
     }
 
-    // Định nghĩa include
+    // Step 3.1: Định nghĩa include
     const includeOptions = [
       {
         model: OrderDetail,
@@ -512,14 +524,14 @@ export const getAllOrders = async (
       },
     ];
 
-    // Đếm tổng số đơn hàng
+    // Step 3.2: Đếm tổng số đơn hàng
     let count = await Order.count({
       where,
       distinct: true,
       include: includeOptions,
     });
 
-    // Tìm kiếm nâng cao theo email và tên sản phẩm
+    // Step 3.3: Tìm kiếm nâng cao theo email và tên sản phẩm
     if (search && search.toString().length > 0) {
       const searchTerm = `%${search}%`;
 
@@ -594,7 +606,7 @@ export const getAllOrders = async (
       }
     }
 
-    // Lấy danh sách đơn hàng
+    // Step 3.4: Lấy danh sách đơn hàng
     const orders = await Order.findAll({
       where,
       include: [
@@ -625,6 +637,7 @@ export const getAllOrders = async (
       offset,
     });
 
+    // Step 4: Trả về kết quả
     res.status(200).json({
       orders,
       pagination: {
@@ -664,15 +677,18 @@ export const processRefund = async (
 ): Promise<void> => {
   const t = await sequelize.transaction();
   try {
+    // Step 1: Lấy thông tin từ request
     const { id } = req.params;
     const { amount, reason } = req.body;
 
+    // Step 2.1: Kiểm tra số tiền hợp lệ
     if (!amount || amount <= 0) {
       await t.rollback();
       res.status(400).json({ message: "Số tiền hoàn trả không hợp lệ" });
       return;
     }
 
+    // Step 2.2: Kiểm tra đơn hàng tồn tại
     const order = await Order.findByPk(id, { transaction: t });
     if (!order) {
       await t.rollback();
@@ -680,6 +696,7 @@ export const processRefund = async (
       return;
     }
 
+    // Step 2.3: Kiểm tra trạng thái thanh toán
     // Chỉ cho phép hoàn tiền đơn hàng đã thanh toán
     if (order.getDataValue("paymentStatusId") !== 2) {
       // 2 là "Paid"
@@ -690,6 +707,7 @@ export const processRefund = async (
       return;
     }
 
+    // Step 3: Cập nhật đơn hàng
     // Đặt trạng thái thanh toán thành "refunded"
     await order.update(
       {
@@ -700,6 +718,7 @@ export const processRefund = async (
       { transaction: t }
     );
 
+    // Step 4: Commit transaction và trả về kết quả
     await t.commit();
 
     res.status(200).json({
@@ -737,10 +756,12 @@ export const autoCancelPendingOrders = async (
   const t = await sequelize.transaction();
 
   try {
+    // Step 1: Tạo mốc thời gian để so sánh
     // Tạo một ngày trước từ thời điểm hiện tại
     const oneDayBefore = new Date();
     oneDayBefore.setDate(oneDayBefore.getDate() - 1);
 
+    // Step 2: Tìm các đơn hàng cần hủy
     // Tìm các đơn hàng cần hủy: không phải COD (paymentMethodId != 1),
     // đơn ở trạng thái pending và được tạo cách đây hơn 1 ngày
     const pendingOrders = await Order.findAll({
@@ -758,6 +779,7 @@ export const autoCancelPendingOrders = async (
       transaction: t,
     });
 
+    // Step 3: Kiểm tra nếu không có đơn hàng nào cần hủy
     if (pendingOrders.length === 0) {
       await t.commit();
       res.status(200).json({
@@ -767,12 +789,13 @@ export const autoCancelPendingOrders = async (
       return;
     }
 
+    // Step 4: Xử lý hủy đơn hàng
     let cancelledCount = 0;
     const updatedProductIds = new Set<number>();
 
     // Xử lý từng đơn hàng
     for (const order of pendingOrders) {
-      // Cập nhật trạng thái đơn hàng thành cancelled và trạng thái thanh toán thành cancelled (5)
+      // Step 4.1: Cập nhật trạng thái đơn hàng thành cancelled và trạng thái thanh toán thành cancelled (5)
       await order.update(
         {
           status: "cancelled",
@@ -782,7 +805,7 @@ export const autoCancelPendingOrders = async (
         { transaction: t }
       );
 
-      // Hoàn trả số lượng tồn kho
+      // Step 4.2: Hoàn trả số lượng tồn kho
       const orderDetails = (order as any).orderDetails || [];
       for (const detail of orderDetails) {
         const productId = detail.productId;
@@ -805,7 +828,7 @@ export const autoCancelPendingOrders = async (
           continue;
         }
 
-        // Cập nhật lại tồn kho
+        // Step 4.3: Cập nhật lại tồn kho
         const inventory = await ProductInventory.findOne({
           where: { productDetailId: productDetail.id, size: detail.size },
           transaction: t,
@@ -830,16 +853,16 @@ export const autoCancelPendingOrders = async (
       cancelledCount++;
     }
 
-    // Cập nhật lại trạng thái sản phẩm dựa trên tồn kho
+    // Step 5: Cập nhật lại trạng thái sản phẩm dựa trên tồn kho
     for (const productId of updatedProductIds) {
       try {
-        // Truy vấn trạng thái sản phẩm
+        // Step 5.1: Truy vấn trạng thái sản phẩm
         const product = await Product.findByPk(productId, { transaction: t });
         if (!product) {
           continue;
         }
 
-        // Tính tổng tồn kho bằng Sequelize
+        // Step 5.2: Tính tổng tồn kho bằng Sequelize
         const totalStock =
           (await ProductInventory.sum("stock", {
             where: {
@@ -852,7 +875,7 @@ export const autoCancelPendingOrders = async (
             transaction: t,
           })) || 0;
 
-        // Cập nhật trạng thái sản phẩm
+        // Step 5.3: Cập nhật trạng thái sản phẩm
         if (totalStock > 0 && product.status !== "active") {
           await sequelize.query(
             `UPDATE products SET status = 'active', updatedAt = NOW() 
@@ -874,10 +897,10 @@ export const autoCancelPendingOrders = async (
       }
     }
 
-    // Commit transaction nếu mọi thứ thành công
+    // Step 6: Commit transaction nếu mọi thứ thành công
     await t.commit();
 
-    // Trả về kết quả thành công
+    // Step 7: Trả về kết quả thành công
     res.status(200).json({
       message: "Đã hủy tự động các đơn hàng quá hạn thanh toán",
       cancelledCount,
