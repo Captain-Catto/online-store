@@ -71,37 +71,88 @@ export const createVoucher = async (
 };
 
 /**
- * Lấy danh sách tất cả các mã giảm giá
+ * Lấy danh sách voucher có phân trang và lọc
  *
  * Quy trình:
- * 1. Lọc theo trạng thái nếu được chỉ định (active/inactive)
- * 2. Đối với trạng thái active:
- *    - Chỉ lấy những mã chưa hết hạn
- * 3. Trả về danh sách đã lọc
+ * 1. Xử lý các tham số truy vấn: phân trang, tìm kiếm, lọc
+ * 2. Xây dựng điều kiện truy vấn từ các tham số
+ * 3. Thực hiện truy vấn với phân trang
+ * 4. Trả về kết quả và metadata phân trang
  *
- * @param req - Request có thể chứa query param status
- * @param res - Response trả về danh sách voucher
+ * @param req - Request chứa các tham số truy vấn
+ * @param res - Response trả về danh sách voucher và thông tin phân trang
  */
 export const getVouchers = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    // Thêm tùy chọn lọc theo trạng thái hoạt động
-    const { status } = req.query;
-    const where = {};
+    // Step 1: Xử lý tham số truy vấn
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const offset = (page - 1) * limit;
 
-    if (status === "active") {
-      Object.assign(where, {
-        status: "active",
-        expirationDate: { [Op.gt]: new Date() },
-      });
-    } else if (status) {
-      Object.assign(where, { status });
+    const status = req.query.status as string;
+    const type = req.query.type as string;
+    const search = req.query.search as string;
+    console.log("Search query:", search);
+
+    // Step 2: Xây dựng điều kiện truy vấn
+    const where: any = {};
+
+    // Lọc theo trạng thái
+    if (status && status !== "all") {
+      where.status = status;
     }
 
-    const vouchers = await Voucher.findAll({ where });
-    res.status(200).json(vouchers);
+    // Lọc theo loại voucher
+    if (type && type !== "all") {
+      where.type = type;
+    }
+
+    // Xử lý tìm kiếm - logic mới
+    if (search) {
+      // Kiểm tra xem search có phải là số không
+      const isNumeric = /^\d+$/.test(search);
+      console.log("Is search numeric:", isNumeric);
+
+      if (isNumeric) {
+        // Nếu là số, tìm theo giá trị chính xác
+        where.value = parseInt(search);
+      } else {
+        // Nếu không phải số, tìm theo mã hoặc mô tả
+        where[Op.or] = [
+          { code: { [Op.like]: `%${search}%` } },
+          { description: { [Op.like]: `%${search}%` } },
+        ];
+      }
+    }
+
+    // Step 3: Đếm tổng số voucher theo điều kiện
+    const count = await Voucher.count({ where });
+    console.log("Total vouchers found:", count);
+
+    // Step 4: Lấy danh sách voucher với phân trang
+    const vouchers = await Voucher.findAll({
+      where,
+      order: [["createdAt", "DESC"]],
+      limit,
+      offset,
+    });
+    console.log("Vouchers retrieved:", vouchers.length);
+
+    // Step 5: Trả về kết quả với thông tin phân trang
+    res.status(200).json({
+      vouchers,
+      pagination: {
+        totalItems: count,
+        totalPages: Math.ceil(count / limit),
+        currentPage: page,
+        perPage: limit,
+        hasNextPage: page < Math.ceil(count / limit),
+        hasPreviousPage: page > 1,
+      },
+    });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
