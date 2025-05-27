@@ -709,39 +709,105 @@ export const getUserOrdersByAdmin = async (req: Request, res: Response) => {
 };
 
 /**
- * get all order by employee
- * Lấy tất cả đơn hàng (dành cho nhân viên)
+ * Lấy tất cả đơn hàng cho nhân viên với tính năng lọc và phân trang
  * Flow:
- * Step 1: Lấy thông tin phân trang từ request
- * Step 2: Xác định điều kiện truy vấn (bao gồm các mối quan hệ)
- * Step 3: Đếm tổng số đơn hàng
- * Step 4: Lấy danh sách đơn hàng với thông tin chi tiết
- * Step 5: Xử lý ẩn thông tin cá nhân của khách hàng (bảo mật)
- * Step 6: Trả về danh sách đơn hàng đã được xử lý và thông tin phân trang
- *
- * Lưu ý: employee chỉ xem được 4 chữ đầu email và 4 chữ cuối email trước @
- * Xem được 4 số đầu và 3 số cuối của số điện thoại
+ * Step 1: Lấy và xử lý parameters từ request query
+ * Step 2: Xây dựng điều kiện WHERE cho database query
+ * Step 3: Xử lý search logic (email vs text thông thường)
+ * Step 4: Áp dụng date range filter
+ * Step 5: Thiết lập include options cho Sequelize associations
+ * Step 6: Đếm tổng số records thỏa mãn điều kiện
+ * Step 7: Lấy dữ liệu đơn hàng với pagination
+ * Step 8: Xử lý privacy protection cho thông tin khách hàng
+ * Step 9: Trả về response với format chuẩn
  */
 export const getAllOrdersByEmployee = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    // Step 1: Lấy thông tin phân trang từ request
-    const { page = 1, limit = 10 } = req.query;
+    // ===== STEP 1: Lấy và xử lý parameters từ request query =====
+    const {
+      page = 1, // Trang hiện tại (default: 1)
+      limit = 10, // Số items per page (default: 10)
+      status, // Filter theo trạng thái đơn hàng
+      search, // Từ khóa tìm kiếm
+      fromDate, // Ngày bắt đầu filter
+      toDate, // Ngày kết thúc filter
+    } = req.query;
+
+    // Tính offset cho pagination
     const offset = (Number(page) - 1) * Number(limit);
 
-    // Step 2: Xác định điều kiện truy vấn (bao gồm các mối quan hệ)
+    // ===== STEP 2: Xây dựng điều kiện WHERE cho database query =====
+    const whereConditions: any = {};
+
+    // Filter theo status đơn hàng (pending, confirmed, shipped, delivered, cancelled)
+    if (status && status !== "all") {
+      whereConditions.status = status;
+    }
+
+    // ===== STEP 3: Xử lý search logic (email vs text thông thường) =====
+    if (search) {
+      const searchTerm = search as string;
+
+      // Detect nếu search term là email (chứa ký tự @)
+      const isEmail = searchTerm.includes("@");
+
+      if (isEmail) {
+        // ✅ Email search: Tìm trong email của user thông qua association
+        whereConditions[Op.or] = [
+          { id: { [Op.like]: `%${searchTerm}%` } }, // Tìm trong Order ID
+          { shippingPhoneNumber: { [Op.like]: `%${searchTerm}%` } }, // Tìm trong số điện thoại
+          { shippingFullName: { [Op.like]: `%${searchTerm}%` } }, // Tìm trong tên người nhận
+          { "$user.email$": { [Op.like]: `%${searchTerm}%` } }, // Tìm trong email user
+        ];
+      } else {
+        // ✅ Text search: Tìm trong các field thông thường
+        whereConditions[Op.or] = [
+          { id: { [Op.like]: `%${searchTerm}%` } }, // Order ID
+          { shippingPhoneNumber: { [Op.like]: `%${searchTerm}%` } }, // Số điện thoại
+          { shippingFullName: { [Op.like]: `%${searchTerm}%` } }, // Tên người nhận
+        ];
+      }
+    }
+
+    // ===== STEP 4: Áp dụng date range filter =====
+    if (fromDate || toDate) {
+      whereConditions.createdAt = {};
+
+      // Ngày bắt đầu: set time to 00:00:00
+      if (fromDate) {
+        const startDate = new Date(fromDate as string);
+        startDate.setHours(0, 0, 0, 0);
+        whereConditions.createdAt[Op.gte] = startDate;
+      }
+
+      // Ngày kết thúc: set time to 23:59:59
+      if (toDate) {
+        const endDate = new Date(toDate as string);
+        endDate.setHours(23, 59, 59, 999);
+        whereConditions.createdAt[Op.lte] = endDate;
+      }
+    }
+
+    // ===== STEP 5: Thiết lập include options cho Sequelize associations =====
     const includeOptions = [
       {
         model: OrderDetail,
         as: "orderDetails",
-        required: false,
+        required: false, // LEFT JOIN (không bắt buộc phải có order details)
         include: [
           {
             model: Product,
             as: "product",
-            attributes: ["id", "name"],
+            attributes: ["id", "name"], // Chỉ lấy id và name của sản phẩm
+            required: false,
+          },
+          {
+            model: ProductDetail,
+            as: "productDetail",
+            attributes: ["id", "color"], // Chỉ lấy id và color của product detail
             required: false,
           },
         ],
@@ -749,60 +815,41 @@ export const getAllOrdersByEmployee = async (
       {
         model: Users,
         as: "user",
-        attributes: ["id", "email", "username"],
-        required: false,
+        attributes: ["id", "email", "username"], // Chỉ lấy thông tin cần thiết của user
+        required: false, // LEFT JOIN (không bắt buộc, tránh mất data khi user bị xóa)
       },
     ];
 
-    // Step 3: Đếm tổng số đơn hàng
-    let count = await Order.count({
-      distinct: true,
+    // ===== STEP 6: Đếm tổng số records thỏa mãn điều kiện =====
+    const count = await Order.count({
+      where: whereConditions,
+      distinct: true, // Đếm distinct để tránh duplicate khi có nhiều order details
       include: includeOptions,
     });
 
-    // Step 4: Lấy danh sách đơn hàng với thông tin chi tiết
+    // ===== STEP 7: Lấy dữ liệu đơn hàng với pagination =====
     const orders = await Order.findAll({
-      include: [
-        {
-          model: OrderDetail,
-          as: "orderDetails",
-          include: [
-            {
-              model: ProductDetail,
-              as: "productDetail",
-              attributes: ["id", "color"],
-            },
-            {
-              model: Product,
-              as: "product",
-              attributes: ["id", "name"],
-            },
-          ],
-        },
-        {
-          model: Users,
-          as: "user",
-          attributes: ["id", "email", "username"],
-        },
-      ],
-      order: [["createdAt", "DESC"]],
+      where: whereConditions,
+      include: includeOptions,
+      order: [["createdAt", "DESC"]], // Sắp xếp theo ngày tạo mới nhất
       limit: Number(limit),
       offset,
     });
 
-    // Step 5: Xử lý ẩn thông tin cá nhân của khách hàng (bảo mật)
-    // Chỉ lấy 4 chữ đầu và 4 chữ cuối của email và 4 số đầu và 3 số cuối của sdt
+    // ===== STEP 8: Xử lý privacy protection cho thông tin khách hàng =====
+    // Nhân viên không được xem đầy đủ thông tin cá nhân của khách hàng
     const modifiedOrders = orders.map((order) => {
       const user = (order as any).user || {};
       const userEmail = user.email || "";
-      const userPhoneNumber = order.phoneNumber || "";
+      const userPhoneNumber = order.shippingPhoneNumber || ""; // Fix: dùng đúng field name
 
       return {
         ...order.get(),
         user: {
           id: user.id,
           username: user.username,
-          // KHÔNG trả về email đầy đủ!
+          // ✅ Email masking: chỉ hiện 4 ký tự đầu và 4 ký tự cuối trước @
+          // Ví dụ: user@example.com → user...ple@example.com
           email:
             userEmail.length > 8
               ? `${userEmail.slice(0, 4)}...${userEmail.slice(
@@ -810,7 +857,8 @@ export const getAllOrdersByEmployee = async (
                 )}`
               : userEmail,
         },
-        // Ẩn một phần số điện thoại
+        // ✅ Phone masking: chỉ hiện 4 số đầu và 3 số cuối
+        // Ví dụ: 0901234567 → 0901...567
         phoneNumber:
           userPhoneNumber.length > 7
             ? `${userPhoneNumber.slice(0, 4)}...${userPhoneNumber.slice(-3)}`
@@ -818,14 +866,14 @@ export const getAllOrdersByEmployee = async (
       };
     });
 
-    // Step 6: Trả về danh sách đơn hàng đã được xử lý và thông tin phân trang
+    // ===== STEP 9: Trả về response với format chuẩn =====
     res.status(200).json({
       orders: modifiedOrders,
       pagination: {
-        total: count,
-        currentPage: Number(page),
-        totalPages: Math.ceil(count / Number(limit)),
-        perPage: Number(limit),
+        total: count, // Tổng số records
+        currentPage: Number(page), // Trang hiện tại
+        totalPages: Math.ceil(count / Number(limit)), // Tổng số trang
+        perPage: Number(limit), // Số items per page
       },
     });
   } catch (error: any) {

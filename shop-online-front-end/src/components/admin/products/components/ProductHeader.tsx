@@ -18,6 +18,21 @@ const ProductHeader: React.FC<ProductHeaderProps> = memo(
     const { state, dispatch } = useProductContext();
     const { product, isEditing, isSubmitting } = state;
 
+    const getUserRole = () => {
+      try {
+        const userStr = localStorage.getItem("user");
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          return user.role; // 1: Admin, 2: Employee, 3: Customer
+        }
+      } catch {
+        return null;
+      }
+      return null;
+    };
+    const userRole = getUserRole();
+    console.log("User role:", userRole);
+
     return (
       <>
         <div className="content-header">
@@ -52,9 +67,13 @@ const ProductHeader: React.FC<ProductHeaderProps> = memo(
           </Link>
           {!state.loading && !state.error && product && (
             <>
-              <button className="btn btn-danger mr-2" onClick={onDelete}>
-                <i className="fas fa-trash mr-1" /> Xóa
-              </button>
+              {/* nếu là admin === 1 thì hiển thị xóa còn ko thì ko hiện */}
+              {userRole === 1 && (
+                <button className="btn btn-danger mr-2" onClick={onDelete}>
+                  <i className="fas fa-trash mr-1" /> Xóa
+                </button>
+              )}
+
               {isEditing ? (
                 <>
                   <button

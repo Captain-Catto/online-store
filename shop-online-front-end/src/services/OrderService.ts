@@ -125,6 +125,7 @@ export const OrderService = {
       if (toDate) {
         params.append("toDate", toDate);
       }
+      console.log(`Fetching admin orders with params: ${params.toString()}`);
 
       const response = await AuthClient.fetchWithAuth(
         `${API_BASE_URL}/orders/admin/all?${params.toString()}`
@@ -180,7 +181,7 @@ export const OrderService = {
       if (toDate) {
         params.append("toDate", toDate);
       }
-
+      console.log(`Fetching employee orders with params: ${params.toString()}`);
       const response = await AuthClient.fetchWithAuth(
         `${API_BASE_URL}/orders/employee/all?${params.toString()}`
       );

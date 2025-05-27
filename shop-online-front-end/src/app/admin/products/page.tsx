@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
@@ -11,99 +11,444 @@ import { useToast } from "@/utils/useToast";
 import { CategoryService } from "@/services/CategoryService";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
 import { formatDateDisplay } from "@/utils/dateUtils";
+import debounce from "lodash/debounce";
+
+// ===== INTERFACES =====
+interface Category {
+  id: string | number;
+  name: string;
+  children?: Category[];
+}
+
+interface Pagination {
+  currentPage: number;
+  totalPages: number;
+  total: number;
+  perPage: number;
+}
+
+interface FocusOptions {
+  preserve?: boolean;
+  selectAll?: boolean;
+}
 
 export default function ProductsPage() {
-  const [role, setRole] = useState<number | null>(null);
-  const [search, setSearchTerm] = useState("");
-  const [category, setCategoryFilter] = useState("");
-  const [status, setStatusFilter] = useState("");
+  const { showToast, Toast } = useToast();
+
+  // ===== STATES =====
+  const [searchValue, setSearchValue] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [pageLimit, setPageLimit] = useState(10);
+  const [isComposing, setIsComposing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [products, setProducts] = useState<ProductAdminResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [role, setRole] = useState<number | null>(null);
+
+  // Delete modal states
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [productToDelete, setProductToDelete] = useState<{
     id: number;
     name: string;
   } | null>(null);
-  const { showToast, Toast } = useToast();
-  const productsPerPage = 10;
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [products, setProducts] = useState<ProductAdminResponse[]>([]);
-  const [pagination, setPagination] = useState({
-    currentPage: 1,
-    totalPages: 1,
-    totalItems: 0,
-    limit: 10,
-  });
+  // ✅ ADD: Flag to prevent duplicate calls
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  const [categories, setCategories] = useState<
-    { value: string; label: string }[]
-  >([{ value: "", label: "Tất cả danh mục" }]);
+  // ===== CONSTANTS =====
+  const pageLimitOptions = [5, 10, 20, 50, 100];
 
-  // Mock product statuses
-  const statuses = [
-    { value: "", label: "Tất cả trạng thái" },
+  const productStatuses = [
+    { value: "all", label: "Tất cả trạng thái" },
     { value: "active", label: "Đang bán", class: "bg-success" },
     { value: "outofstock", label: "Hết hàng", class: "bg-danger" },
     { value: "draft", label: "Sản phẩm ảo", class: "bg-secondary" },
   ];
-  // hàm lấy role ở localstorage
 
-  useEffect(() => {
+  // ===== PAGINATION STATE =====
+  const [pagination, setPagination] = useState<Pagination>({
+    currentPage: 1,
+    totalPages: 1,
+    total: 0,
+    perPage: 10,
+  });
+
+  // Categories state
+  const [categories, setCategories] = useState<
+    { value: string; label: string }[]
+  >([{ value: "all", label: "Tất cả danh mục" }]);
+
+  // ===== REFS =====
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const apiCallInProgressRef = useRef(false);
+
+  // ===== HELPER FUNCTIONS =====
+  const getUserRole = () => {
     if (typeof window !== "undefined") {
       const user = localStorage.getItem("user");
       if (user) {
-        const parsedUser = JSON.parse(user);
-        setRole(parsedUser.role);
+        try {
+          return JSON.parse(user).role;
+        } catch {
+          return null;
+        }
       }
     }
-  }, [showToast]);
+    return null;
+  };
 
-  // lấy data về
-  const fetchProducts = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await ProductService.getProducts(
-        currentPage,
-        productsPerPage,
-        {
-          search: String(search),
-          category,
-          status,
-        }
-      );
-
-      setProducts(response.products || []);
-
-      setPagination({
-        currentPage: response.pagination.currentPage,
-        totalPages: response.pagination.totalPages,
-        totalItems: response.pagination.total,
-        limit: productsPerPage,
-      });
-
-      setLoading(false);
-    } catch {
-      setLoading(false);
-      setError("Có lỗi xảy ra khi tải dữ liệu");
+  const getProductImageUrl = (product: ProductAdminResponse): string => {
+    if (
+      !product.variants ||
+      typeof product.variants !== "object" ||
+      Object.keys(product.variants).length === 0
+    ) {
+      return "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/products/269ea64b-55b9b941_9b8e_4c6a_a35b_ee9806f43c5e.jpg";
     }
-  }, [currentPage, productsPerPage, search, category, status]);
 
-  // lấy tất cả category
+    const firstColorKey = Object.keys(product.variants)[0];
+    const variant = product.variants[firstColorKey];
+    const mainImage = variant.images?.find((img) => img.isMain);
+
+    return (
+      mainImage?.url ||
+      (variant.images && variant.images[0]?.url) ||
+      "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/products/269ea64b-55b9b941_9b8e_4c6a_a35b_ee9806f43c5e.jpg"
+    );
+  };
+
+  // ===== FOCUS MANAGEMENT =====
+  const focusInput = useCallback((options: FocusOptions = {}) => {
+    setTimeout(() => {
+      if (searchInputRef.current) {
+        searchInputRef.current.focus();
+
+        if (options.selectAll) {
+          searchInputRef.current.select();
+        } else {
+          const length = searchInputRef.current.value.length;
+          searchInputRef.current.setSelectionRange(length, length);
+        }
+      }
+    }, 100);
+  }, []);
+
+  // ===== SEARCH FUNCTION =====
+  const performSearch = useCallback(
+    async (
+      searchTerm: string,
+      category: string,
+      status: string,
+      limit: number,
+      page = 1,
+      focusOptions?: FocusOptions
+    ) => {
+      // ✅ Prevent duplicate API calls
+      if (apiCallInProgressRef.current) {
+        console.log("API call already in progress, skipping...");
+        return;
+      }
+
+      try {
+        apiCallInProgressRef.current = true;
+        setLoading(true);
+        setIsSearching(true);
+        setCurrentPage(page);
+
+        const response = await ProductService.getProducts(page, limit, {
+          search: searchTerm.trim(),
+          category: category === "all" ? "" : category,
+          status: status === "all" ? "" : status,
+        });
+
+        setProducts(response.products || []);
+        setPagination({
+          currentPage: response.pagination.currentPage,
+          totalPages: response.pagination.totalPages,
+          total: response.pagination.total,
+          perPage: response.pagination.perPage,
+        });
+        setError(null);
+
+        if (focusOptions?.preserve) {
+          focusInput(focusOptions);
+        }
+      } catch (error) {
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Không thể tải danh sách sản phẩm. Vui lòng thử lại."
+        );
+        setProducts([]);
+        setPagination({
+          currentPage: page,
+          totalPages: 1,
+          total: 0,
+          perPage: limit,
+        });
+      } finally {
+        setLoading(false);
+        setIsSearching(false);
+        apiCallInProgressRef.current = false;
+      }
+    },
+    [focusInput]
+  );
+
+  // ===== DEBOUNCED SEARCH =====
+  const debouncedSearch = useMemo(
+    () =>
+      debounce(
+        (
+          searchTerm: string,
+          category: string,
+          status: string,
+          limit: number
+        ) => {
+          performSearch(searchTerm, category, status, limit, 1, {
+            preserve: true,
+          });
+        },
+        300
+      ),
+    [performSearch]
+  );
+
+  // ===== SEARCH LOGIC HANDLER =====
+  const handleSearchLogic = useCallback(
+    (value: string) => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+
+      debouncedSearch.cancel();
+
+      searchTimeoutRef.current = setTimeout(() => {
+        if (value.length === 0) {
+          performSearch("", categoryFilter, statusFilter, pageLimit, 1, {
+            preserve: true,
+          });
+        } else if (value.trim().length > 0) {
+          debouncedSearch(
+            value.trim(),
+            categoryFilter,
+            statusFilter,
+            pageLimit
+          );
+        }
+      }, 50);
+    },
+    [debouncedSearch, performSearch, categoryFilter, statusFilter, pageLimit]
+  );
+
+  // ===== EVENT HANDLERS =====
+  const handleSearchChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      setSearchValue(value);
+
+      if (!isComposing) {
+        handleSearchLogic(value);
+      }
+    },
+    [isComposing, handleSearchLogic]
+  );
+
+  const handleCompositionStart = useCallback(() => {
+    setIsComposing(true);
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    debouncedSearch.cancel();
+  }, [debouncedSearch]);
+
+  const handleCompositionEnd = useCallback(
+    (e: React.CompositionEvent<HTMLInputElement>) => {
+      const value = e.currentTarget.value;
+      setIsComposing(false);
+      setSearchValue(value);
+      setTimeout(() => handleSearchLogic(value), 50);
+    },
+    [handleSearchLogic]
+  );
+
+  const handleRefresh = useCallback(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    debouncedSearch.cancel();
+
+    setSearchValue("");
+    setCategoryFilter("all");
+    setStatusFilter("all");
+    setPageLimit(10);
+    setCurrentPage(1);
+
+    performSearch("", "all", "all", 10, 1, { preserve: false });
+  }, [debouncedSearch, performSearch]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        focusInput({ selectAll: true });
+      }
+
+      if (e.key === "Escape") {
+        e.preventDefault();
+        handleRefresh();
+      }
+
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const value = e.currentTarget.value;
+
+        if (searchTimeoutRef.current) {
+          clearTimeout(searchTimeoutRef.current);
+        }
+        debouncedSearch.cancel();
+
+        performSearch(
+          value.trim(),
+          categoryFilter,
+          statusFilter,
+          pageLimit,
+          1,
+          { preserve: true }
+        );
+      }
+    },
+    [
+      focusInput,
+      handleRefresh,
+      debouncedSearch,
+      performSearch,
+      categoryFilter,
+      statusFilter,
+      pageLimit,
+    ]
+  );
+
+  const handleCategoryChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const value = e.target.value;
+
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      debouncedSearch.cancel();
+
+      setCategoryFilter(value);
+      performSearch(searchValue, value, statusFilter, pageLimit, 1);
+    },
+    [debouncedSearch, performSearch, searchValue, statusFilter, pageLimit]
+  );
+
+  const handleStatusChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const value = e.target.value;
+
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      debouncedSearch.cancel();
+
+      setStatusFilter(value);
+      performSearch(searchValue, categoryFilter, value, pageLimit, 1);
+    },
+    [debouncedSearch, performSearch, searchValue, categoryFilter, pageLimit]
+  );
+
+  const handlePageLimitChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const value = parseInt(e.target.value);
+
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      debouncedSearch.cancel();
+
+      setPageLimit(value);
+      setCurrentPage(1);
+
+      performSearch(searchValue, categoryFilter, statusFilter, value, 1);
+    },
+    [debouncedSearch, performSearch, searchValue, categoryFilter, statusFilter]
+  );
+
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      performSearch(
+        searchValue,
+        categoryFilter,
+        statusFilter,
+        pageLimit,
+        newPage
+      );
+    },
+    [performSearch, searchValue, categoryFilter, statusFilter, pageLimit]
+  );
+
+  // ===== DELETE HANDLERS =====
+  const handleDeleteProduct = useCallback((id: number, name: string) => {
+    setProductToDelete({ id, name });
+    setShowDeleteModal(true);
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    if (!productToDelete) return;
+
+    try {
+      await ProductService.deleteProduct(String(productToDelete.id));
+      setShowDeleteModal(false);
+      showToast("Đã xóa sản phẩm thành công!", { type: "success" });
+
+      // Refresh current page
+      performSearch(
+        searchValue,
+        categoryFilter,
+        statusFilter,
+        pageLimit,
+        currentPage
+      );
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? error.message
+          : "Có lỗi xảy ra khi xóa sản phẩm.",
+        { type: "error" }
+      );
+    } finally {
+      setShowDeleteModal(false);
+      setProductToDelete(null);
+    }
+  }, [
+    productToDelete,
+    showToast,
+    performSearch,
+    searchValue,
+    categoryFilter,
+    statusFilter,
+    pageLimit,
+    currentPage,
+  ]);
+
+  // ===== FETCH CATEGORIES =====
   const fetchCategories = useCallback(async () => {
     try {
       const response = await CategoryService.getAllCategories();
-      // Tạo danh sách categories cho dropdown
-      const categoryOptions = [{ value: "", label: "Tất cả danh mục" }];
+      const categoryOptions = [{ value: "all", label: "Tất cả danh mục" }];
 
-      // Xử lý danh mục cha
-      response.forEach((parentCat) => {
+      response.forEach((parentCat: Category) => {
         categoryOptions.push({
           value: parentCat.id.toString(),
           label: parentCat.name,
         });
 
-        // Xử lý danh mục con (nếu có), thêm - vào để phân biệt
         if (parentCat.children && parentCat.children.length > 0) {
           parentCat.children.forEach((childCat) => {
             categoryOptions.push({
@@ -125,81 +470,67 @@ export default function ProductsPage() {
     }
   }, [showToast]);
 
-  // Lấy dữ liệu khi component mount hoặc khi các filter thay đổi
+  // ===== EFFECTS =====
   useEffect(() => {
-    fetchProducts();
-    fetchCategories();
-  }, [fetchProducts, fetchCategories]);
+    // Get user role
+    const userRole = getUserRole();
+    setRole(userRole);
+  }, []);
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [search, category, status]);
-
-  // Pagination logic
-  const currentProducts = products;
-  const totalPages = pagination.totalPages;
-
-  // Thêm sau hàm fetchProducts
-  const handleDeleteProduct = (id: number, name: string) => {
-    setProductToDelete({ id, name });
-    setShowDeleteModal(true);
-  };
-
-  // xác nhận xóa sản phẩm
-  const confirmDelete = async () => {
-    if (!productToDelete) return;
-
-    try {
-      await ProductService.deleteProduct(String(productToDelete.id));
-      setShowDeleteModal(false);
-      showToast("Đã xóa sản phẩm thành công!", { type: "success" });
-      fetchProducts();
-    } catch (error) {
-      showToast(
-        error instanceof Error
-          ? error.message
-          : "Có lỗi xảy ra khi xóa sản phẩm.",
-        { type: "error" }
-      );
-    } finally {
-      setShowDeleteModal(false);
-    }
-  };
-
-  // Breadcrumb items
-  const breadcrumbItems = [
-    { label: "Trang chủ", href: "/admin" },
-    { label: "Quản lý sản phẩm", active: true },
-  ];
-
-  // Remove ProductWithVariants interface and use ProductAdminResponse directly
-
-  const getProductImageUrl = (product: ProductAdminResponse): string => {
-    // Nếu không có variants hoặc variants không phải object, trả về ảnh mặc định
-    if (
-      !product.variants ||
-      typeof product.variants !== "object" ||
-      Object.keys(product.variants).length === 0
-    ) {
-      return "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/products/269ea64b-55b9b941_9b8e_4c6a_a35b_ee9806f43c5e.jpg";
+    if (!isInitialized) {
+      setIsInitialized(true);
+      performSearch("", "all", "all", pageLimit, 1);
+      fetchCategories();
     }
 
-    // Lấy màu đầu tiên
-    const firstColorKey = Object.keys(product.variants)[0];
-    const variant = product.variants[firstColorKey];
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      debouncedSearch.cancel();
+      apiCallInProgressRef.current = false;
+    };
+  }, [
+    isInitialized,
+    performSearch,
+    debouncedSearch,
+    pageLimit,
+    fetchCategories,
+  ]);
 
-    // Tìm ảnh chính (isMain = true)
-    const mainImage = variant.images?.find((img) => img.isMain);
+  // ===== COMPUTED VALUES =====
+  const breadcrumbItems = useMemo(
+    () => [
+      { label: "Trang chủ", href: "/admin" },
+      { label: "Quản lý sản phẩm", active: true },
+    ],
+    []
+  );
 
-    // Nếu có ảnh chính, trả về URL của nó
-    // Nếu không, trả về ảnh đầu tiên hoặc ảnh mặc định
-    return (
-      mainImage?.url ||
-      (variant.images && variant.images[0]?.url) ||
-      "https://shop-online-images.s3.ap-southeast-2.amazonaws.com/products/269ea64b-55b9b941_9b8e_4c6a_a35b_ee9806f43c5e.jpg"
+  const hasFilters =
+    searchValue ||
+    categoryFilter !== "all" ||
+    statusFilter !== "all" ||
+    pageLimit !== 10;
+  const hasResults = products.length > 0;
+
+  const paginationInfo = useMemo(() => {
+    const startIndex = (currentPage - 1) * pagination.perPage + 1;
+    const endIndex = Math.min(
+      currentPage * pagination.perPage,
+      pagination.total
     );
-  };
 
+    return {
+      startIndex,
+      endIndex,
+      isFirstPage: currentPage === 1,
+      isLastPage: currentPage === pagination.totalPages,
+    };
+  }, [currentPage, pagination]);
+
+  // ===== RENDER =====
   return (
     <AdminLayout title="Quản lý sản phẩm">
       {/* Content Header */}
@@ -220,12 +551,11 @@ export default function ProductsPage() {
       <section className="content">
         <div className="container-fluid">
           {/* Top action buttons */}
-          {role == 1 && (
+          {role === 1 && (
             <div className="mb-3">
               <Link href="/admin/products/add" className="btn btn-primary">
                 <i className="fas fa-plus mr-1"></i> Thêm sản phẩm mới
               </Link>
-
               <Link
                 href="/admin/categories"
                 className="btn btn-outline-secondary ml-2"
@@ -234,48 +564,84 @@ export default function ProductsPage() {
               </Link>
             </div>
           )}
-          {/* Filters */}
+
+          {/* Search & Filter Card */}
           <div className="card">
             <div className="card-header">
-              <h3 className="card-title">Tìm kiếm và lọc</h3>
+              <h3 className="card-title">
+                <i className="fas fa-search mr-2"></i>
+                Tìm kiếm và lọc
+              </h3>
               <div className="card-tools">
                 <button
                   type="button"
                   className="btn btn-tool"
                   data-card-widget="collapse"
+                  title="Thu gọn"
                 >
                   <i className="fas fa-minus"></i>
                 </button>
               </div>
             </div>
+
             <div className="card-body">
               <div className="row">
-                <div className="col-md-4">
+                {/* Search Input */}
+                <div className="col-md-5">
                   <div className="form-group">
-                    <label>Tìm kiếm</label>
+                    <label htmlFor="search-input">
+                      <i className="fas fa-search mr-1"></i>
+                      Tìm kiếm
+                    </label>
                     <div className="input-group">
                       <input
+                        ref={searchInputRef}
+                        id="search-input"
                         type="text"
-                        className="form-control"
-                        placeholder="Tên sản phẩm, mã SKU..."
-                        value={search}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className={`form-control ${
+                          isSearching ? "border-primary" : ""
+                        }`}
+                        placeholder="Tên sản phẩm, mã SKU... (Ctrl+K, Enter, Esc)"
+                        value={searchValue}
+                        onChange={handleSearchChange}
+                        onCompositionStart={handleCompositionStart}
+                        onCompositionEnd={handleCompositionEnd}
+                        onKeyDown={handleKeyDown}
+                        disabled={loading}
+                        autoComplete="off"
                       />
                       <div className="input-group-append">
-                        <button type="button" className="btn btn-default">
-                          <i className="fas fa-search"></i>
+                        <button
+                          type="button"
+                          className="btn btn-outline-secondary"
+                          onClick={handleRefresh}
+                          disabled={loading}
+                          title="Làm mới / Xóa bộ lọc (Esc)"
+                        >
+                          <i
+                            className={`fas ${
+                              isSearching ? "fa-search fa-pulse" : "fa-sync-alt"
+                            } ${loading ? "fa-spin" : ""}`}
+                          ></i>
                         </button>
                       </div>
                     </div>
                   </div>
                 </div>
+
+                {/* Category Filter */}
                 <div className="col-md-3">
                   <div className="form-group">
-                    <label>Danh mục</label>
+                    <label htmlFor="category-filter">
+                      <i className="fas fa-tags mr-1"></i>
+                      Danh mục
+                    </label>
                     <select
+                      id="category-filter"
                       className="form-control"
-                      value={category}
-                      onChange={(e) => setCategoryFilter(e.target.value)}
+                      value={categoryFilter}
+                      onChange={handleCategoryChange}
+                      disabled={loading}
                     >
                       {categories.map((cat) => (
                         <option key={cat.value} value={cat.value}>
@@ -285,15 +651,22 @@ export default function ProductsPage() {
                     </select>
                   </div>
                 </div>
-                <div className="col-md-3">
+
+                {/* Status Filter */}
+                <div className="col-md-2">
                   <div className="form-group">
-                    <label>Trạng thái</label>
+                    <label htmlFor="status-filter">
+                      <i className="fas fa-filter mr-1"></i>
+                      Trạng thái
+                    </label>
                     <select
+                      id="status-filter"
                       className="form-control"
-                      value={status}
-                      onChange={(e) => setStatusFilter(e.target.value)}
+                      value={statusFilter}
+                      onChange={handleStatusChange}
+                      disabled={loading}
                     >
-                      {statuses.map((status) => (
+                      {productStatuses.map((status) => (
                         <option key={status.value} value={status.value}>
                           {status.label}
                         </option>
@@ -301,17 +674,28 @@ export default function ProductsPage() {
                     </select>
                   </div>
                 </div>
-                <div className="col-md-2 d-flex align-items-end mb-3">
-                  <button
-                    className="btn btn-default w-100"
-                    onClick={() => {
-                      setSearchTerm("");
-                      setCategoryFilter("all");
-                      setStatusFilter("all");
-                    }}
-                  >
-                    <i className="fas fa-sync-alt mr-1"></i> Đặt lại
-                  </button>
+
+                {/* ✅ ADD: Page Limit Selector */}
+                <div className="col-md-2">
+                  <div className="form-group">
+                    <label htmlFor="page-limit">
+                      <i className="fas fa-list-ol mr-1"></i>
+                      Hiển thị
+                    </label>
+                    <select
+                      id="page-limit"
+                      className="form-control"
+                      value={pageLimit}
+                      onChange={handlePageLimitChange}
+                      disabled={loading}
+                    >
+                      {pageLimitOptions.map((limit) => (
+                        <option key={limit} value={limit}>
+                          {limit} dòng
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
@@ -320,188 +704,263 @@ export default function ProductsPage() {
           {/* Products Table */}
           <div className="card">
             <div className="card-header">
-              <h3 className="card-title">Danh sách sản phẩm</h3>
+              <h3 className="card-title">
+                <i className="fas fa-box mr-2"></i>
+                Danh sách sản phẩm
+              </h3>
               <div className="card-tools">
                 <button
                   type="button"
                   className="btn btn-tool"
-                  data-card-widget="collapse"
+                  onClick={handleRefresh}
+                  disabled={loading}
+                  title="Làm mới dữ liệu"
                 >
-                  <i className="fas fa-minus"></i>
+                  <i
+                    className={`fas fa-sync-alt ${loading ? "fa-spin" : ""}`}
+                  ></i>
                 </button>
               </div>
             </div>
+
             <div className="card-body table-responsive p-0">
-              <table className="table table-hover text-nowrap">
-                <thead>
-                  <tr>
-                    <th>Hình ảnh</th>
-                    <th>Mã sản phẩm</th>
-                    <th>Tên sản phẩm</th>
-                    <th>Danh mục</th>
-                    <th>Tồn kho</th>
-                    <th>Trạng thái</th>
-                    <th>Ngày tạo</th>
-                    <th>Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
+              {loading ? (
+                <div className="text-center p-5">
+                  <LoadingSpinner
+                    size="lg"
+                    text="Đang tải danh sách sản phẩm..."
+                  />
+                </div>
+              ) : error ? (
+                <div className="alert alert-danger m-4">
+                  <div className="d-flex align-items-center">
+                    <i className="fas fa-exclamation-triangle fa-2x mr-3 text-danger"></i>
+                    <div className="flex-grow-1">
+                      <h5 className="mb-1">Có lỗi xảy ra</h5>
+                      <p className="mb-2">{error}</p>
+                      <button
+                        type="button"
+                        className="btn btn-outline-danger btn-sm"
+                        onClick={handleRefresh}
+                      >
+                        <i className="fas fa-redo mr-1"></i>
+                        Thử lại
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <table className="table table-hover text-nowrap">
+                  <thead className="table-light">
                     <tr>
-                      <td colSpan={8} className="text-center py-5">
-                        <LoadingSpinner
-                          size="lg"
-                          text="Đang tải danh sách sản phẩm..."
-                        />
-                      </td>
+                      <th>Hình ảnh</th>
+                      <th>Mã sản phẩm</th>
+                      <th>Tên sản phẩm</th>
+                      <th>Danh mục</th>
+                      <th>Tồn kho</th>
+                      <th>Trạng thái</th>
+                      <th>Ngày tạo</th>
+                      <th>Thao tác</th>
                     </tr>
-                  ) : currentProducts.length > 0 ? (
-                    currentProducts.map((product) => (
-                      <tr key={product.id}>
-                        <td>
-                          <Image
-                            src={getProductImageUrl(product)}
-                            alt={product.name}
-                            width="50"
-                            height="50"
-                            className="img-thumbnail"
-                          />
-                        </td>
-                        <td>{product.sku}</td>
-                        <td>{product.name}</td>
-                        <td>
-                          {product.categories
-                            ?.map((cat) => cat.name)
-                            .join(", ")}
-                        </td>
-                        <td>
-                          <span
-                            className={
-                              product.stock?.total <= 10
-                                ? "text-danger font-weight-bold"
-                                : ""
-                            }
-                          >
-                            {product.stock?.total || 0}
-                          </span>
-                        </td>
-                        <td>
-                          <span className={`badge ${product.statusClass}`}>
-                            {product.statusLabel}
-                          </span>
-                        </td>
-                        <td>{formatDateDisplay(product.createdAt)}</td>
-                        <td>
-                          <div className="btn-group">
+                  </thead>
+                  <tbody>
+                    {hasResults ? (
+                      products.map((product) => (
+                        <tr key={product.id}>
+                          <td>
+                            <Image
+                              src={getProductImageUrl(product)}
+                              alt={product.name}
+                              width="50"
+                              height="50"
+                              className="img-thumbnail"
+                            />
+                          </td>
+                          <td>
+                            <span className="badge badge-light">
+                              {product.sku}
+                            </span>
+                          </td>
+                          <td>
                             <Link
                               href={`/admin/products/${product.id}`}
-                              className="btn btn-sm btn-info mr-1"
-                              title="Xem chi tiết"
+                              className="text-decoration-none"
                             >
-                              <i className="fas fa-eye"></i>
+                              <div className="font-weight-bold text-primary hover-underline">
+                                {product.name}
+                              </div>
                             </Link>
-                            <button
-                              className="btn btn-sm btn-danger"
-                              title="Xóa"
-                              onClick={() =>
-                                handleDeleteProduct(product.id, product.name)
+                          </td>
+                          <td>
+                            {product.categories
+                              ?.map((cat) => cat.name)
+                              .join(", ")}
+                          </td>
+                          <td>
+                            <span
+                              className={
+                                (product.stock?.total || 0) <= 10
+                                  ? "text-danger font-weight-bold"
+                                  : ""
                               }
                             >
-                              <i className="fas fa-trash"></i>
-                            </button>
+                              {product.stock?.total || 0}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`badge ${product.statusClass}`}>
+                              {product.statusLabel}
+                            </span>
+                          </td>
+                          <td>
+                            <small
+                              className="text-muted"
+                              title={product.createdAt}
+                            >
+                              {formatDateDisplay(product.createdAt)}
+                            </small>
+                          </td>
+                          <td>
+                            <div className="btn-group btn-group-sm">
+                              <Link
+                                href={`/admin/products/${product.id}`}
+                                className="btn btn-info btn-sm"
+                                title="Xem chi tiết"
+                              >
+                                <i className="fas fa-eye"></i>
+                              </Link>
+                              {role === 1 && (
+                                <button
+                                  className="btn btn-danger btn-sm"
+                                  title="Xóa"
+                                  onClick={() =>
+                                    handleDeleteProduct(
+                                      product.id,
+                                      product.name
+                                    )
+                                  }
+                                >
+                                  <i className="fas fa-trash"></i>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={8} className="text-center py-5">
+                          <div className="empty-state">
+                            <i className="fas fa-box fa-4x text-muted mb-3"></i>
+                            <h5 className="text-muted">
+                              {hasFilters
+                                ? "Không tìm thấy sản phẩm nào"
+                                : "Chưa có sản phẩm"}
+                            </h5>
+                            <p className="text-muted mb-3">
+                              {hasFilters
+                                ? "Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc"
+                                : "Chưa có sản phẩm nào trong hệ thống"}
+                            </p>
                           </div>
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={8} className="text-center py-4">
-                        {error ? (
-                          <div className="text-danger">
-                            <i className="fas fa-exclamation-triangle mr-2"></i>
-                            {error}
-                          </div>
-                        ) : (
-                          "Không tìm thấy sản phẩm nào"
-                        )}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
+              )}
             </div>
-            <div className="card-footer clearfix">
-              <div className="float-left">
-                <div className="dataTables_info">
-                  Hiển thị{" "}
-                  {products.length
-                    ? (pagination.currentPage - 1) * pagination.limit + 1
-                    : 0}{" "}
-                  đến{" "}
-                  {Math.min(
-                    pagination.currentPage * pagination.limit,
-                    pagination.totalItems
-                  )}{" "}
-                  của {pagination.totalItems} sản phẩm
+
+            {/* Pagination */}
+            {!loading && (
+              <div className="card-footer clearfix">
+                <div className="float-left">
+                  <div className="dataTables_info">
+                    <i className="fas fa-info-circle mr-1"></i>
+                    Hiển thị{" "}
+                    <strong>
+                      {pagination.total > 0
+                        ? `${paginationInfo.startIndex} - ${paginationInfo.endIndex}`
+                        : "0"}
+                    </strong>{" "}
+                    của <strong>{pagination.total}</strong> sản phẩm
+                    <span className="text-muted ml-2">
+                      (Trang {currentPage} / {pagination.totalPages} -{" "}
+                      {pageLimit} dòng/trang)
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <ul className="pagination pagination-sm m-0 float-right">
-                <li
-                  className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
-                >
-                  <a
-                    className="page-link"
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (currentPage > 1) setCurrentPage(currentPage - 1);
-                    }}
-                  >
-                    «
-                  </a>
-                </li>
-                {Array.from({ length: totalPages }, (_, i) => (
+
+                <ul className="pagination pagination-sm m-0 float-right">
                   <li
-                    key={i + 1}
                     className={`page-item ${
-                      currentPage === i + 1 ? "active" : ""
+                      paginationInfo.isFirstPage ? "disabled" : ""
                     }`}
                   >
-                    <a
+                    <button
                       className="page-link"
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setCurrentPage(i + 1);
-                      }}
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={paginationInfo.isFirstPage}
+                      title="Trang trước"
                     >
-                      {i + 1}
-                    </a>
+                      <i className="fas fa-chevron-left"></i>
+                    </button>
                   </li>
-                ))}
-                <li
-                  className={`page-item ${
-                    currentPage === totalPages ? "disabled" : ""
-                  }`}
-                >
-                  <a
-                    className="page-link"
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (currentPage < totalPages)
-                        setCurrentPage(currentPage + 1);
-                    }}
+
+                  {Array.from(
+                    { length: Math.min(pagination.totalPages, 5) },
+                    (_, i) => {
+                      let pageNum;
+                      if (pagination.totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= pagination.totalPages - 2) {
+                        pageNum = pagination.totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+
+                      return (
+                        <li
+                          key={pageNum}
+                          className={`page-item ${
+                            currentPage === pageNum ? "active" : ""
+                          }`}
+                        >
+                          <button
+                            className="page-link"
+                            onClick={() => handlePageChange(pageNum)}
+                          >
+                            {pageNum}
+                          </button>
+                        </li>
+                      );
+                    }
+                  )}
+
+                  <li
+                    className={`page-item ${
+                      paginationInfo.isLastPage ? "disabled" : ""
+                    }`}
                   >
-                    »
-                  </a>
-                </li>
-              </ul>
-            </div>
+                    <button
+                      className="page-link"
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={paginationInfo.isLastPage}
+                      title="Trang sau"
+                    >
+                      <i className="fas fa-chevron-right"></i>
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            )}
           </div>
         </div>
       </section>
-      {/* modal delete */}
+
+      {/* Delete Modal */}
       {productToDelete && (
         <div
           className={`modal fade ${showDeleteModal ? "show" : ""}`}
@@ -563,6 +1022,7 @@ export default function ProductsPage() {
           </div>
         </div>
       )}
+
       {Toast}
     </AdminLayout>
   );

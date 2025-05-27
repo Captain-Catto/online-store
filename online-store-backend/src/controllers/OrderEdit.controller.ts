@@ -484,9 +484,12 @@ export const getAllOrders = async (
     if (search) {
       const searchTerm = `%${search}%`;
       const searchConditions: {
-        [Op.or]: Array<{ phoneNumber?: { [Op.like]: string }; id?: number }>;
+        [Op.or]: Array<{
+          shippingPhoneNumber?: { [Op.like]: string };
+          id?: number;
+        }>;
       } = {
-        [Op.or]: [{ phoneNumber: { [Op.like]: searchTerm } }],
+        [Op.or]: [{ shippingPhoneNumber: { [Op.like]: searchTerm } }],
       };
 
       // Nếu search là số, thêm điều kiện tìm theo ID

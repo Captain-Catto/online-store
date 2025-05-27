@@ -48,3 +48,23 @@ export const mapOrderStatus = (status: string) => {
   };
   return statusMap[status] || status;
 };
+
+// hàm để map thông tin user sang tiếng việt
+export const mapUserRole = (role: string) => {
+  const roleMap: Record<string, string> = {
+    admin: "Quản trị viên",
+    employee: "Nhân viên",
+    customer: "Khách hàng",
+  };
+  return roleMap[role] || role;
+};
+
+// hàm để map màu khi có user role sử dụng cho badge
+export const mapUserRoleColor = (role: string) => {
+  const roleColorMap: Record<string, string> = {
+    admin: "bg-red-100 text-red-800",
+    employee: "bg-blue-100 text-blue-800",
+    customer: "bg-green-100 text-green-800",
+  };
+  return roleColorMap[role] || "bg-gray-100 text-gray-800";
+};

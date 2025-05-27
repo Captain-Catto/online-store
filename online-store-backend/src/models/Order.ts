@@ -12,6 +12,12 @@ class Order extends Model {
   public subtotal!: number;
   public voucherDiscount!: number;
   public shippingFee!: number;
+  public shippingFullName!: string;
+  public shippingPhoneNumber!: string;
+  public shippingStreetAddress!: string;
+  public shippingWard!: string | null;
+  public shippingDistrict!: string;
+  public shippingCity!: string;
   public shippingBasePrice!: number;
   public shippingDiscount!: number;
   public status!: string;

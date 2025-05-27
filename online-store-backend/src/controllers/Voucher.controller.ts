@@ -117,8 +117,8 @@ export const getVouchers = async (
       console.log("Is search numeric:", isNumeric);
 
       if (isNumeric) {
-        // Nếu là số, tìm theo giá trị chính xác
-        where.value = parseInt(search);
+        // Nếu là số, tìm tất cả có giá trị bằng hoặc hơn số đó
+        where.value = { [Op.gte]: parseInt(search) };
       } else {
         // Nếu không phải số, tìm theo mã hoặc mô tả
         where[Op.or] = [

@@ -72,13 +72,21 @@ export const ProductService = {
           }
         });
       }
-
       const response = await fetch(
         `${API_BASE_URL}/products?${params.toString()}`
       );
       const data = await response.json();
+      console.log("Products fetched:", data);
       if (!response.ok) throw new Error("Network response was not ok");
-      return await data;
+      return {
+        products: data.products || [],
+        pagination: {
+          currentPage: data.pagination?.currentPage || page,
+          totalPages: data.pagination?.totalPages || 1,
+          total: data.pagination?.total || 0,
+          perPage: data.pagination?.limit || limit,
+        },
+      };
     } catch (error) {
       throw error;
     }
