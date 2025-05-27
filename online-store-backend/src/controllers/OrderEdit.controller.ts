@@ -415,12 +415,12 @@ export const updateShippingAddress = async (
  * 1. Xử lý tham số truy vấn:
  *    - Phân trang (page, limit)
  *    - Lọc theo trạng thái
- *    - Tìm kiếm theo từ khóa
+ *    - Tìm kiếm theo từ khóa (fuzzy search)
  *    - Lọc theo khoảng thời gian
  *
  * 2. Xây dựng điều kiện tìm kiếm:
  *    - Điều kiện cơ bản (trạng thái, thời gian)
- *    - Tìm kiếm theo số điện thoại
+ *    - Fuzzy search cho tên và số điện thoại
  *    - Tìm kiếm theo ID đơn hàng
  *    - Tìm kiếm theo email người dùng
  *    - Tìm kiếm theo tên hoặc SKU sản phẩm
@@ -442,7 +442,7 @@ export const getAllOrders = async (
   res: Response
 ): Promise<void> => {
   try {
-    // Step 1: Xử lý tham số truy vấn
+    // ===== STEP 1: Xử lý tham số truy vấn =====
     const {
       page = 1,
       limit = 10,
@@ -454,10 +454,10 @@ export const getAllOrders = async (
 
     const offset = (Number(page) - 1) * Number(limit);
 
-    // Step 2.1: Xây dựng điều kiện tìm kiếm cơ bản
+    // ===== STEP 2: Xây dựng điều kiện tìm kiếm cơ bản =====
     const baseConditions: any = {};
 
-    // Thêm điều kiện status nếu có
+    // Filter theo status đơn hàng (pending, confirmed, shipped, delivered, cancelled)
     if (status && status !== "all") {
       baseConditions.status = status;
     }
@@ -467,44 +467,67 @@ export const getAllOrders = async (
       baseConditions.createdAt = {};
 
       if (fromDate) {
-        baseConditions.createdAt[Op.gte] = new Date(fromDate as string);
+        const startDate = new Date(fromDate as string);
+        startDate.setHours(0, 0, 0, 0);
+        baseConditions.createdAt[Op.gte] = startDate;
       }
 
       if (toDate) {
-        baseConditions.createdAt[Op.lte] = new Date(
-          new Date(toDate as string).setHours(23, 59, 59)
-        );
+        const endDate = new Date(toDate as string);
+        endDate.setHours(23, 59, 59, 999);
+        baseConditions.createdAt[Op.lte] = endDate;
       }
     }
 
-    // Điều kiện tìm kiếm cơ bản
-    let where = { ...baseConditions };
+    // ===== STEP 3: Xử lý search logic nâng cao (tham khảo getAllOrdersByEmployee) =====
+    let whereConditions = { ...baseConditions };
 
-    // Step 2.2: Điều kiện tìm kiếm nâng cao
     if (search) {
-      const searchTerm = `%${search}%`;
-      const searchConditions: {
-        [Op.or]: Array<{
-          shippingPhoneNumber?: { [Op.like]: string };
-          id?: number;
-        }>;
-      } = {
-        [Op.or]: [{ shippingPhoneNumber: { [Op.like]: searchTerm } }],
-      };
+      const searchTerm = search as string;
 
-      // Nếu search là số, thêm điều kiện tìm theo ID
-      if (!isNaN(Number(search))) {
-        searchConditions[Op.or].push({ id: Number(search) });
+      // Detect nếu search term là email (chứa ký tự @)
+      const isEmail = searchTerm.includes("@");
+
+      if (isEmail) {
+        // ✅ Email search: Tìm trong email của user thông qua association
+        whereConditions[Op.or] = [
+          { id: { [Op.like]: `%${searchTerm}%` } }, // Tìm trong Order ID
+          { shippingPhoneNumber: { [Op.like]: `%${searchTerm}%` } }, // Tìm trong số điện thoại
+          { shippingFullName: { [Op.like]: `%${searchTerm}%` } }, // Tìm trong tên người nhận
+          { "$user.email$": { [Op.like]: `%${searchTerm}%` } }, // Tìm trong email user
+        ];
+      } else {
+        // ✅ ENHANCED: Fuzzy search for names and phone numbers
+        const searchConditions = [];
+
+        // Basic searches (ID, phone, full name match)
+        searchConditions.push(
+          { id: { [Op.like]: `%${searchTerm}%` } },
+          { shippingPhoneNumber: { [Op.like]: `%${searchTerm}%` } },
+          { shippingFullName: { [Op.like]: `%${searchTerm}%` } }
+        );
+
+        // ✅ FUZZY: Search each word in name independently for better matching
+        const searchWords = searchTerm.trim().split(/\s+/);
+        searchWords.forEach((word) => {
+          if (word.length >= 2) {
+            // Only search words with 2+ characters
+            searchConditions.push({
+              shippingFullName: { [Op.like]: `%${word}%` },
+            });
+          }
+        });
+
+        // Nếu search term là số, thêm điều kiện tìm theo ID
+        if (!isNaN(Number(searchTerm))) {
+          searchConditions.push({ id: Number(searchTerm) });
+        }
+
+        whereConditions[Op.or] = searchConditions;
       }
-
-      // Kết hợp điều kiện cơ bản với điều kiện tìm kiếm
-      where = {
-        ...baseConditions,
-        ...searchConditions,
-      };
     }
 
-    // Step 3.1: Định nghĩa include
+    // ===== STEP 4: Định nghĩa include options =====
     const includeOptions = [
       {
         model: OrderDetail,
@@ -517,101 +540,115 @@ export const getAllOrders = async (
             attributes: ["id", "name"],
             required: false,
           },
+          {
+            model: ProductDetail,
+            as: "productDetail",
+            attributes: ["id", "color"],
+            required: false,
+          },
         ],
       },
       {
         model: Users,
         as: "user",
         attributes: ["id", "email", "username"],
-        required: false,
+        required: false, // ✅ IMPORTANT: Set to false to avoid inner join issues
       },
     ];
 
-    // Step 3.2: Đếm tổng số đơn hàng
+    // ===== STEP 5: Đếm tổng số đơn hàng với điều kiện cơ bản =====
     let count = await Order.count({
-      where,
+      where: whereConditions,
       distinct: true,
       include: includeOptions,
     });
 
-    // Step 3.3: Tìm kiếm nâng cao theo email và tên sản phẩm
+    // ===== STEP 6: Tìm kiếm nâng cao theo email và tên sản phẩm (nếu có search) =====
     if (search && search.toString().length > 0) {
       const searchTerm = `%${search}%`;
+      const isEmail = search.toString().includes("@");
 
-      // Tìm theo email người dùng
-      const ordersWithUserEmail = await Order.findAll({
-        attributes: ["id"],
-        where: baseConditions, // Giữ điều kiện cơ bản (status, date)
-        include: [
-          {
-            model: Users,
-            as: "user",
-            where: {
-              email: { [Op.like]: searchTerm },
-            },
-            required: true,
-          },
-        ],
-      });
-
-      // Tìm theo tên sản phẩm
-      const ordersWithProductName = await Order.findAll({
-        attributes: ["id"],
-        where: baseConditions, // Giữ điều kiện cơ bản (status, date)
-        include: [
-          {
-            model: OrderDetail,
-            as: "orderDetails",
-            include: [
-              {
-                model: Product,
-                as: "product",
-                where: {
-                  [Op.or]: [
-                    { name: { [Op.like]: searchTerm } },
-                    { sku: { [Op.like]: searchTerm } },
-                  ],
-                },
-                required: true,
+      // Nếu không phải email search, thêm tìm kiếm theo email user và product name
+      if (!isEmail) {
+        // Tìm theo email người dùng
+        const ordersWithUserEmail = await Order.findAll({
+          attributes: ["id"],
+          where: baseConditions, // Giữ điều kiện cơ bản (status, date)
+          include: [
+            {
+              model: Users,
+              as: "user",
+              where: {
+                email: { [Op.like]: searchTerm },
               },
-            ],
-            required: true,
-          },
-        ],
-      });
-
-      // Gộp kết quả từ 2 truy vấn
-      const userEmailIds = ordersWithUserEmail.map((order) => order.id);
-      const productNameIds = ordersWithProductName.map((order) => order.id);
-      const relationIds = [...new Set([...userEmailIds, ...productNameIds])];
-
-      if (relationIds.length > 0) {
-        // Thêm điều kiện ID vào điều kiện OR hiện có
-        if (where[Op.or]) {
-          where[Op.or].push({ id: { [Op.in]: relationIds } });
-        } else {
-          // Giữ điều kiện cơ bản và thêm điều kiện ID
-          where = {
-            ...baseConditions,
-            id: { [Op.in]: relationIds },
-          };
-        }
-
-        // Đếm lại với điều kiện mới
-        count = await Order.count({
-          where,
-          distinct: true,
+              required: true,
+            },
+          ],
         });
-      } else if (search && !where[Op.or] && Object.keys(where).length === 0) {
-        // Nếu không tìm thấy kết quả nào và không có điều kiện khác => trả về rỗng
-        where = { id: -1 };
-        count = 0;
+
+        // Tìm theo tên sản phẩm
+        const ordersWithProductName = await Order.findAll({
+          attributes: ["id"],
+          where: baseConditions, // Giữ điều kiện cơ bản (status, date)
+          include: [
+            {
+              model: OrderDetail,
+              as: "orderDetails",
+              include: [
+                {
+                  model: Product,
+                  as: "product",
+                  where: {
+                    [Op.or]: [
+                      { name: { [Op.like]: searchTerm } },
+                      { sku: { [Op.like]: searchTerm } },
+                    ],
+                  },
+                  required: true,
+                },
+              ],
+              required: true,
+            },
+          ],
+        });
+
+        // Gộp kết quả từ 2 truy vấn
+        const userEmailIds = ordersWithUserEmail.map((order) => order.id);
+        const productNameIds = ordersWithProductName.map((order) => order.id);
+        const relationIds = [...new Set([...userEmailIds, ...productNameIds])];
+
+        if (relationIds.length > 0) {
+          // Thêm điều kiện ID vào điều kiện OR hiện có
+          if (whereConditions[Op.or]) {
+            whereConditions[Op.or].push({ id: { [Op.in]: relationIds } });
+          } else {
+            // Nếu chưa có điều kiện OR, tạo mới
+            whereConditions = {
+              ...baseConditions,
+              [Op.or]: [
+                ...(whereConditions[Op.or] || []),
+                { id: { [Op.in]: relationIds } },
+              ],
+            };
+          }
+
+          // Đếm lại với điều kiện mới
+          count = await Order.count({
+            where: whereConditions,
+            distinct: true,
+            include: includeOptions,
+          });
+        } else if (!whereConditions[Op.or]) {
+          // Nếu không tìm thấy kết quả nào và không có điều kiện search cơ bản
+          whereConditions = { ...baseConditions, id: -1 };
+          count = 0;
+        }
       }
     }
 
-    // Step 3.4: Lấy danh sách đơn hàng
+    // ===== STEP 7: Lấy danh sách đơn hàng =====
     const orders = await Order.findAll({
-      where,
+      where: whereConditions,
       include: [
         {
           model: OrderDetail,
@@ -640,7 +677,7 @@ export const getAllOrders = async (
       offset,
     });
 
-    // Step 4: Trả về kết quả
+    // ===== STEP 8: Trả về kết quả =====
     res.status(200).json({
       orders,
       pagination: {
