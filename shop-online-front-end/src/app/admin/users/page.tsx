@@ -605,9 +605,8 @@ export default function UsersPage() {
                       <th>Số điện thoại</th>
                       <th>Vai trò</th>
                       <th>Đơn hàng</th>
-                      <th>Chi tiêu</th>
+                      <th>Chi tiêu (VNĐ)</th>
                       <th>Trạng thái</th>
-                      <th>Ngày tạo</th>
                       <th>Thao tác</th>
                     </tr>
                   </thead>
@@ -622,7 +621,7 @@ export default function UsersPage() {
                           </td>
                           <td>
                             <div className="user-panel">
-                              <div className="info">
+                              <div className="">
                                 <Link
                                   href={`/admin/users/${user.id}`}
                                   className="d-block font-weight-bold text-decoration-none"
@@ -660,7 +659,7 @@ export default function UsersPage() {
                           </td>
                           <td>
                             <strong className="text-success">
-                              {user.totalSpent.toLocaleString("vi-VN")} VNĐ
+                              {user.totalSpent.toLocaleString("vi-VN")}
                             </strong>
                           </td>
                           <td>

@@ -189,6 +189,30 @@ export const AuthService = {
     }
     return false;
   },
+
+  // hàm gửi yêu cầu đặt lại mật khẩu
+  forgotPassword: async (email: string): Promise<{ message: string }> => {
+    try {
+      const response = await fetch(API_BASE_URL + "/auth/forgot-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Không thể gửi email đặt lại mật khẩu");
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      throw error;
+    }
+  },
 };
 
 // hàm xử lý để tạo user

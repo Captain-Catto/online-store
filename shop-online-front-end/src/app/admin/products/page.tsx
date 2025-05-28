@@ -786,7 +786,7 @@ export default function ProductsPage() {
                               href={`/admin/products/${product.id}`}
                               className="text-decoration-none"
                             >
-                              <div className="font-weight-bold text-primary hover-underline">
+                              <div className="text-primary hover:underline">
                                 {product.name}
                               </div>
                             </Link>

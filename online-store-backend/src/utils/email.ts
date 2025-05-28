@@ -8,27 +8,34 @@ interface EmailOptions {
 }
 
 export const sendEmail = async (options: EmailOptions): Promise<void> => {
-  // Cấu hình transporter sử dụng Mailtrap
   const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: parseInt(process.env.EMAIL_PORT || "2525"),
-    secure: process.env.EMAIL_SECURE === "true",
+    service: "gmail",
+    //nếu như có lỗi thì mở cmt ra
+    // ko hiểu vì sao có lúc lại không gửi mail được
+    //host: "smtp.gmail.com",
+    //port: 465,
+    secure: true,
     auth: {
-      user: process.env.MAILTRAP_USER,
-      pass: process.env.MAILTRAP_PASS,
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
     },
   });
 
   // Cấu hình email
   const mailOptions = {
-    from: `${process.env.EMAIL_FROM_NAME} <${process.env.EMAIL_FROM}>`,
+    from: `${process.env.EMAIL_FROM_NAME} <${process.env.GMAIL_USER}>`,
     to: options.to,
     subject: options.subject,
     text: options.text,
     html: options.html,
   };
 
-  // Gửi email
-  await transporter.sendMail(mailOptions);
-  console.log(`Email đã được gửi đến: ${options.to}`);
+  try {
+    // Gửi email
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Email đã được gửi đến: ${options.to}`);
+  } catch (error) {
+    console.error("❌ Lỗi gửi email:", error);
+    throw error;
+  }
 };

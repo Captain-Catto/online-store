@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Header from "@/components/Header/Header";
 import Footer from "@/components/Footer/Footer";
+import { AuthService } from "@/services/AuthService";
 
 export default function ForgotPasswordPageClient() {
   const [email, setEmail] = useState("");
@@ -17,27 +18,19 @@ export default function ForgotPasswordPageClient() {
     setError("");
 
     try {
-      const response = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Có lỗi xảy ra");
-      }
+      await AuthService.forgotPassword(email);
 
       setSuccess(true);
     } catch (error) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Không thể gửi email đặt lại mật khẩu"
-      );
+      let errorMessage = "Không thể gửi email đặt lại mật khẩu";
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === "string") {
+        errorMessage = error;
+      }
+
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
