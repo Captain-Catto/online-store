@@ -9,6 +9,8 @@ import Voucher from "../models/Voucher";
 import Product from "../models/Product";
 import ProductImage from "../models/ProductImage";
 import Users from "../models/Users";
+import { sendOrderConfirmationEmail } from "../services/orderEmailService";
+
 /**
  * Tạo mới một đơn hàng
  * Flow:
@@ -352,6 +354,15 @@ export const createOrder = async (
 
     // Step 10: Hoàn tất transaction và trả về kết quả
     await t.commit();
+
+    // Step 11: Gửi email xác nhận đơn hàng (không đồng bộ)
+    // Chỉ gửi email nếu có userId (người dùng đã đăng nhập)
+    if (userId) {
+      // Gửi email bất đồng bộ để không làm chậm response
+      setImmediate(() => {
+        sendOrderConfirmationEmail(newOrder.id);
+      });
+    }
 
     res.status(201).json({
       message: "Đặt hàng thành công",

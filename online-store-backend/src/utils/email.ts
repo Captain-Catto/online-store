@@ -33,9 +33,9 @@ export const sendEmail = async (options: EmailOptions): Promise<void> => {
   try {
     // Gửi email
     await transporter.sendMail(mailOptions);
-    console.log(`✅ Email đã được gửi đến: ${options.to}`);
+    console.log(`Email đã được gửi đến: ${options.to}`);
   } catch (error) {
-    console.error("❌ Lỗi gửi email:", error);
+    console.log(`Lỗi khi gửi email đến ${options.to}:`, error);
     throw error;
   }
 };

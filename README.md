@@ -75,7 +75,7 @@ online-store-backend/
 │   ├── seeders/          # Dữ liệu mẫu
 │   ├── services/         # Services (upload, email, etc.)
 │   ├── utils/            # Helper functions
-│   └── index.ts          # Entry point
+│   └── index.ts          # Entry point (file đầu tiên được chạy)
 └── public/
     └── uploads/          # Thư mục lưu trữ files upload (local)
 ```

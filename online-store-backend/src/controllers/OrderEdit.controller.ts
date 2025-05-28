@@ -8,6 +8,7 @@ import ProductDetail from "../models/ProductDetail";
 import PaymentStatus from "../models/PaymentStatus";
 import Product from "../models/Product";
 import Users from "../models/Users";
+import { sendOrderStatusUpdateEmail } from "../services/orderEmailService";
 
 /**
  * Cập nhật trạng thái đơn hàng (chỉ dành cho admin)
@@ -69,6 +70,13 @@ export const updateOrderStatus = async (
 
     // Commit transaction nếu mọi thứ thành công
     await t.commit();
+
+    // Gửi email thông báo cập nhật trạng thái (bất đồng bộ)
+    if (status && order.getDataValue("userId")) {
+      setImmediate(() => {
+        sendOrderStatusUpdateEmail(Number(id), status);
+      });
+    }
 
     // Trả về kết quả thành công
     res.status(200).json({

@@ -56,7 +56,7 @@ Hệ thống backend cho cửa hàng trực tuyến được xây dựng với N
 ```
 online-store-backend/
 ├── src/
-│   ├── index.ts                 # Entry point của ứng dụng
+│   ├── index.ts                 # Entry point của ứng dụng (file đầu tiên được chạy)
 │   ├── config/
 │   │   └── db.ts               # Cấu hình kết nối database
 │   ├── controllers/            # Xử lý logic nghiệp vụ
@@ -134,9 +134,10 @@ VNPAY_TMN_CODE=your_vnpay_code
 VNPAY_HASH_SECRET=your_vnpay_secret
 VNPAY_URL=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
 VNPAY_RETURN_URL=http://localhost:3000/payment/result
-EMAIL_USER=your_email
-EMAIL_PASS=your_email_password
 FRONTEND_URL=http://localhost:3000
+GMAIL_USER=your_gmail_user
+GMAIL_APP_PASSWORD=your_gmail_app_password(16 ký tự)
+EMAIL_FROM_NAME=(optional) Online Store
 ```
 
 ### Chạy ứng dụng
