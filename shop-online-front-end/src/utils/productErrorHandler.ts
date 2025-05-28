@@ -69,9 +69,8 @@ export const handleProductVariantError = async (
       }
       return errorData.message;
     }
-  } catch (e) {
+  } catch {
     // Nếu không parse được JSON
-    console.error("Failed to parse error response:", e);
     // Trả về thông báo lỗi mặc định
     return errorMsg;
   }

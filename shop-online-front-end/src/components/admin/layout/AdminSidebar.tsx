@@ -27,7 +27,7 @@ export default function AdminSidebar({
         setUser(JSON.parse(userString));
       }
     } catch {
-      // console.error("Lỗi khi đọc user từ localStorage:", error);
+      // nếu có lỗi thì ko làm gì
     }
   }, []);
 

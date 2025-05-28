@@ -169,8 +169,6 @@ export class VoucherService {
         params.append("type", filters.type);
       }
 
-      console.log("params", params.toString());
-
       const response = await AuthClient.fetchWithAuth(
         `${API_BASE_URL}/vouchers?${params.toString()}`
       );

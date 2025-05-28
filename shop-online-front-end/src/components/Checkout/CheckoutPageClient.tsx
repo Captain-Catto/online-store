@@ -265,7 +265,6 @@ export default function CheckoutPage() {
 
       // Gọi API để tính phí vận chuyển
       const response = await OrderService.getShippingFee(requestData);
-      console.log("response shipping fee", response);
 
       // Kiểm tra nếu response không có trường shipping hoặc finalFee
       if (

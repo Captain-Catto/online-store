@@ -13,7 +13,7 @@ import LoadingSpinner from "@/components/UI/LoadingSpinner";
 import { formatDateDisplay } from "@/utils/dateUtils";
 import debounce from "lodash/debounce";
 
-// ===== INTERFACES =====
+// ===== ĐỊNH NGHĨA INTERFACE =====
 interface Category {
   id: string | number;
   name: string;
@@ -35,7 +35,7 @@ interface FocusOptions {
 export default function ProductsPage() {
   const { showToast, Toast } = useToast();
 
-  // ===== STATES =====
+  // ===== KHAI BÁO STATE =====
   const [searchValue, setSearchValue] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -48,17 +48,17 @@ export default function ProductsPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [role, setRole] = useState<number | null>(null);
 
-  // Delete modal states
+  // Trạng thái modal xóa
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [productToDelete, setProductToDelete] = useState<{
     id: number;
     name: string;
   } | null>(null);
 
-  // ✅ ADD: Flag to prevent duplicate calls
+  // ✅ THÊM: Cờ để tránh gọi API trùng lặp
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // ===== CONSTANTS =====
+  // ===== CÁC HẰNG SỐ =====
   const pageLimitOptions = [5, 10, 20, 50, 100];
 
   const productStatuses = [
@@ -68,7 +68,7 @@ export default function ProductsPage() {
     { value: "draft", label: "Sản phẩm ảo", class: "bg-secondary" },
   ];
 
-  // ===== PAGINATION STATE =====
+  // ===== TRẠNG THÁI PHÂN TRANG =====
   const [pagination, setPagination] = useState<Pagination>({
     currentPage: 1,
     totalPages: 1,
@@ -76,17 +76,17 @@ export default function ProductsPage() {
     perPage: 10,
   });
 
-  // Categories state
+  // Trạng thái danh mục
   const [categories, setCategories] = useState<
     { value: string; label: string }[]
   >([{ value: "all", label: "Tất cả danh mục" }]);
 
-  // ===== REFS =====
+  // ===== CÁC REF =====
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const apiCallInProgressRef = useRef(false);
 
-  // ===== HELPER FUNCTIONS =====
+  // ===== CÁC HÀM TIỆN ÍCH =====
   const getUserRole = () => {
     if (typeof window !== "undefined") {
       const user = localStorage.getItem("user");
@@ -121,7 +121,7 @@ export default function ProductsPage() {
     );
   };
 
-  // ===== FOCUS MANAGEMENT =====
+  // ===== QUẢN LÝ FOCUS =====
   const focusInput = useCallback((options: FocusOptions = {}) => {
     setTimeout(() => {
       if (searchInputRef.current) {
@@ -137,7 +137,7 @@ export default function ProductsPage() {
     }, 100);
   }, []);
 
-  // ===== SEARCH FUNCTION =====
+  // ===== HÀM TÌM KIẾM =====
   const performSearch = useCallback(
     async (
       searchTerm: string,
@@ -147,9 +147,10 @@ export default function ProductsPage() {
       page = 1,
       focusOptions?: FocusOptions
     ) => {
-      // ✅ Prevent duplicate API calls
+      // ✅ Ngăn chặn các cuộc gọi API trùng lặp
+      // nếu đã có cuộc gọi API đang diễn ra
+      // thì không thực hiện cuộc gọi mới
       if (apiCallInProgressRef.current) {
-        console.log("API call already in progress, skipping...");
         return;
       }
 
@@ -199,7 +200,7 @@ export default function ProductsPage() {
     [focusInput]
   );
 
-  // ===== DEBOUNCED SEARCH =====
+  // ===== TÌM KIẾM DEBOUNCED =====
   const debouncedSearch = useMemo(
     () =>
       debounce(
@@ -213,12 +214,12 @@ export default function ProductsPage() {
             preserve: true,
           });
         },
-        300
+        300 // ✅ Giảm từ 500ms xuống 300ms
       ),
     [performSearch]
   );
 
-  // ===== SEARCH LOGIC HANDLER =====
+  // ===== HÀM XỬ LÝ LOGIC TÌM KIẾM =====
   const handleSearchLogic = useCallback(
     (value: string) => {
       if (searchTimeoutRef.current) {
@@ -245,7 +246,7 @@ export default function ProductsPage() {
     [debouncedSearch, performSearch, categoryFilter, statusFilter, pageLimit]
   );
 
-  // ===== EVENT HANDLERS =====
+  // ===== CÁC HÀM XỬ LÝ SỰ KIỆN =====
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
@@ -291,18 +292,10 @@ export default function ProductsPage() {
     performSearch("", "all", "all", 10, 1, { preserve: false });
   }, [debouncedSearch, performSearch]);
 
+  // ✅ SỬA: Chỉ xử lý phím Enter
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-        e.preventDefault();
-        focusInput({ selectAll: true });
-      }
-
-      if (e.key === "Escape") {
-        e.preventDefault();
-        handleRefresh();
-      }
-
+      // ✅ CHỈ XỬ LÝ PHÍM ENTER
       if (e.key === "Enter") {
         e.preventDefault();
         const value = e.currentTarget.value;
@@ -322,15 +315,7 @@ export default function ProductsPage() {
         );
       }
     },
-    [
-      focusInput,
-      handleRefresh,
-      debouncedSearch,
-      performSearch,
-      categoryFilter,
-      statusFilter,
-      pageLimit,
-    ]
+    [debouncedSearch, performSearch, categoryFilter, statusFilter, pageLimit]
   );
 
   const handleCategoryChange = useCallback(
@@ -393,7 +378,7 @@ export default function ProductsPage() {
     [performSearch, searchValue, categoryFilter, statusFilter, pageLimit]
   );
 
-  // ===== DELETE HANDLERS =====
+  // ===== CÁC HÀM XỬ LÝ XÓA =====
   const handleDeleteProduct = useCallback((id: number, name: string) => {
     setProductToDelete({ id, name });
     setShowDeleteModal(true);
@@ -407,7 +392,7 @@ export default function ProductsPage() {
       setShowDeleteModal(false);
       showToast("Đã xóa sản phẩm thành công!", { type: "success" });
 
-      // Refresh current page
+      // Làm mới trang hiện tại
       performSearch(
         searchValue,
         categoryFilter,
@@ -437,7 +422,7 @@ export default function ProductsPage() {
     currentPage,
   ]);
 
-  // ===== FETCH CATEGORIES =====
+  // ===== LẤY DỮ LIỆU DANH MỤC =====
   const fetchCategories = useCallback(async () => {
     try {
       const response = await CategoryService.getAllCategories();
@@ -470,9 +455,9 @@ export default function ProductsPage() {
     }
   }, [showToast]);
 
-  // ===== EFFECTS =====
+  // ===== CÁC EFFECT =====
   useEffect(() => {
-    // Get user role
+    // Lấy vai trò người dùng
     const userRole = getUserRole();
     setRole(userRole);
   }, []);
@@ -499,7 +484,7 @@ export default function ProductsPage() {
     fetchCategories,
   ]);
 
-  // ===== COMPUTED VALUES =====
+  // ===== GIÁ TRỊ TÍNH TOÁN =====
   const breadcrumbItems = useMemo(
     () => [
       { label: "Trang chủ", href: "/admin" },
@@ -533,7 +518,7 @@ export default function ProductsPage() {
   // ===== RENDER =====
   return (
     <AdminLayout title="Quản lý sản phẩm">
-      {/* Content Header */}
+      {/* Header nội dung */}
       <div className="content-header">
         <div className="container-fluid">
           <div className="row mb-2">
@@ -547,10 +532,10 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {/* Main content */}
+      {/* Nội dung chính */}
       <section className="content">
         <div className="container-fluid">
-          {/* Top action buttons */}
+          {/* Các nút hành động trên cùng */}
           {role === 1 && (
             <div className="mb-3">
               <Link href="/admin/products/add" className="btn btn-primary">
@@ -565,7 +550,7 @@ export default function ProductsPage() {
             </div>
           )}
 
-          {/* Search & Filter Card */}
+          {/* Card tìm kiếm và lọc */}
           <div className="card">
             <div className="card-header">
               <h3 className="card-title">
@@ -586,7 +571,7 @@ export default function ProductsPage() {
 
             <div className="card-body">
               <div className="row">
-                {/* Search Input */}
+                {/* Ô tìm kiếm */}
                 <div className="col-md-5">
                   <div className="form-group">
                     <label htmlFor="search-input">
@@ -601,7 +586,7 @@ export default function ProductsPage() {
                         className={`form-control ${
                           isSearching ? "border-primary" : ""
                         }`}
-                        placeholder="Tên sản phẩm, mã SKU... (Ctrl+K, Enter, Esc)"
+                        placeholder="Tên sản phẩm, mã SKU... (Nhấn Enter để tìm)"
                         value={searchValue}
                         onChange={handleSearchChange}
                         onCompositionStart={handleCompositionStart}
@@ -616,7 +601,7 @@ export default function ProductsPage() {
                           className="btn btn-outline-secondary"
                           onClick={handleRefresh}
                           disabled={loading}
-                          title="Làm mới / Xóa bộ lọc (Esc)"
+                          title="Làm mới dữ liệu và xóa bộ lọc"
                         >
                           <i
                             className={`fas ${
@@ -629,7 +614,7 @@ export default function ProductsPage() {
                   </div>
                 </div>
 
-                {/* Category Filter */}
+                {/* Bộ lọc danh mục */}
                 <div className="col-md-3">
                   <div className="form-group">
                     <label htmlFor="category-filter">
@@ -652,7 +637,7 @@ export default function ProductsPage() {
                   </div>
                 </div>
 
-                {/* Status Filter */}
+                {/* Bộ lọc trạng thái */}
                 <div className="col-md-2">
                   <div className="form-group">
                     <label htmlFor="status-filter">
@@ -675,7 +660,7 @@ export default function ProductsPage() {
                   </div>
                 </div>
 
-                {/* ✅ ADD: Page Limit Selector */}
+                {/* ✅ THÊM: Bộ chọn giới hạn trang */}
                 <div className="col-md-2">
                   <div className="form-group">
                     <label htmlFor="page-limit">
@@ -701,7 +686,7 @@ export default function ProductsPage() {
             </div>
           </div>
 
-          {/* Products Table */}
+          {/* Bảng sản phẩm */}
           <div className="card">
             <div className="card-header">
               <h3 className="card-title">
@@ -871,7 +856,7 @@ export default function ProductsPage() {
               )}
             </div>
 
-            {/* Pagination */}
+            {/* Phân trang */}
             {!loading && (
               <div className="card-footer clearfix">
                 <div className="float-left">
@@ -960,7 +945,7 @@ export default function ProductsPage() {
         </div>
       </section>
 
-      {/* Delete Modal */}
+      {/* Modal xóa */}
       {productToDelete && (
         <div
           className={`modal fade ${showDeleteModal ? "show" : ""}`}

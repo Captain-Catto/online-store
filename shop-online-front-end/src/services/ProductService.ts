@@ -76,7 +76,6 @@ export const ProductService = {
         `${API_BASE_URL}/products?${params.toString()}`
       );
       const data = await response.json();
-      console.log("Products fetched:", data);
       if (!response.ok) throw new Error("Network response was not ok");
       return {
         products: data.products || [],
@@ -462,7 +461,6 @@ export const ProductService = {
   ) => {
     // Validate inputs
     if (!imageIds || imageIds.length === 0) {
-      console.warn("No image IDs provided for deletion");
       return { message: "No images to delete", removedCount: 0 };
     }
 

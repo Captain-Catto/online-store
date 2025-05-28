@@ -176,7 +176,6 @@ export const CategoryService = {
     try {
       // Bắt đầu xây dựng query string
       const queryParams = new URLSearchParams();
-      console.log("filters", filters);
 
       // Xử lý các bộ lọc đặc biệt như mảng
       Object.entries(filters).forEach(([key, value]) => {

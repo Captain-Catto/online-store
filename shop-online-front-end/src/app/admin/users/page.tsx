@@ -21,7 +21,7 @@ interface FocusOptions {
 export default function UsersPage() {
   const { showToast, Toast } = useToast();
 
-  // ===== STATES =====
+  // ===== KHAI BÁO STATE =====
   const [searchValue, setSearchValue] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [pageLimit, setPageLimit] = useState(10);
@@ -33,10 +33,10 @@ export default function UsersPage() {
   const [disableLoading, setDisableLoading] = useState<number | null>(null);
   const [isSearching, setIsSearching] = useState(false);
 
-  // ===== CONSTANTS =====
+  // ===== CÁC HẰNG SỐ =====
   const pageLimitOptions = [5, 10, 20, 50, 100];
 
-  // ===== PAGINATION STATE =====
+  // ===== TRẠNG THÁI PHÂN TRANG =====
   const [pagination, setPagination] = useState({
     total: 0,
     pages: 1,
@@ -44,11 +44,11 @@ export default function UsersPage() {
     perPage: 10,
   });
 
-  // ===== REFS =====
+  // ===== CÁC REF =====
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // ===== FOCUS MANAGEMENT =====
+  // ===== QUẢN LÝ FOCUS =====
   const focusInput = useCallback((options: FocusOptions = {}) => {
     setTimeout(() => {
       if (searchInputRef.current) {
@@ -64,7 +64,7 @@ export default function UsersPage() {
     }, 100);
   }, []);
 
-  // ===== SEARCH FUNCTION =====
+  // ===== HÀM TÌM KIẾM =====
   const performSearch = useCallback(
     async (
       searchTerm: string,
@@ -111,7 +111,7 @@ export default function UsersPage() {
         );
         setError(null);
 
-        // Focus management
+        // Quản lý focus
         if (focusOptions?.preserve) {
           focusInput(focusOptions);
         }
@@ -136,24 +136,24 @@ export default function UsersPage() {
     [focusInput]
   );
 
-  // ===== DEBOUNCED SEARCH =====
+  // ===== TÌM KIẾM DEBOUNCED =====
   const debouncedSearch = useMemo(
     () =>
       debounce((searchTerm: string, status: string, limit: number) => {
         performSearch(searchTerm, status, limit, 1, { preserve: true });
-      }, 500),
+      }, 300), // ✅ Giảm từ 500ms xuống 300ms
     [performSearch]
   );
 
-  // ===== SEARCH LOGIC HANDLER =====
+  // ===== HÀM XỬ LÝ LOGIC TÌM KIẾM =====
   const handleSearchLogic = useCallback(
     (value: string) => {
-      // Clear previous timeout
+      // Xóa timeout trước đó
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
 
-      // Set new timeout
+      // Đặt timeout mới
       searchTimeoutRef.current = setTimeout(() => {
         if (value.length === 0) {
           debouncedSearch.cancel();
@@ -166,9 +166,9 @@ export default function UsersPage() {
     [debouncedSearch, performSearch, statusFilter, pageLimit]
   );
 
-  // ===== EVENT HANDLERS =====
+  // ===== CÁC HÀM XỬ LÝ SỰ KIỆN =====
 
-  // Search input change
+  // Thay đổi input tìm kiếm
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
@@ -181,7 +181,7 @@ export default function UsersPage() {
     [isComposing, handleSearchLogic]
   );
 
-  // IME Composition events
+  // Sự kiện IME Composition
   const handleCompositionStart = useCallback(() => {
     setIsComposing(true);
 
@@ -201,9 +201,9 @@ export default function UsersPage() {
     [handleSearchLogic]
   );
 
-  // Refresh - Reset tất cả về mặc định
+  // Làm mới - Reset tất cả về mặc định
   const handleRefresh = useCallback(() => {
-    // Clear all states
+    // Xóa tất cả states
     setSearchValue("");
     setStatusFilter("all");
     setPageLimit(10);
@@ -214,26 +214,14 @@ export default function UsersPage() {
     }
     debouncedSearch.cancel();
 
-    // Reload with default values
+    // Tải lại với giá trị mặc định
     performSearch("", "all", 10, 1, { preserve: false });
   }, [debouncedSearch, performSearch]);
 
-  // Keyboard shortcuts
+  // ✅ SỬA: Chỉ xử lý phím Enter
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
-      // Ctrl/Cmd + K to focus and select all
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-        e.preventDefault();
-        focusInput({ selectAll: true });
-      }
-
-      // Escape to refresh (clear all filters)
-      if (e.key === "Escape") {
-        e.preventDefault();
-        handleRefresh();
-      }
-
-      // Enter to search immediately
+      // ✅ CHỈ XỬ LÝ PHÍM ENTER
       if (e.key === "Enter") {
         e.preventDefault();
         const value = e.currentTarget.value;
@@ -250,17 +238,10 @@ export default function UsersPage() {
         }
       }
     },
-    [
-      focusInput,
-      handleRefresh,
-      debouncedSearch,
-      performSearch,
-      statusFilter,
-      pageLimit,
-    ]
+    [debouncedSearch, performSearch, statusFilter, pageLimit]
   );
 
-  // Status filter change
+  // Thay đổi bộ lọc trạng thái
   const handleStatusChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
       const value = e.target.value;
@@ -276,12 +257,12 @@ export default function UsersPage() {
     [debouncedSearch, performSearch, searchValue, pageLimit]
   );
 
-  // Page limit change handler
+  // Xử lý thay đổi giới hạn trang
   const handlePageLimitChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
       const value = parseInt(e.target.value);
       setPageLimit(value);
-      setCurrentPage(1); // Reset to first page
+      setCurrentPage(1); // Reset về trang đầu
 
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
@@ -293,7 +274,7 @@ export default function UsersPage() {
     [debouncedSearch, performSearch, searchValue, statusFilter]
   );
 
-  // Pagination
+  // Phân trang
   const handlePageChange = useCallback(
     (newPage: number) => {
       performSearch(searchValue, statusFilter, pageLimit, newPage);
@@ -301,7 +282,7 @@ export default function UsersPage() {
     [performSearch, searchValue, statusFilter, pageLimit]
   );
 
-  // Toggle user status
+  // Chuyển đổi trạng thái người dùng
   const handleToggleUserStatus = useCallback(
     async (userId: number, isActive: boolean) => {
       try {
@@ -327,7 +308,7 @@ export default function UsersPage() {
           );
         }
 
-        // Update local state
+        // Cập nhật state local
         setUsers((prevUsers) =>
           prevUsers.map((user) =>
             user.id === userId ? { ...user, isActive: !isActive } : user
@@ -352,9 +333,9 @@ export default function UsersPage() {
     [showToast]
   );
 
-  // ===== EFFECTS =====
+  // ===== CÁC EFFECT =====
 
-  // Initial load
+  // Tải dữ liệu ban đầu
   useEffect(() => {
     performSearch("", "all", pageLimit, 1);
 
@@ -366,7 +347,7 @@ export default function UsersPage() {
     };
   }, [performSearch, debouncedSearch, pageLimit]);
 
-  // ===== COMPUTED VALUES =====
+  // ===== GIÁ TRỊ TÍNH TOÁN =====
 
   const formattedUsers = useMemo(
     () =>
@@ -391,7 +372,7 @@ export default function UsersPage() {
 
   const breadcrumbItems = useMemo(
     () => [
-      { label: "Home", href: "/admin" },
+      { label: "Trang chủ", href: "/admin" },
       { label: "Quản lý người dùng", active: true },
     ],
     []
@@ -400,7 +381,7 @@ export default function UsersPage() {
   const hasFilters = searchValue || statusFilter !== "all" || pageLimit !== 10;
   const hasResults = formattedUsers.length > 0;
 
-  // Pagination info using currentPage
+  // Thông tin phân trang sử dụng currentPage
   const paginationInfo = useMemo(() => {
     const startIndex = (currentPage - 1) * pagination.perPage + 1;
     const endIndex = Math.min(
@@ -420,7 +401,7 @@ export default function UsersPage() {
   // ===== RENDER =====
   return (
     <AdminLayout title="Quản lý người dùng">
-      {/* Content Header */}
+      {/* Header nội dung */}
       <div className="content-header">
         <div className="container-fluid">
           <div className="row mb-2">
@@ -434,10 +415,10 @@ export default function UsersPage() {
         </div>
       </div>
 
-      {/* Main content */}
+      {/* Nội dung chính */}
       <section className="content">
         <div className="container-fluid">
-          {/* Search & Filter Card */}
+          {/* Card tìm kiếm & lọc */}
           <div className="card">
             <div className="card-header">
               <h3 className="card-title">
@@ -458,7 +439,7 @@ export default function UsersPage() {
 
             <div className="card-body">
               <div className="row">
-                {/* Search Input */}
+                {/* Ô tìm kiếm */}
                 <div className="col-md-6">
                   <div className="form-group">
                     <label htmlFor="search-input">
@@ -473,7 +454,7 @@ export default function UsersPage() {
                         className={`form-control ${
                           isSearching ? "border-primary" : ""
                         }`}
-                        placeholder="Email, tên, số điện thoại... (Ctrl+K, Enter, Esc)"
+                        placeholder="Email, tên, số điện thoại... (Nhấn Enter để tìm)"
                         value={searchValue}
                         onChange={handleSearchChange}
                         onCompositionStart={handleCompositionStart}
@@ -488,7 +469,7 @@ export default function UsersPage() {
                           className="btn btn-outline-secondary"
                           onClick={handleRefresh}
                           disabled={loading}
-                          title="Làm mới / Xóa bộ lọc (Esc)"
+                          title="Làm mới dữ liệu và xóa bộ lọc"
                         >
                           <i
                             className={`fas ${
@@ -501,7 +482,7 @@ export default function UsersPage() {
                   </div>
                 </div>
 
-                {/* Status Filter */}
+                {/* Bộ lọc trạng thái */}
                 <div className="col-md-3">
                   <div className="form-group">
                     <label htmlFor="status-filter">
@@ -522,7 +503,7 @@ export default function UsersPage() {
                   </div>
                 </div>
 
-                {/* Page Limit Filter */}
+                {/* Bộ lọc giới hạn trang */}
                 <div className="col-md-3">
                   <div className="form-group">
                     <label htmlFor="page-limit">
@@ -548,7 +529,7 @@ export default function UsersPage() {
             </div>
           </div>
 
-          {/* Users List Card */}
+          {/* Card danh sách người dùng */}
           <div className="card">
             <div className="card-header">
               <h3 className="card-title">
@@ -607,6 +588,7 @@ export default function UsersPage() {
                       <th>Đơn hàng</th>
                       <th>Chi tiêu (VNĐ)</th>
                       <th>Trạng thái</th>
+                      <th>Ngày tạo</th>
                       <th>Thao tác</th>
                     </tr>
                   </thead>
@@ -741,7 +723,7 @@ export default function UsersPage() {
               )}
             </div>
 
-            {/* Pagination - Always show when hasResults */}
+            {/* Phân trang - Luôn hiển thị khi có kết quả */}
             {!loading && hasResults && (
               <div className="card-footer clearfix">
                 <div className="float-left">
@@ -762,7 +744,7 @@ export default function UsersPage() {
                 </div>
 
                 <ul className="pagination pagination-sm m-0 float-right">
-                  {/* Previous Button */}
+                  {/* Nút trang trước */}
                   <li
                     className={`page-item ${
                       paginationInfo.isFirstPage ? "disabled" : ""
@@ -778,7 +760,7 @@ export default function UsersPage() {
                     </button>
                   </li>
 
-                  {/* Page Numbers */}
+                  {/* Số trang */}
                   {Array.from(
                     { length: Math.min(pagination.pages, 5) },
                     (_, i) => {
@@ -811,7 +793,7 @@ export default function UsersPage() {
                     }
                   )}
 
-                  {/* Next Button */}
+                  {/* Nút trang sau */}
                   <li
                     className={`page-item ${
                       paginationInfo.isLastPage ? "disabled" : ""
@@ -833,7 +815,7 @@ export default function UsersPage() {
         </div>
       </section>
 
-      {/* Toast notifications */}
+      {/* Thông báo Toast */}
       {Toast}
     </AdminLayout>
   );

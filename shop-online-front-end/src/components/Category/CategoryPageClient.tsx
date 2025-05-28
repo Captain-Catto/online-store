@@ -279,7 +279,6 @@ export default function CategoryPageClient({ slug }: CategoryClientProps) {
         if (filters.price.max > 0) {
           apiFilters.maxPrice = filters.price.max.toString();
         }
-        console.log("apiFilters", apiFilters);
 
         if (sortOption) {
           apiFilters.sort = sortOption;
@@ -291,7 +290,6 @@ export default function CategoryPageClient({ slug }: CategoryClientProps) {
           itemsPerPage,
           apiFilters
         );
-        console.log("response", response);
 
         const {
           products: productsData,

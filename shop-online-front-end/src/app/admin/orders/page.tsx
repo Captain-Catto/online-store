@@ -11,7 +11,7 @@ import { formatDateDisplay } from "@/utils/dateUtils";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
 import debounce from "lodash/debounce";
 
-// ===== INTERFACES ===== (same as before)
+// ===== ĐỊNH NGHĨA INTERFACE =====
 interface OrderDetail {
   id: number;
   productId: number;
@@ -78,7 +78,7 @@ export default function OrdersPage() {
   const { showToast, Toast } = useToast();
   const router = useRouter();
 
-  // ===== STATES =====
+  // ===== KHAI BÁO STATE =====
   const [searchValue, setSearchValue] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [pageLimit, setPageLimit] = useState(10);
@@ -90,10 +90,10 @@ export default function OrdersPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [dateRange, setDateRange] = useState({ from: "", to: "" });
 
-  // ✅ ADD: Flag to prevent duplicate calls
+  // ✅ THÊM: Cờ để tránh gọi API trùng lặp
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // ===== CONSTANTS =====
+  // ===== CÁC HẰNG SỐ =====
   const pageLimitOptions = [5, 10, 20, 50, 100];
 
   const orderStatuses = [
@@ -105,7 +105,7 @@ export default function OrdersPage() {
     { value: "cancelled", label: "Đã hủy" },
   ];
 
-  // ===== PAGINATION STATE =====
+  // ===== TRẠNG THÁI PHÂN TRANG =====
   const [pagination, setPagination] = useState<Pagination>({
     total: 0,
     totalPages: 1,
@@ -113,13 +113,13 @@ export default function OrdersPage() {
     perPage: 10,
   });
 
-  // ===== REFS =====
+  // ===== CÁC REF =====
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  // ✅ ADD: Ref to track if API call is in progress
+  // ✅ THÊM: Ref để theo dõi trạng thái gọi API
   const apiCallInProgressRef = useRef(false);
 
-  // ===== HELPER FUNCTIONS =====
+  // ===== CÁC HÀM TIỆN ÍCH =====
   const getUserRole = () => {
     if (typeof window !== "undefined") {
       const user = localStorage.getItem("user");
@@ -147,7 +147,7 @@ export default function OrdersPage() {
     return statusMap[status] || { label: status, cssClass: "bg-secondary" };
   };
 
-  // ===== FOCUS MANAGEMENT =====
+  // ===== QUẢN LÝ FOCUS =====
   const focusInput = useCallback((options: FocusOptions = {}) => {
     setTimeout(() => {
       if (searchInputRef.current) {
@@ -163,7 +163,7 @@ export default function OrdersPage() {
     }, 100);
   }, []);
 
-  // ===== SEARCH FUNCTION ===== (✅ Updated with duplicate prevention)
+  // ===== HÀM TÌM KIẾM ===== (✅ Cập nhật với cơ chế tránh trùng lặp)
   const performSearch = useCallback(
     async (
       searchTerm: string,
@@ -174,14 +174,12 @@ export default function OrdersPage() {
       dateTo = "",
       focusOptions?: FocusOptions
     ) => {
-      // ✅ Prevent duplicate API calls
       if (apiCallInProgressRef.current) {
-        console.log("API call already in progress, skipping...");
         return;
       }
 
       try {
-        apiCallInProgressRef.current = true; // ✅ Set flag
+        apiCallInProgressRef.current = true; // ✅ Đặt cờ
         setLoading(true);
         setIsSearching(true);
         setCurrentPage(page);
@@ -190,7 +188,7 @@ export default function OrdersPage() {
 
         let response: { orders: Order[]; pagination: Pagination };
 
-        // ✅ Clean status value properly
+        // ✅ Làm sạch giá trị status
         const cleanStatus = status === "all" ? "" : status;
 
         if (role === 1) {
@@ -214,8 +212,8 @@ export default function OrdersPage() {
         } else {
           throw new Error("Bạn không có quyền truy cập trang này.");
         }
-        console.log("API response:", response);
-        // Format orders
+
+        // Định dạng dữ liệu đơn hàng
         const formattedOrders = response.orders.map((order: Order) => {
           const statusInfo = getStatusInfo(order.status);
           const formattedDate = formatDateDisplay(order.createdAt);
@@ -269,13 +267,13 @@ export default function OrdersPage() {
       } finally {
         setLoading(false);
         setIsSearching(false);
-        apiCallInProgressRef.current = false; // ✅ Reset flag
+        apiCallInProgressRef.current = false; // ✅ Reset cờ
       }
     },
     [focusInput]
   );
 
-  // ===== DEBOUNCED SEARCH ===== (✅ Reduced debounce time)
+  // ===== TÌM KIẾM DEBOUNCED ===== (✅ Giảm thời gian debounce)
   const debouncedSearch = useMemo(
     () =>
       debounce(
@@ -290,20 +288,20 @@ export default function OrdersPage() {
             preserve: true,
           });
         },
-        300 // ✅ Reduced from 500ms to 300ms
+        300 // ✅ Giảm từ 500ms xuống 300ms
       ),
     [performSearch]
   );
 
-  // ===== SEARCH LOGIC HANDLER ===== (✅ Improved)
+  // ===== HÀM XỬ LÝ LOGIC TÌM KIẾM ===== (✅ Cải thiện)
   const handleSearchLogic = useCallback(
     (value: string) => {
-      // ✅ Cancel previous timeout
+      // ✅ Hủy timeout trước đó
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
 
-      // ✅ Cancel previous debounced call
+      // ✅ Hủy debounced call trước đó
       debouncedSearch.cancel();
 
       searchTimeoutRef.current = setTimeout(() => {
@@ -331,7 +329,7 @@ export default function OrdersPage() {
     [debouncedSearch, performSearch, statusFilter, pageLimit, dateRange]
   );
 
-  // ===== EVENT HANDLERS ===== (✅ All handlers updated to prevent duplicates)
+  // ===== CÁC HÀM XỬ LÝ SỰ KIỆN ===== (✅ Tất cả handlers đã cập nhật để tránh trùng lặp)
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -364,46 +362,38 @@ export default function OrdersPage() {
   );
 
   const handleRefresh = useCallback(() => {
-    // ✅ Clear all timeouts and cancel debounced calls
+    // ✅ Xóa tất cả timeout và hủy debounced calls
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
     debouncedSearch.cancel();
 
-    // ✅ Reset all states
+    // ✅ Reset tất cả states
     setSearchValue("");
     setStatusFilter("all");
     setPageLimit(10);
     setCurrentPage(1);
     setDateRange({ from: "", to: "" });
 
-    // ✅ Immediate search with default values
+    // ✅ Tìm kiếm ngay lập tức với giá trị mặc định
     performSearch("", "all", 10, 1, "", "", { preserve: false });
   }, [debouncedSearch, performSearch]);
 
+  // ✅ SỬA: Chỉ xử lý phím Enter
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-        e.preventDefault();
-        focusInput({ selectAll: true });
-      }
-
-      if (e.key === "Escape") {
-        e.preventDefault();
-        handleRefresh();
-      }
-
+      // ✅ CHỈ XỬ LÝ PHÍM ENTER
       if (e.key === "Enter") {
         e.preventDefault();
         const value = e.currentTarget.value;
 
-        // ✅ Cancel previous calls
+        // ✅ Hủy bỏ các tìm kiếm trước đó
         if (searchTimeoutRef.current) {
           clearTimeout(searchTimeoutRef.current);
         }
         debouncedSearch.cancel();
 
-        // ✅ Immediate search
+        // ✅ Tìm kiếm ngay lập tức khi nhấn Enter
         performSearch(
           value.trim(),
           statusFilter,
@@ -415,33 +405,25 @@ export default function OrdersPage() {
         );
       }
     },
-    [
-      focusInput,
-      handleRefresh,
-      debouncedSearch,
-      performSearch,
-      statusFilter,
-      pageLimit,
-      dateRange,
-    ]
+    [debouncedSearch, performSearch, statusFilter, pageLimit, dateRange]
   );
 
-  // ✅ UPDATED: Page limit change handler with better cleanup
+  // ✅ CẬP NHẬT: Xử lý thay đổi page limit với cleanup tốt hơn
   const handlePageLimitChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
       const value = parseInt(e.target.value);
 
-      // ✅ Cancel all pending operations first
+      // ✅ Hủy tất cả operations đang chờ trước
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
       debouncedSearch.cancel();
 
-      // ✅ Update states
+      // ✅ Cập nhật states
       setPageLimit(value);
       setCurrentPage(1);
 
-      // ✅ Immediate search with new limit
+      // ✅ Tìm kiếm ngay lập tức với limit mới
       performSearch(
         searchValue,
         statusFilter,
@@ -458,7 +440,7 @@ export default function OrdersPage() {
     (e: React.ChangeEvent<HTMLSelectElement>) => {
       const value = e.target.value;
 
-      // ✅ Cancel pending operations
+      // ✅ Hủy operations đang chờ
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
@@ -481,7 +463,7 @@ export default function OrdersPage() {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
 
-      // ✅ Cancel pending operations
+      // ✅ Hủy operations đang chờ
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
@@ -511,7 +493,7 @@ export default function OrdersPage() {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
 
-      // ✅ Cancel pending operations
+      // ✅ Hủy operations đang chờ
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
@@ -570,15 +552,15 @@ export default function OrdersPage() {
     [showToast]
   );
 
-  // ===== EFFECTS ===== (✅ Updated to prevent duplicate initial calls)
+  // ===== CÁC EFFECT ===== (✅ Cập nhật để tránh gọi initial calls trùng lặp)
   useEffect(() => {
-    // ✅ Only run once when component mounts
+    // ✅ Chỉ chạy một lần khi component mount
     if (!isInitialized) {
       setIsInitialized(true);
       performSearch("", "all", pageLimit, 1, "", "");
     }
 
-    // ✅ Cleanup function
+    // ✅ Hàm cleanup
     return () => {
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
@@ -588,10 +570,10 @@ export default function OrdersPage() {
     };
   }, [isInitialized, performSearch, debouncedSearch, pageLimit]);
 
-  // ===== COMPUTED VALUES =====
+  // ===== GIÁ TRỊ TÍNH TOÁN =====
   const breadcrumbItems = useMemo(
     () => [
-      { label: "Home", href: "/admin" },
+      { label: "Trang chủ", href: "/admin" },
       { label: "Quản lý đơn hàng", active: true },
     ],
     []
@@ -620,10 +602,10 @@ export default function OrdersPage() {
     };
   }, [currentPage, pagination]);
 
-  // ===== RENDER ===== (same JSX as before)
+  // ===== RENDER =====
   return (
     <AdminLayout title="Quản lý đơn hàng">
-      {/* Content Header */}
+      {/* Header nội dung */}
       <div className="content-header">
         <div className="container-fluid">
           <div className="row mb-2">
@@ -637,10 +619,10 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      {/* Main content */}
+      {/* Nội dung chính */}
       <section className="content">
         <div className="container-fluid">
-          {/* Search & Filter Card */}
+          {/* Card tìm kiếm và lọc */}
           <div className="card">
             <div className="card-header">
               <h3 className="card-title">
@@ -661,7 +643,7 @@ export default function OrdersPage() {
 
             <div className="card-body">
               <div className="row">
-                {/* Search Input */}
+                {/* Ô tìm kiếm */}
                 <div className="col-md-4">
                   <div className="form-group">
                     <label htmlFor="search-input">
@@ -676,7 +658,7 @@ export default function OrdersPage() {
                         className={`form-control ${
                           isSearching ? "border-primary" : ""
                         }`}
-                        placeholder="Mã đơn hàng, tên khách hàng, SĐT... (Ctrl+K, Enter, Esc)"
+                        placeholder="Mã đơn hàng, tên khách hàng, SĐT... (Nhấn Enter để tìm)"
                         value={searchValue}
                         onChange={handleSearchChange}
                         onCompositionStart={handleCompositionStart}
@@ -691,7 +673,7 @@ export default function OrdersPage() {
                           className="btn btn-outline-secondary"
                           onClick={handleRefresh}
                           disabled={loading}
-                          title="Làm mới / Xóa bộ lọc (Esc)"
+                          title="Làm mới dữ liệu và xóa bộ lọc"
                         >
                           <i
                             className={`fas ${
@@ -704,7 +686,7 @@ export default function OrdersPage() {
                   </div>
                 </div>
 
-                {/* Status Filter */}
+                {/* Lọc trạng thái */}
                 <div className="col-md-2">
                   <div className="form-group">
                     <label htmlFor="status-filter">
@@ -727,7 +709,7 @@ export default function OrdersPage() {
                   </div>
                 </div>
 
-                {/* Date From */}
+                {/* Từ ngày */}
                 <div className="col-md-2">
                   <div className="form-group">
                     <label htmlFor="date-from">
@@ -745,7 +727,7 @@ export default function OrdersPage() {
                   </div>
                 </div>
 
-                {/* Date To */}
+                {/* Đến ngày */}
                 <div className="col-md-2">
                   <div className="form-group">
                     <label htmlFor="date-to">
@@ -763,7 +745,7 @@ export default function OrdersPage() {
                   </div>
                 </div>
 
-                {/* Page Limit Filter */}
+                {/* Lọc số dòng hiển thị */}
                 <div className="col-md-2">
                   <div className="form-group">
                     <label htmlFor="page-limit">
@@ -789,7 +771,7 @@ export default function OrdersPage() {
             </div>
           </div>
 
-          {/* Orders List Card */}
+          {/* Card danh sách đơn hàng */}
           <div className="card">
             <div className="card-header">
               <h3 className="card-title">
@@ -942,7 +924,7 @@ export default function OrdersPage() {
               )}
             </div>
 
-            {/* Pagination */}
+            {/* Phân trang */}
             {!loading && (
               <div className="card-footer clearfix">
                 <div className="float-left">

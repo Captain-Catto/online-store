@@ -209,7 +209,6 @@ export const AuthService = {
 
       return data;
     } catch (error) {
-      console.error("Forgot password error:", error);
       throw error;
     }
   },

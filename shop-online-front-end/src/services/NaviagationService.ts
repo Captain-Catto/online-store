@@ -149,8 +149,6 @@ export class NavigationService {
         return { message: "Đã xóa menu thành công" };
       }
     } catch (error) {
-      console.error("Error deleting menu item:", error);
-
       // Trả về message lỗi thay vì throw
       if (error instanceof Error) {
         return { message: error.message };

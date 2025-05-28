@@ -278,7 +278,6 @@ const MyOrders: React.FC<{
 
   const orders = ordersData?.orders || [];
   const pagination = ordersData?.pagination;
-  console.log("Orders:", orders);
 
   // Hàm xử lý chuyển trạng thái từ API sang hiển thị UI
   const getOrderStatus = (status: string) => {

@@ -31,7 +31,6 @@ const ProductHeader: React.FC<ProductHeaderProps> = memo(
       return null;
     };
     const userRole = getUserRole();
-    console.log("User role:", userRole);
 
     return (
       <>

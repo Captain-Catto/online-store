@@ -111,14 +111,6 @@ export default function VoucherManagementPage() {
           filters.search = searchTerm.trim();
         }
 
-        console.log("🔍 PERFORM SEARCH:", {
-          searchTerm,
-          status,
-          type,
-          page,
-          filters,
-        });
-
         const response = await VoucherService.getVouchersWithPagination(
           page,
           itemsPerPage,
@@ -141,7 +133,6 @@ export default function VoucherManagementPage() {
           focusInput(focusOptions);
         }
       } catch (error) {
-        console.error("❌ Search error:", error);
         setError(
           error instanceof Error
             ? error.message
@@ -166,7 +157,6 @@ export default function VoucherManagementPage() {
   const debouncedSearch = useMemo(
     () =>
       debounce((searchTerm: string, status: string, type: string) => {
-        console.log("⏰ DEBOUNCED SEARCH:", { searchTerm, status, type });
         performSearch(searchTerm, status, type, 1, { preserve: true });
       }, 500),
     [performSearch]
@@ -200,13 +190,6 @@ export default function VoucherManagementPage() {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
 
-      console.log("📝 INPUT CHANGE:", {
-        value,
-        length: value.length,
-        isComposing,
-        timestamp: new Date().toISOString(),
-      });
-
       setSearchValue(value);
 
       if (!isComposing) {
@@ -218,7 +201,6 @@ export default function VoucherManagementPage() {
 
   // IME Composition events
   const handleCompositionStart = useCallback(() => {
-    console.log("🈯 COMPOSITION START");
     setIsComposing(true);
 
     if (searchTimeoutRef.current) {
@@ -229,7 +211,6 @@ export default function VoucherManagementPage() {
   const handleCompositionEnd = useCallback(
     (e: React.CompositionEvent<HTMLInputElement>) => {
       const value = e.currentTarget.value;
-      console.log("🈯 COMPOSITION END:", value);
 
       setIsComposing(false);
       setSearchValue(value);
@@ -241,8 +222,6 @@ export default function VoucherManagementPage() {
 
   // ✅ Refresh thay cho Clear Filters - Reset tất cả về mặc định
   const handleRefresh = useCallback(() => {
-    console.log("🔄 REFRESH: Resetting all filters and reloading...");
-
     // Clear all states
     setSearchValue("");
     setStatusFilter("all");
@@ -366,7 +345,6 @@ export default function VoucherManagementPage() {
       return;
     }
 
-    console.log("🚀 INITIAL LOAD: Starting...");
     performSearch("", "all", "all", 1);
 
     return () => {
