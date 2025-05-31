@@ -15,6 +15,7 @@ import {
   setMainProductImage,
   updateProductVariants,
   getProductBreadcrumb,
+  searchProducts,
 } from "../controllers/Product.controller";
 import {
   getAllSizes,
@@ -31,6 +32,7 @@ const router = Router();
 
 // Public routes
 router.get("/", getProductsWithVariants);
+router.get("/search", searchProducts);
 router.get("/suitabilities", getSuitabilities);
 router.get("/variants/:id", getProductVariantsById);
 router.get("/category/:categoryId", getProductsByCategory);

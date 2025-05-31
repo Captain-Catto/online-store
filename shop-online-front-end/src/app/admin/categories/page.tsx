@@ -8,6 +8,8 @@ import Breadcrumb from "@/components/admin/shared/Breadcrumb";
 import Image from "next/image";
 import ConfirmModal from "@/components/admin/shared/ConfirmModal";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
+import { useRouter } from "next/navigation";
+import { AuthService } from "@/services/AuthService";
 
 // Define interfaces outside the component
 interface Category {
@@ -33,7 +35,7 @@ interface CategoryFormData {
 
 export default function CategoriesManagement() {
   const { showToast, Toast } = useToast();
-
+  const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [showForm, setShowForm] = useState<boolean>(false);
@@ -81,6 +83,12 @@ export default function CategoriesManagement() {
     itemId: null as string | number | null,
     itemName: "", // Lưu tên để hiển thị trong xác nhận
   });
+
+  useEffect(() => {
+    if (!AuthService.isAdmin()) {
+      router.push("/login");
+    }
+  }, [router]);
 
   // Fetch categories on component mount
   useEffect(() => {

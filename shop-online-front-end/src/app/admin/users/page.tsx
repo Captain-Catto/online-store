@@ -12,6 +12,8 @@ import LoadingSpinner from "@/components/UI/LoadingSpinner";
 import { useToast } from "@/utils/useToast";
 import debounce from "lodash/debounce";
 import { mapUserRole, mapUserRoleColor } from "@/utils/orderUtils";
+import { AuthService } from "@/services/AuthService";
+import { useRouter } from "next/navigation";
 
 interface FocusOptions {
   preserve?: boolean;
@@ -20,7 +22,7 @@ interface FocusOptions {
 
 export default function UsersPage() {
   const { showToast, Toast } = useToast();
-
+  const router = useRouter();
   // ===== KHAI BÁO STATE =====
   const [searchValue, setSearchValue] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -47,6 +49,13 @@ export default function UsersPage() {
   // ===== CÁC REF =====
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // ===== KIỂM TRA QUYỀN TRUY CẬP =====
+  useEffect(() => {
+    if (!AuthService.isAdmin()) {
+      router.push("/login");
+    }
+  }, [router]);
 
   // ===== QUẢN LÝ FOCUS =====
   const focusInput = useCallback((options: FocusOptions = {}) => {

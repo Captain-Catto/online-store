@@ -56,6 +56,7 @@ export default function AdminDashboardPage() {
 
         // Fetch orders data
         const orders = await OrderService.getAdminOrders();
+        console.log("orders", orders);
 
         // setTotalUsers để hiển thị cho stat card
         setTotalUsers(orders.pagination?.total || 0);
@@ -83,6 +84,8 @@ export default function AdminDashboardPage() {
           return {
             id: order.id,
             userId: order.userId || "Unknown",
+            shippingFullName: order.shippingFullName || "Unknown User",
+            shippingPhoneNumber: order.shippingPhoneNumber || "Chưa rõ",
             status: mapOrderStatus(order.status),
             statusClass: getStatusClass(order.status),
             total: formatCurrency(order.total || 0),

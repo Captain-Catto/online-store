@@ -30,10 +30,12 @@ import { useNavigation } from "@/contexts/NavigationContext";
 import { useToast } from "@/utils/useToast";
 import ConfirmModal from "@/components/admin/shared/ConfirmModal";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
+import { useRouter } from "next/navigation";
+import { AuthService } from "@/services/AuthService";
 
 export default function NavigationManagement() {
   const { showToast, Toast } = useToast();
-
+  const router = useRouter();
   const [menuItems, setMenuItems] = useState<NavigationMenuItem[]>([]);
   interface Category {
     id: number;
@@ -83,6 +85,12 @@ export default function NavigationManagement() {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  useEffect(() => {
+    if (!AuthService.isAdmin()) {
+      router.push("/login");
+    }
+  }, [router]);
 
   // Tải danh sách menu và categories
   useEffect(() => {

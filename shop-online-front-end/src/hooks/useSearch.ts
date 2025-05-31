@@ -20,7 +20,7 @@ export function useSearch() {
     setError(null);
 
     try {
-      const response = await ProductService.getProducts(1, 8, {
+      const response = await ProductService.searchProducts(1, 8, {
         search: query,
       });
       setProducts(response.products || []);

@@ -10,6 +10,7 @@ import { API_BASE_URL } from "@/config/apiConfig";
 import { Order } from "@/types/order";
 import { UserAdminApi, UserNote } from "@/types/user";
 import { UserService } from "@/services/UserService";
+import { AuthService } from "@/services/AuthService";
 
 // Import components
 import UserProfileSummary from "@/components/admin/users/UserProfileSummary";
@@ -20,9 +21,11 @@ import NotesTab from "@/components/admin/users/NotesTab";
 import StatusToggleModal from "@/components/admin/users/modals/StatusToggleModal";
 import DeleteNoteModal from "@/components/admin/users/modals/DeleteNoteModal";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
+import { useRouter } from "next/navigation";
 
 export default function UserDetailPage() {
   const { id } = useParams() as { id: string };
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("info");
 
   // User data state
@@ -89,6 +92,12 @@ export default function UserDetailPage() {
   });
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!AuthService.isAdmin()) {
+      router.push("/login");
+    }
+  }, [router]);
 
   // Cập nhật dữ liệu form khi user thay đổi hoặc khi bắt đầu chỉnh sửa
   useEffect(() => {

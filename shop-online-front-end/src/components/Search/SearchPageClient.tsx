@@ -59,7 +59,7 @@ function SearchPageClient({ initialQuery }: SearchPageClientProps) {
           params.sort = sortOption;
         }
 
-        const response = await ProductService.getProducts(
+        const response = await ProductService.searchProducts(
           currentPage,
           productsPerPage,
           params

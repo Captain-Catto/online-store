@@ -2466,3 +2466,291 @@ export const getProductBreadcrumb = async (
     res.status(500).json({ message: error.message });
   }
 };
+
+/**
+ * Tìm kiếm sản phẩm (loại bỏ sản phẩm draft)
+ *
+ * Quy trình:
+ * 1. Lấy tham số tìm kiếm và lọc
+ * 2. Xây dựng điều kiện where (loại bỏ status draft)
+ * 3. Thực hiện tìm kiếm với các include cần thiết
+ * 4. Format và trả về kết quả
+ *
+ * @param req - Request chứa các tham số tìm kiếm
+ * @param res - Response trả về danh sách sản phẩm tìm được
+ */
+export const searchProducts = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    // Lấy query parameters
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const search = req.query.search as string;
+    const category = req.query.category as string;
+    const brand = req.query.brand as string;
+    const featured =
+      req.query.featured === "true"
+        ? true
+        : req.query.featured === "false"
+        ? false
+        : null;
+    const color = req.query.color as string;
+    const sizeParam = req.query.size as string;
+    const sizes = sizeParam ? sizeParam.split(",") : [];
+    const suitabilityParam = req.query.suitability as string;
+    const suitabilities = suitabilityParam ? suitabilityParam.split(",") : [];
+    const sort = req.query.sort as string;
+
+    // Thiết lập sắp xếp
+    let order: any[] = [["createdAt", "DESC"]];
+    if (sort) {
+      const [field, direction] = sort.split("_");
+      const validFields = ["name", "createdAt", "price", "featured"];
+      const validDirections = ["asc", "desc"];
+
+      if (
+        validFields.includes(field) &&
+        validDirections.includes(direction?.toLowerCase())
+      ) {
+        if (field === "price") {
+          order = [
+            [
+              { model: ProductDetail, as: "details" },
+              "price",
+              direction.toUpperCase(),
+            ],
+          ];
+        } else {
+          order = [[field, direction.toUpperCase()]];
+        }
+      }
+    }
+
+    const offset = (page - 1) * limit;
+
+    // Xây dựng điều kiện where - LOẠI BỎ DRAFT
+    let where: any = {
+      status: { [Op.ne]: "draft" }, // Loại bỏ sản phẩm draft
+    };
+
+    // Xây dựng include
+    const include: any[] = [];
+
+    // Thêm điều kiện tìm kiếm
+    if (search) {
+      where = {
+        ...where,
+        [Op.or]: [
+          { name: { [Op.like]: `%${search}%` } },
+          { sku: { [Op.like]: `%${search}%` } },
+        ],
+      };
+    }
+
+    if (brand) {
+      where.brand = brand;
+    }
+
+    if (featured === true) {
+      where.featured = true;
+    }
+
+    // Suitability include
+    if (suitabilities.length > 0) {
+      include.push({
+        model: Suitability,
+        as: "suitabilities",
+        where: { slug: { [Op.in]: suitabilities } },
+        through: { attributes: [] },
+        required: true,
+      });
+    } else {
+      include.push({
+        model: Suitability,
+        as: "suitabilities",
+        attributes: ["id", "name"],
+        through: { attributes: [] },
+        required: false,
+      });
+    }
+
+    // Category include
+    const categoryInclude: any = {
+      model: Category,
+      as: "categories",
+      attributes: ["id", "name"],
+      through: { attributes: [] },
+    };
+
+    if (category) {
+      categoryInclude.where = { id: category };
+    }
+
+    include.push(categoryInclude);
+
+    // ProductDetail include với lọc
+    const detailsInclude: any = {
+      model: ProductDetail,
+      as: "details",
+      include: [
+        {
+          model: ProductInventory,
+          as: "inventories",
+          where: sizes.length > 0 ? { size: { [Op.in]: sizes } } : undefined,
+        },
+        { model: ProductImage, as: "images" },
+      ],
+    };
+
+    if (color) {
+      detailsInclude.where = { color };
+    }
+
+    include.push(detailsInclude);
+
+    // Đếm tổng số sản phẩm
+    const count = await Product.count({
+      where,
+      include,
+      distinct: true,
+    } as ExtendedFindOptions);
+
+    // Lấy danh sách sản phẩm
+    const products = await Product.findAll({
+      where,
+      include,
+      limit,
+      offset,
+      order,
+      distinct: true,
+    } as ExtendedFindOptions);
+
+    // Format sản phẩm giống như getProductsWithVariants
+    const formattedProducts = products.map((product: any) => {
+      const details = product.details || [];
+      const uniqueColors = [
+        ...new Set(details.map((detail: any) => detail.color)),
+      ];
+      const uniqueSizes = [
+        ...new Set(
+          details.flatMap((detail: any) =>
+            detail.inventories.map((inv: any) => inv.size)
+          )
+        ),
+      ];
+
+      const totalStock = details.reduce(
+        (sum: number, detail: any) =>
+          sum +
+          detail.inventories.reduce(
+            (detailSum: number, inv: any) => detailSum + inv.stock,
+            0
+          ),
+        0
+      );
+
+      // Tạo variant mapping
+      const variantMap: Record<string, any> = {};
+      uniqueColors.forEach((color) => {
+        const detailWithColor = details.find((d: any) => d.color === color);
+        if (!detailWithColor) return;
+
+        const images = detailWithColor.images || [];
+        const inventories = detailWithColor.inventories || [];
+        const sizeInventory: Record<string, number> = {};
+        const variants = [];
+
+        for (const inv of inventories) {
+          if (inv.stock > 0) {
+            sizeInventory[inv.size] = inv.stock;
+            variants.push({
+              color: color as string,
+              size: inv.size,
+              stock: inv.stock,
+            });
+          }
+        }
+
+        variantMap[color as string] = {
+          detailId: detailWithColor.id,
+          price: detailWithColor.price,
+          originalPrice: detailWithColor.originalPrice,
+          images: images.map((img: any) => ({
+            id: img.id,
+            url: img.url,
+            isMain: img.isMain,
+          })),
+          availableSizes: Object.keys(sizeInventory),
+          inventory: sizeInventory,
+          variants,
+        };
+      });
+
+      // Tính giá tối thiểu
+      const minPrice =
+        details.length > 0
+          ? Math.min(...details.map((detail: any) => detail.price))
+          : 0;
+
+      // Lấy hình ảnh chính
+      const mainImage =
+        details.length > 0 && details[0].images?.length > 0
+          ? details[0].images.find((img: any) => img.isMain)?.url ||
+            details[0].images[0]?.url
+          : "";
+
+      return {
+        id: product.id,
+        name: product.name,
+        sku: product.sku || "",
+        description: product.description || "",
+        categories: product.categories || [],
+        brand: product.brand || "",
+        material: product.material || "",
+        featured: product.featured || false,
+        status: product.status,
+        tags: Array.isArray(product.tags)
+          ? product.tags
+          : typeof product.tags === "string"
+          ? JSON.parse(product.tags)
+          : [],
+        suitability: product.suitabilities
+          ? product.suitabilities.map((s: { name: string }) => s.name)
+          : [],
+        colors: uniqueColors,
+        sizes: uniqueSizes,
+        price: minPrice,
+        mainImage,
+        totalStock,
+        variants: variantMap,
+        createdAt: product.createdAt,
+        updatedAt: product.updatedAt,
+      };
+    });
+
+    res.status(200).json({
+      products: formattedProducts,
+      pagination: {
+        total: count,
+        totalPages: Math.ceil(count / limit),
+        currentPage: page,
+        limit,
+      },
+      filters: {
+        search: search || null,
+        category: category || null,
+        brand: brand || null,
+        featured: featured,
+        color: color || null,
+        size: sizeParam || null,
+        suitability: suitabilityParam || null,
+        sort: sort || null,
+      },
+    });
+  } catch (error: any) {
+    console.error("Search products error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};

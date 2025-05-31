@@ -9,6 +9,7 @@ import { formatCurrency } from "@/utils/currencyUtils";
 import { ReportsService } from "@/services/ReportsService";
 import { colorToVietnamese } from "@/utils/colorUtils";
 import { useRouter } from "next/navigation";
+import { AuthService } from "@/services/AuthService";
 
 interface ProductVariant {
   detailId: number;
@@ -161,6 +162,12 @@ export default function ReportsPage() {
     { label: "Trang chủ", href: "/admin" },
     { label: "Báo cáo & Thống kê", active: true },
   ];
+
+  useEffect(() => {
+    if (!AuthService.isAdmin()) {
+      router.push("/login");
+    }
+  }, [router]);
 
   // Helper function to generate date labels
   const generateDateLabels = (timeRange: string) => {

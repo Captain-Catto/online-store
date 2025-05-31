@@ -15,9 +15,12 @@ import { useToast } from "@/utils/useToast";
 import { getPaymentMethodName, getPaymentStatusName } from "@/types/payment";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
 import { OrderService } from "@/services/OrderService";
+import { useRouter } from "next/navigation";
+import { AuthService } from "@/services/AuthService";
 
 export default function OrderDetailPage() {
   const { id } = useParams() as { id: string };
+  const router = useRouter();
   const [order, setOrder] = useState<Order | null>(null);
   const [orderStatus, setOrderStatus] = useState("");
   const [loading, setLoading] = useState(true);
@@ -51,6 +54,12 @@ export default function OrderDetailPage() {
     { value: "delivered", label: "Đã giao", color: "bg-green-500" },
     { value: "cancelled", label: "Đã hủy", color: "bg-red-500" },
   ];
+
+  useEffect(() => {
+    if (!AuthService.isAdmin()) {
+      router.push("/login");
+    }
+  }, [router]);
 
   const handleClose = useCallback(() => {
     setShowCancelModal(false);

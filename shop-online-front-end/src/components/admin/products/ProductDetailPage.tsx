@@ -10,6 +10,7 @@ import { FormattedProduct } from "./types";
 import { validateProductData } from "@/utils/validateProductData";
 import { getProductErrorMessage } from "@/utils/productErrorHandler";
 import { ProductSize } from "@/types/product";
+import { AuthService } from "@/services/AuthService";
 
 // Import context provider
 import { ProductProvider, useProductContext } from "@/contexts/ProductContext";
@@ -75,6 +76,13 @@ const ProductDetailPageContent: React.FC = () => {
     { value: "XL", label: "XL" },
     { value: "2XL", label: "2XL" },
   ]);
+
+  // kiểm tra quyền
+  useEffect(() => {
+    if (!AuthService.isAdmin()) {
+      router.push("/login");
+    }
+  }, [router]);
 
   // Fetch product data
   const fetchProductData = useCallback(async () => {

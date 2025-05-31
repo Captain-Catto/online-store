@@ -26,10 +26,12 @@ import SortableTableRow from "@/components/admin/settings/SortableMenuRow";
 import { useToast } from "@/utils/useToast";
 import ConfirmModal from "@/components/admin/shared/ConfirmModal";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
+import { useRouter } from "next/navigation";
+import { AuthService } from "@/services/AuthService";
 
 export default function AdminMenuManagement() {
   const { showToast, Toast } = useToast();
-
+  const router = useRouter();
   const [menuItems, setMenuItems] = useState<MenuItemData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +59,12 @@ export default function AdminMenuManagement() {
     itemId: null as number | null,
     itemName: "", // tên mục menu để hiển thị trong modal
   });
+
+  useEffect(() => {
+    if (!AuthService.isAdmin()) {
+      router.push("/login");
+    }
+  }, [router]);
 
   // Cấu hình sensors cho drag and drop
   const sensors = useSensors(

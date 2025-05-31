@@ -12,6 +12,8 @@ import { CategoryService } from "@/services/CategoryService";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
 import { formatDateDisplay } from "@/utils/dateUtils";
 import debounce from "lodash/debounce";
+import { useRouter } from "next/navigation";
+import { AuthService } from "@/services/AuthService";
 
 // ===== ĐỊNH NGHĨA INTERFACE =====
 interface Category {
@@ -34,6 +36,7 @@ interface FocusOptions {
 
 export default function ProductsPage() {
   const { showToast, Toast } = useToast();
+  const router = useRouter();
 
   // ===== KHAI BÁO STATE =====
   const [searchValue, setSearchValue] = useState("");
@@ -87,6 +90,12 @@ export default function ProductsPage() {
   const apiCallInProgressRef = useRef(false);
 
   // ===== CÁC HÀM TIỆN ÍCH =====
+  useEffect(() => {
+    if (!AuthService.isAdmin()) {
+      router.push("/login");
+    }
+  }, [router]);
+
   const getUserRole = () => {
     if (typeof window !== "undefined") {
       const user = localStorage.getItem("user");

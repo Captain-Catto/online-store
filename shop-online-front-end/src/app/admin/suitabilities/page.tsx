@@ -25,6 +25,8 @@ import {
 import SortableSuitabilityRow from "@/components/admin/suitability/SortableSuitabilityRow";
 import ConfirmModal from "@/components/admin/shared/ConfirmModal";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
+import { useRouter } from "next/navigation";
+import { AuthService } from "@/services/AuthService";
 
 // Định nghĩa interface cho đối tượng Suitability
 interface Suitability {
@@ -37,6 +39,7 @@ interface Suitability {
 
 export default function SuitabilitiesManagement() {
   const { showToast, Toast } = useToast();
+  const router = useRouter();
   const [suitabilities, setSuitabilities] = useState<Suitability[]>([]);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState<{
@@ -62,6 +65,12 @@ export default function SuitabilitiesManagement() {
     itemId: null as number | null,
     itemName: "",
   });
+
+  useEffect(() => {
+    if (!AuthService.isAdmin()) {
+      router.push("/login");
+    }
+  }, [router]);
 
   const slugify = (text: string): string => {
     // Chuyển thành chữ thường

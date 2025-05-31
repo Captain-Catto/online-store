@@ -8,6 +8,7 @@ import { CategoryService } from "@/services/CategoryService";
 import { useToast } from "@/utils/useToast";
 import { validateProductData } from "@/utils/validateProductData";
 import { FormattedProduct } from "./types";
+import { AuthService } from "@/services/AuthService";
 
 // Import context provider
 import { ProductProvider, useProductContext } from "@/contexts/ProductContext";
@@ -94,6 +95,12 @@ const AddProductPageContent: React.FC = () => {
     { value: "XL", label: "XL" },
     { value: "2XL", label: "2XL" },
   ]);
+
+  useEffect(() => {
+    if (!AuthService.isAdmin()) {
+      router.push("/login");
+    }
+  }, [router]);
 
   // thiết lập trạng thái sản phẩm ban đầu
   // và trạng thái chỉnh sửa

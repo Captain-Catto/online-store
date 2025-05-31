@@ -10,6 +10,7 @@ import { formatCurrency } from "@/utils/currencyUtils";
 import { formatDateDisplay } from "@/utils/dateUtils";
 import LoadingSpinner from "@/components/UI/LoadingSpinner";
 import debounce from "lodash/debounce";
+import { AuthService } from "@/services/AuthService";
 
 // ===== ĐỊNH NGHĨA INTERFACE =====
 interface OrderDetail {
@@ -120,6 +121,12 @@ export default function OrdersPage() {
   const apiCallInProgressRef = useRef(false);
 
   // ===== CÁC HÀM TIỆN ÍCH =====
+  useEffect(() => {
+    if (!AuthService.isAdmin()) {
+      router.push("/login");
+    }
+  }, [router]);
+
   const getUserRole = () => {
     if (typeof window !== "undefined") {
       const user = localStorage.getItem("user");

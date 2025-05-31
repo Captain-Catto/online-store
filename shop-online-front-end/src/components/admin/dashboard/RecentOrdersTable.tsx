@@ -3,6 +3,8 @@ import Link from "next/link";
 interface Order {
   id: number;
   userId: string | number;
+  shippingFullName: string;
+  shippingPhoneNumber: string;
   status: string;
   statusClass: string;
   total: string;
@@ -25,6 +27,8 @@ export default function RecentOrdersTable({ orders }: RecentOrdersTableProps) {
             <tr>
               <th>Mã đơn hàng</th>
               <th>Trạng thái</th>
+              <th>Tên người nhận</th>
+              <th>Số điện thoại</th>
               <th>Tổng tiền</th>
               <th>Ngày đặt</th>
               <th>Hành động</th>
@@ -39,6 +43,8 @@ export default function RecentOrdersTable({ orders }: RecentOrdersTableProps) {
                     {order.status}
                   </span>
                 </td>
+                <td>{order.shippingFullName}</td>
+                <td>{order.shippingPhoneNumber}</td>
                 <td>{order.total}</td>
                 <td>{order.date}</td>
                 <td>

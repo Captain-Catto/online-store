@@ -72,6 +72,12 @@ export default function VoucherManagementPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  useEffect(() => {
+    if (!AuthService.isAdmin()) {
+      router.push("/login");
+    }
+  }, [router]);
+
   // ===== FOCUS MANAGEMENT =====
   const focusInput = useCallback((options: FocusOptions = {}) => {
     setTimeout(() => {

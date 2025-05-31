@@ -91,6 +91,29 @@ export const ProductService = {
     }
   },
 
+  // tìm sẩn phẩm
+  searchProducts: async (page = 1, limit = 10, filters = {}) => {
+    try {
+      const params = new URLSearchParams();
+      params.append("page", page.toString());
+      params.append("limit", limit.toString());
+
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== "") {
+            params.append(key, value.toString());
+          }
+        });
+      }
+
+      const response = await fetch(`${API_BASE_URL}/products/search?${params}`);
+      if (!response.ok) throw new Error("Network response was not ok");
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  },
+
   // Lấy chi tiết một sản phẩm
   getProductById: async (id: string) => {
     try {
