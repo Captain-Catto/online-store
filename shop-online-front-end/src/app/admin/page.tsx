@@ -21,6 +21,8 @@ export default function AdminDashboardPage() {
     {
       id: number;
       userId: string | number;
+      shippingFullName: string;
+      shippingPhoneNumber: string;
       status: string;
       statusClass: string;
       total: string;
