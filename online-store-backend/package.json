@@ -1,7 +1,15 @@
 {
+  "name": "online-store-backend",
+  "version": "1.0.0",
+  "description": "Online Store Backend API",
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
+  },
   "scripts": {
     "dev": "nodemon src/index.ts",
-    "build": "tsc",
+    "build": "npx tsc",
     "start": "node dist/index.js"
   },
   "dependencies": {

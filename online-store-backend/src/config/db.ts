@@ -25,15 +25,15 @@ if (process.env.DATABASE_URL) {
   sequelize = new Sequelize(process.env.DATABASE_URL, {
     dialect: "mysql",
     logging: true,
-    dialectOptions:
-      process.env.NODE_ENV === "production"
-        ? {
-            ssl: {
-              require: true,
-              rejectUnauthorized: false,
-            },
-          }
-        : {},
+    // dialectOptions:
+    //   process.env.NODE_ENV === "production"
+    //     ? {
+    //         ssl: {
+    //           require: true,
+    //           rejectUnauthorized: false,
+    //         },
+    //       }
+    //     : {},
   });
 } else {
   // Sử dụng các biến riêng lẻ

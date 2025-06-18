@@ -52,6 +52,8 @@ const CorsOptions = {
     "http://localhost:3001",
     "http://localhost:3000",
     "https://online-store-sigma-nine.vercel.app",
+    "https://online-store.lequangtridat.com",
+    "https://lequangtridat.com",
   ],
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: true,
@@ -61,10 +63,15 @@ const CorsOptions = {
 
 const app = express();
 // Cấu hình để phục vụ file tĩnh
-app.use("/uploads", express.static(path.join(__dirname, "../public/uploads")));
+app.use(
+  "/online-store/uploads",
+  express.static(path.join(__dirname, "../public/uploads"))
+);
 app.use(cookieParser());
 app.use(cors(CorsOptions));
 app.use(express.json());
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Routes
 app.use("/api/auth", authRoutes);
@@ -88,12 +95,31 @@ app.use("/api/reports", reportsRoutes);
 app.use("/api/payments", paymentRoutes);
 // Middleware xử lý lỗi
 
-// Kết nối DB
-sequelize.sync({ force: false }).then(() => {
-  console.log("Database connected!");
-  console.log(`Server running with db name ${process.env.DB_NAME}`);
+// Health check endpoint
+app.get("/", (req, res) => {
+  res.json({ message: "Online Store API is running!" });
 });
 
-app.listen(process.env.PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${process.env.PORT}`);
+// Error handling middleware
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error(err.stack);
+  res.status(500).json({ message: "Something went wrong!" });
 });
+
+// Port configuration for cPanel
+const PORT = process.env.PORT || 3000;
+
+// Kết nối DB
+sequelize
+  .sync({ force: false })
+  .then(() => {
+    console.log("Database connected!");
+    console.log(`Server running with db name ${process.env.DB_NAME}`);
+
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error("Database connection failed:", error);
+  });
